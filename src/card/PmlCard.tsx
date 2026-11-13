@@ -85,16 +85,32 @@ export function PmlCard({
           height: CARD_HEIGHT,
           overflow: 'hidden',
           position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
           transform: scale === 1 ? undefined : `scale(${scale})`,
           transformOrigin: 'top left',
         }}
       >
+        <style>{CARD_FILL_CSS}</style>
         <PmlRenderer nodes={card} site={site} host={host} natives={natives} />
         {overlay ? <CardGuides /> : null}
       </div>
     </div>
   );
 }
+
+/**
+ * A card is ONE frame, not a page: its top-level box fills the 1200x630 frame exactly, and the box's own `justify`
+ * places the words (the headline card centres them, the photo card sets them at the bottom). On a page a box is a
+ * band (holding `min_height`) around a centred column (holding `justify`), so the column is only as tall as its
+ * words and a `min_height: lg` band is 640 px: centred words sat at the top and the band spilled out of the card.
+ * Here the band and its column stretch to the frame instead, and the band's page-sized minimum is dropped.
+ * Scoped to the card frame; pages are untouched.
+ */
+const CARD_FILL_CSS =
+  '[data-pml-card]>*:not(style):not([data-card-guides]){flex:1 1 auto;min-height:0!important;display:flex;flex-direction:column}' +
+  '[data-pml-card]>*:not(style):not([data-card-guides])>*{flex:1 1 auto;display:flex;flex-direction:column}' +
+  '[data-pml-card]>*:not(style):not([data-card-guides])>*>*{flex:1 1 auto}';
 
 /** The safe margin and X's domain band, drawn over the card in the builder only. */
 function CardGuides(): React.JSX.Element {

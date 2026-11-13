@@ -50,6 +50,18 @@ describe('PmlCard', () => {
     await waitFor(() => expect(container.querySelector(CARD_READY_SELECTOR)).not.toBeNull());
   });
 
+  it('fills the frame with its top-level box and leaves pages alone', async () => {
+    const { container } = render(<PmlCard nodes={[heading]} site={site} />);
+    const frame = container.querySelector('[data-pml-card]') as HTMLElement;
+    const rules = frame.querySelector('style')?.textContent ?? '';
+
+    expect(frame.style.display).toBe('flex');
+    expect(rules).toContain('[data-pml-card]>*:not(style):not([data-card-guides]){flex:1 1 auto;min-height:0!important');
+    // Every rule is scoped to the card frame, so a page drawn by the same renderer is untouched.
+    expect(rules.split('}').filter(Boolean).every((rule) => rule.trim().startsWith('[data-pml-card]'))).toBe(true);
+    await settled(container);
+  });
+
   it('shows the builder guides only when asked', async () => {
     const plain = render(<PmlCard nodes={[heading]} site={site} />).container;
     const guided = render(<PmlCard nodes={[heading]} site={site} overlay />).container;
