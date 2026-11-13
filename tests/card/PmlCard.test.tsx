@@ -19,6 +19,8 @@ describe('PmlCard', () => {
     expect([outer.style.width, outer.style.height]).toEqual(['600px', '315px']);
     expect([frame.style.width, frame.style.height]).toEqual(['1200px', '630px']);
     expect(frame.style.transform).toBe('scale(0.5)');
+    // Card-sized type: the page's scale variable is set on the frame.
+    expect(frame.style.getPropertyValue('--site-type-scale')).toBe('1.8');
     expect(frame.textContent).toContain('Spring LMIA webinar');
   });
 

@@ -7,6 +7,7 @@ import {
   CARD_HEIGHT,
   CARD_READY_ATTRIBUTE,
   CARD_SAFE_MARGIN,
+  CARD_TYPE_SCALE,
   CARD_WIDTH,
   CARD_X_DOMAIN_BAND,
   cardNodes,
@@ -78,6 +79,8 @@ export function PmlCard({
         className={className}
         style={{
           ...style,
+          // Card-sized type, whatever the page theme's own scale is (see CARD_TYPE_SCALE).
+          ['--site-type-scale' as string]: CARD_TYPE_SCALE,
           width: CARD_WIDTH,
           height: CARD_HEIGHT,
           overflow: 'hidden',

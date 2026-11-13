@@ -10,6 +10,13 @@ export const CARD_WIDTH = 1200;
 export const CARD_HEIGHT = 630;
 export const CARD_SAFE_MARGIN = 60;
 
+/**
+ * The card's type scale (`--site-type-scale` inside the frame). Page sizes are made for a page: body "lg" is 18 px,
+ * which on a 1200 px card shrunk into a feed (about 500 px wide) reads at 7 px. At 1.8 a subtitle ("lg") is 32 px,
+ * a label ("md") 29 px and a headline (heading "lg") 65 px. Mirrored by the PHP CardFrame::TYPE_SCALE.
+ */
+export const CARD_TYPE_SCALE = 1.8;
+
 /** Where X draws the domain over a large card's picture: keep words out of it. */
 export const CARD_X_DOMAIN_BAND = { left: 0, top: CARD_HEIGHT - 90, width: 640, height: 90 } as const;
 
