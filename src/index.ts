@@ -13,3 +13,4 @@ export * from './renderer/SectionFrame';
 export * from './renderer/modules/PslScript';
 export * from './renderer/modules/PmlPackages';
 export * from './renderer/modules/PmlTestimonials';
+export * from './card/PmlCard';

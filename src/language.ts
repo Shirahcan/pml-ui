@@ -29,3 +29,5 @@ export * from './security/assertSafeUrl';
 export { NODE_TYPES } from './psl/ast';
 export { IMPLS } from './psl/stdlib';
 export type { RichTextNode, RichTextMark } from './richText/RichText';
+// The social card's frame, subset and ready mark (E1b): pure, so server code can read it.
+export * from './card/cardFrame';
