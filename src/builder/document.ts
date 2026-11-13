@@ -1,0 +1,104 @@
+import type { PmlNode } from '../pml/primitives';
+import type { CardMediaPort, CardPort, CardRef, MediaRef } from './sharing/types';
+
+/**
+ * The DocumentAdapter (shared program E4a1): the ONLY way the builder reads and writes a document, so the same builder
+ * runs on Portify's site pages, growth-service's posts and landing pages, and any product after them. Drafted in
+ * Portify's docs/plans/shared-console-and-growth-2026-11-12/E0_AUDIT.md with portify-78's review.
+ *
+ * Errors: a call that fails throws with the real reason; the builder hands it to the host's `onError`. A save or a
+ * publish that lost a race is NOT an error: it answers `{ conflict }` and the builder offers "Keep mine" / "Load
+ * theirs" (the no-silent-overwrite rule, owner 2026-11-13).
+ */
+
+/** The design the builder edits: the PML node tree, and the document's own options. */
+export interface PmlDocument {
+  nodes: PmlNode[];
+  options?: Record<string, unknown>;
+}
+
+/** What the builder shows about the document beside its design. Title, slug and SEO stay in the product's own form. */
+export interface DocumentMeta {
+  title: string;
+  slug: string | null;
+  status: 'draft' | 'published' | 'scheduled' | (string & {});
+  publishedAt: string | null;
+  /** The draft differs from what the public sees. */
+  hasUnpublishedChanges: boolean;
+  /** The public address once published. */
+  publicUrl: string | null;
+}
+
+/** A save or publish refused because the document changed somewhere else since this editor loaded it. */
+export interface DocumentConflict {
+  message: string;
+  /** Who saved the newer version and when, when the product knows. */
+  by: string | null;
+  at: string | null;
+}
+
+/**
+ * One finding before publishing. `source` says which check found it: the product's rule pack (`pack`, e.g. CICC
+ * compliance), its own readiness checks (`readiness`, e.g. a blog post's), or the social card (`card`).
+ */
+export interface DocumentFinding {
+  source: 'pack' | 'readiness' | 'card' | 'structure' | (string & {});
+  severity: 'block' | 'warn' | 'info';
+  rule: string;
+  message: string;
+  excerpt: string | null;
+  /** A better wording, when the check offers one. */
+  suggestion: string | null;
+}
+
+export interface DocumentPreflight {
+  /** False when any finding blocks, or when a check that must run could not. */
+  mayPublish: boolean;
+  findings: DocumentFinding[];
+}
+
+export type SaveDraftResult = { revision: string } | { conflict: DocumentConflict };
+
+export type PublishResult =
+  | { published: true; url: string | null; card?: CardRef | null; warning?: string | null }
+  | { scheduled: string }
+  | { conflict: DocumentConflict };
+
+/** The media port: the card's `upload`, plus the library the builder's pickers list and prune. */
+export interface DocumentMediaPort extends CardMediaPort {
+  list(): Promise<{ media: MediaRef[]; quota?: { used: number; limit: number } | null }>;
+  remove(id: string): Promise<void>;
+}
+
+/** The code pane: the document as PML text and back. Code that does not read yet is an answer, never a throw. */
+export interface DocumentCodePort {
+  source(id: string): Promise<string>;
+  parse(id: string, source: string): Promise<PmlNode[]>;
+  parseLive(id: string, source: string): Promise<{ nodes: PmlNode[] | null; error: string | null }>;
+}
+
+export interface DocumentAdapter {
+  load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
+  /** `session` names this editor, so its own earlier saves never count as someone else's. */
+  saveDraft(id: string, document: PmlDocument, revision: string, session: string): Promise<SaveDraftResult>;
+  preflight(id: string): Promise<DocumentPreflight>;
+  /** `at` schedules it (a product that cannot schedule publishes now). */
+  publish(id: string, revision: string, options?: { at?: string }): Promise<PublishResult>;
+  unschedule?(id: string): Promise<void>;
+  unpublish(id: string): Promise<void>;
+  /** Back to the last published version. */
+  rollback(id: string): Promise<{ revision: string }>;
+  /** A signed, short-lived address that shows the draft to someone without an account. */
+  previewUrl(id: string): Promise<string>;
+  code: DocumentCodePort;
+  media: DocumentMediaPort;
+  /** The social card, for a product that publishes one. */
+  card?: CardPort;
+  /** The console's subject for this document (shared console C3/C4). */
+  consoleSubject(id: string): { kind: string; id: string };
+}
+
+/** True when a save or publish answered with a conflict rather than a result. */
+export function isConflict(result: SaveDraftResult | PublishResult): result is { conflict: DocumentConflict } {
+  return typeof result === 'object' && result !== null && 'conflict' in result;
+}
