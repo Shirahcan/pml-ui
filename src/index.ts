@@ -2,7 +2,6 @@
 export * from './language';
 export * from './pml/completion';
 export * from './pml/diagnostics';
-export * from './pml/primitiveStyle';
 export * from './richText/RichText';
 export * from './renderer/SiteInteractionContext';
 export * from './renderer/PmlRenderer';
