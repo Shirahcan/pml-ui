@@ -22,3 +22,7 @@ export * from './pml/styleLabels';
 export * from './pml/stylePresets';
 export * from './psl/index';
 export { CONTAINER_PRIMITIVES } from './pml/primitives';
+export * from './richText/markdownDoc';
+export * from './richText/richTextDoc';
+export * from './security/assertSafeUrl';
+export type { RichTextNode, RichTextMark } from './richText/RichText';
