@@ -17,6 +17,15 @@ const shared = {
 };
 
 export default defineConfig([
-  { ...shared, entry: { index: 'src/index.ts' }, banner: { js: "'use client';" } },
+  // The root and the builder (./builder, E4b onward) are client components, built TOGETHER with splitting so the
+  // renderer they share is ONE module: two copies would mean two of every React context (the site interaction and
+  // force-mobile contexts), and a provider from one would never reach the other. tsup's CJS splitting drops the
+  // banner from the .cjs files; that is harmless because CJS is only for a product's jest (Next reads the ESM).
+  {
+    ...shared,
+    entry: { index: 'src/index.ts', 'builder/index': 'src/builder.ts' },
+    splitting: true,
+    banner: { js: "'use client';" },
+  },
   { ...shared, entry: { 'language/index': 'src/language.ts' } },
 ]);

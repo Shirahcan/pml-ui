@@ -34,6 +34,15 @@ const host: PmlHost = {
 - **A nested renderer keeps its parent's host.**
 - **The editor hooks** (`usePmlCompletion`, `usePmlDiagnostics`) take the host's API as their first argument; the package never calls a product's API itself.
 
+## The builder's parts: `@shirahcan/pml/builder`
+
+The shared builder's parts, written against the E0 `DocumentAdapter` ports, so every product's builder gets the same screens.
+
+- **`SharingPanel`** (E4b): the social card a link unfurls into, its status (ready, waiting, or not drawn with the reason), its alt text, and the choice between the automatic card, the person's own picture (cropped to 1.91:1 around the point they drag, re-encoded under the product's byte budget) and their design (`onDesign`, E4c). Takes the adapter's `card` and `media` ports, the published `CardRef`, the live draft's words, and `onError` (Portify: `reportErrorToPorter`).
+- **`UnfurlPreviews`**: the full view behind "See how it looks when shared": LinkedIn, WhatsApp, X, Facebook, Slack and iMessage. How each one cuts the words and prints the domain lives in ONE table, `UNFURL_NETWORKS`.
+
+Every word is a prop (`labels`, `previewLabels`) with plain defaults, and the accent is the `--pml-builder-accent` CSS variable. The root and `./builder` share one renderer module (one set of React contexts).
+
 ## Tailwind
 
 The renderer draws with Tailwind classes. Add the built bundle to the product's Tailwind `content`:

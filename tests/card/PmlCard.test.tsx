@@ -10,8 +10,11 @@ import type { PmlNode } from '../../src/pml/primitives';
 const site = {} as PmlSite;
 const heading: PmlNode = { primitive: 'heading', props: { text: 'Spring LMIA webinar', level: 1 } };
 
+/** A card marks itself ready after its fonts and pictures load; a test ends only once that update has landed. */
+const settled = (container: HTMLElement) => waitFor(() => expect(container.querySelector(CARD_READY_SELECTOR)).not.toBeNull());
+
 describe('PmlCard', () => {
-  it('draws the card at exactly 1200x630, scaled from the full-size frame', () => {
+  it('draws the card at exactly 1200x630, scaled from the full-size frame', async () => {
     const { container } = render(<PmlCard nodes={[heading]} site={site} scale={0.5} />);
     const outer = container.firstElementChild as HTMLElement;
     const frame = container.querySelector('[data-pml-card]') as HTMLElement;
@@ -22,9 +25,10 @@ describe('PmlCard', () => {
     // Card-sized type: the page's scale variable is set on the frame.
     expect(frame.style.getPropertyValue('--site-type-scale')).toBe('1.8');
     expect(frame.textContent).toContain('Spring LMIA webinar');
+    await settled(container);
   });
 
-  it('draws nothing outside the card subset', () => {
+  it('draws nothing outside the card subset', async () => {
     const nodes: PmlNode[] = [
       heading,
       { primitive: 'form', props: { key: 'ask' }, children: [{ primitive: 'field', props: { name: 'email', label: 'Email' } }] },
@@ -37,6 +41,7 @@ describe('PmlCard', () => {
     const { container } = render(<PmlCard nodes={nodes} site={site} />);
     expect(container.querySelector('form')).toBeNull();
     expect(container.textContent).toContain('Kept');
+    await settled(container);
   });
 
   it('marks itself ready only after its fonts and pictures resolve', async () => {
@@ -45,8 +50,13 @@ describe('PmlCard', () => {
     await waitFor(() => expect(container.querySelector(CARD_READY_SELECTOR)).not.toBeNull());
   });
 
-  it('shows the builder guides only when asked', () => {
-    expect(render(<PmlCard nodes={[heading]} site={site} />).container.querySelector('[data-card-guides]')).toBeNull();
-    expect(render(<PmlCard nodes={[heading]} site={site} overlay />).container.querySelector('[data-card-guides]')).not.toBeNull();
+  it('shows the builder guides only when asked', async () => {
+    const plain = render(<PmlCard nodes={[heading]} site={site} />).container;
+    const guided = render(<PmlCard nodes={[heading]} site={site} overlay />).container;
+
+    expect(plain.querySelector('[data-card-guides]')).toBeNull();
+    expect(guided.querySelector('[data-card-guides]')).not.toBeNull();
+    await settled(plain);
+    await settled(guided);
   });
 });
