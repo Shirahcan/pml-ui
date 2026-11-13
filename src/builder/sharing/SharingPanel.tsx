@@ -26,6 +26,8 @@ export interface SharingLabels {
   statusPending: string;
   /** `{reason}` is replaced with the reason the card could not be drawn. */
   statusFailed: string;
+  /** `{reason}` is replaced with what the rules refused. */
+  statusRefused: string;
   statusNone: string;
   sourceAutomatic: string;
   sourcePicture: string;
@@ -54,6 +56,7 @@ export const DEFAULT_SHARING_LABELS: SharingLabels = {
   statusRendered: 'Ready. Links to this page show this card.',
   statusPending: 'Waiting to draw the new card. Links still show the last one.',
   statusFailed: 'Not drawn: {reason}',
+  statusRefused: 'Not drawn, because of its words: {reason} Links show your standard card until the words change.',
   statusNone: 'Drawn when you publish.',
   sourceAutomatic: "Made from the page's title, description and first picture.",
   sourcePicture: 'Your own picture.',
@@ -228,7 +231,9 @@ export function SharingPanel(props: SharingPanelProps): React.JSX.Element {
       ? words.statusRendered
       : published.status === 'pending'
         ? words.statusPending
-        : fill(words.statusFailed, { reason: props.describeError?.(published.error ?? '') ?? published.error ?? '' });
+        : fill(published.status === 'refused' ? words.statusRefused : words.statusFailed, {
+          reason: props.describeError?.(published.error ?? '') ?? published.error ?? '',
+        });
 
   const source = doc ? { automatic: words.sourceAutomatic, picture: words.sourcePicture, designed: words.sourceDesigned }[doc.source] : '';
   const alt = altDraft ?? doc?.alt ?? published?.alt ?? facts.title;
@@ -248,7 +253,7 @@ export function SharingPanel(props: SharingPanelProps): React.JSX.Element {
         <div className="space-y-2">
           <div className="overflow-hidden rounded-xl border border-slate-200">{drawCard(props.thumbnailWidth ?? 320)}</div>
           <p className="text-xs text-slate-500">{source}</p>
-          <p data-card-status={published?.status ?? 'none'} className={published?.status === 'failed' ? 'text-sm text-red-600' : 'text-sm text-slate-700'}>
+          <p data-card-status={published?.status ?? 'none'} className={published?.status === 'failed' || published?.status === 'refused' ? 'text-sm text-red-600' : 'text-sm text-slate-700'}>
             {status}
           </p>
         </div>

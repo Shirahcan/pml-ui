@@ -92,6 +92,7 @@ describe('SharingPanel', () => {
       [ref('rendered'), 'Ready. Links to this page show this card.'],
       [ref('pending'), 'Waiting to draw the new card. Links still show the last one.'],
       [ref('failed', 'host_not_registered'), 'Not drawn: the address is not registered'],
+      [ref('refused', 'No promises of an outcome.'), 'Not drawn, because of its words: No promises of an outcome. Links show your standard card until the words change.'],
     ];
 
     for (const [published, words] of statuses) {

@@ -15,8 +15,12 @@ export interface CardRef {
   type: string | null;
   alt: string;
   hash: string;
-  /** `rendered`: current. `pending`: the new card is waiting to be drawn. `failed`: it could not be, see `error`. */
-  status: 'rendered' | 'pending' | 'failed';
+  /**
+   * `rendered`: current. `pending`: the new card is waiting to be drawn. `failed`: it could not be, see `error`.
+   * `refused`: the product's rules refuse its words (the automatic card's too), so nothing is drawn and links show
+   * the product's own safe card until the words change.
+   */
+  status: 'rendered' | 'pending' | 'failed' | 'refused';
   error: string | null;
 }
 
