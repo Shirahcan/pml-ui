@@ -4,3 +4,5 @@ export * from './builder/sharing/ownPicture';
 export * from './builder/sharing/UnfurlPreviews';
 export * from './builder/sharing/SharingPanel';
 export * from './builder/document';
+export * from './builder/card/cardEdits';
+export * from './builder/card/CardCanvas';

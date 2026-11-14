@@ -42,6 +42,25 @@ export interface CardDoc {
   nodes: PmlNode[];
   picture?: CardPicture | null;
   alt?: string | null;
+  /**
+   * What the server said about it (pml-kit `CardDocView`, 0.10.0, E4c): optional, so an adapter that sends only the
+   * card still type-checks. `refused`: nothing may be drawn. `fell_back`: the person's design is kept (`design`) but
+   * links show the automatic card because of `reason`. `restored_identity`: a required line was put back.
+   */
+  refused?: boolean;
+  reason?: string | null;
+  fell_back?: boolean;
+  design?: PmlNode[] | null;
+  restored_identity?: boolean;
+  dropped?: string[];
+  findings?: CardFinding[];
+}
+
+/** A readability check on a card (pml-kit `CardChecks`): plain words, advisory. */
+export interface CardFinding {
+  code: string;
+  at: string;
+  text: string;
 }
 
 /** What the builder saves: the server recomposes `nodes` from it. */
