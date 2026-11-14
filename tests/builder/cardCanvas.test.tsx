@@ -101,7 +101,7 @@ describe('CardCanvas', () => {
   it('a pinned line says why it cannot be removed', async () => {
     canvas({ source: 'automatic', nodes: card });
 
-    fireEvent.click(await screen.findByRole('button', { name: /Identity line/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Identity line/ }));
     expect(screen.getByText(/required on every card/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Remove/ })).toBeNull();
   });

@@ -29,6 +29,7 @@ export function PmlCard({
   scale = 1,
   overlay = false,
   selectable = false,
+  decorative = false,
   className,
   style,
 }: {
@@ -43,6 +44,8 @@ export function PmlCard({
   overlay?: boolean;
   /** The card canvas (E4c): marks each part's card path (`i.j`) so a click selects it. Off for a real card. */
   selectable?: boolean;
+  /** A preview of the card in a builder (a thumbnail, the canvas): hidden from screen readers, whose own words describe it (the alt text, the parts list). Never on the real card. */
+  decorative?: boolean;
   /** The product's theme and fonts for this card (classes and CSS variables), as its pages get them. */
   className?: string;
   style?: React.CSSProperties;
@@ -74,7 +77,7 @@ export function PmlCard({
   const ready = readyFor === card;
 
   return (
-    <div style={{ width: CARD_WIDTH * scale, height: CARD_HEIGHT * scale, overflow: 'hidden', position: 'relative' }}>
+    <div aria-hidden={decorative ? true : undefined} style={{ width: CARD_WIDTH * scale, height: CARD_HEIGHT * scale, overflow: 'hidden', position: 'relative' }}>
       <div
         ref={frame}
         data-pml-card=""

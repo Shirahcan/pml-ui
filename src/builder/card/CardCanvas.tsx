@@ -65,6 +65,10 @@ export interface CardCanvasLabels {
   fellBack: string;
   findings: string;
   loading: string;
+  /** Each colour token in plain words (the token stays the value). */
+  colourNames: Record<CardTextColour, string>;
+  backgroundNames: Record<CardBackground, string>;
+  alignNames: Record<CardAlignment, string>;
 }
 
 export const DEFAULT_CARD_CANVAS_LABELS: CardCanvasLabels = {
@@ -93,6 +97,9 @@ export const DEFAULT_CARD_CANVAS_LABELS: CardCanvasLabels = {
   fellBack: 'Links show the automatic card until this changes: {reason}',
   findings: 'To make it easier to read in a feed',
   loading: 'Loading the card…',
+  colourNames: { default: 'Theme text', muted: 'Softer text', accent: 'Accent colour', 'on-accent': 'Light, on the accent colour', success: 'Green', danger: 'Red' },
+  backgroundNames: { none: 'None', surface: 'Soft panel', accent: 'Accent colour', gradient: 'Gradient', image: 'Picture' },
+  alignNames: { left: 'Align left', center: 'Centre', right: 'Align right' },
 };
 
 export interface CardCanvasProps {
@@ -285,7 +292,7 @@ export function CardCanvas(props: CardCanvasProps): React.JSX.Element {
                 style={{ width }}
               >
                 {marked ? <style>{`[data-pml-card] [data-pml-path="${marked}"] > *{outline:3px solid #4361EE;outline-offset:2px}`}</style> : null}
-                <PmlCard nodes={working} site={props.site} host={props.host} natives={props.natives} scale={scale} overlay selectable className={props.cardClassName} style={props.cardStyle} />
+                <PmlCard nodes={working} site={props.site} host={props.host} natives={props.natives} scale={scale} overlay selectable decorative className={props.cardClassName} style={props.cardStyle} />
               </div>
             )}
           </div>
@@ -343,7 +350,7 @@ export function CardCanvas(props: CardCanvasProps): React.JSX.Element {
                 <label className="flex flex-col gap-1 text-xs text-slate-600">
                   {words.textColour}
                   <select className={field} value={String(part.style?.text_color ?? 'default')} onChange={(event) => edit(setTextColour(working, selected, event.target.value as CardTextColour))}>
-                    {CARD_TEXT_COLOURS.map((colour) => <option key={colour} value={colour}>{colour}</option>)}
+                    {CARD_TEXT_COLOURS.map((colour) => <option key={colour} value={colour}>{words.colourNames[colour]}</option>)}
                   </select>
                 </label>
               ) : null}
@@ -352,7 +359,7 @@ export function CardCanvas(props: CardCanvasProps): React.JSX.Element {
                 <label className="flex flex-col gap-1 text-xs text-slate-600">
                   {words.background}
                   <select className={field} value={String(part.style?.background ?? 'none')} onChange={(event) => edit(setBackground(working, selected, event.target.value as CardBackground))}>
-                    {CARD_BACKGROUNDS.map((background) => <option key={background} value={background}>{background}</option>)}
+                    {CARD_BACKGROUNDS.map((background) => <option key={background} value={background}>{words.backgroundNames[background]}</option>)}
                   </select>
                 </label>
               ) : null}
@@ -363,7 +370,7 @@ export function CardCanvas(props: CardCanvasProps): React.JSX.Element {
                     const Icon = align === 'left' ? AlignLeft : align === 'center' ? AlignCenter : AlignRight;
 
                     return (
-                      <button key={align} type="button" aria-label={align} aria-pressed={part.style?.align === align} onClick={() => edit(setAlign(working, selected, align as CardAlignment))} className="rounded-lg p-2 text-slate-600 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--pml-builder-accent,#4361EE)] aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700">
+                      <button key={align} type="button" aria-label={words.alignNames[align]} title={words.alignNames[align]} aria-pressed={part.style?.align === align} onClick={() => edit(setAlign(working, selected, align as CardAlignment))} className="rounded-lg p-2 text-slate-600 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--pml-builder-accent,#4361EE)] aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700">
                         <Icon className="h-4 w-4" />
                       </button>
                     );

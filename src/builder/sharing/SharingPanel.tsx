@@ -220,6 +220,7 @@ export function SharingPanel(props: SharingPanelProps): React.JSX.Element {
       host={props.host}
       natives={props.natives}
       scale={width / CARD_WIDTH}
+      decorative
       className={props.cardClassName}
       style={props.cardStyle}
     />
