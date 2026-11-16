@@ -33,6 +33,7 @@ import { isBlockElement, renderBlock, SELF_MARKED_PARTS, WORD_PARTS } from './Pm
 import { NOT_SENT_IN_PREVIEW, PREVIEW_NOT_SENT_NOTE, useSiteInteractions } from './SiteInteractionContext';
 import { PmlPackages } from './modules/PmlPackages';
 import { PmlTestimonials } from './modules/PmlTestimonials';
+import { PmlPostCover, PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
 import { MotionStyles, PmlMotion } from './PmlMotion';
 import { SectionFrame } from './SectionFrame';
@@ -1410,6 +1411,20 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       // The consultant's ATTESTED + visible client testimonials, baked into the snapshot at
       // publish (CICC s.45). Inert content, so no funnel wiring; empty in the builder by design.
       return <PmlTestimonials props={p} className={s.className} style={s.style} />;
+
+    case 'post_header':
+    case 'post_cover':
+    case 'post_related':
+    case 'post_disclaimer': {
+      // A post's own fields (post layouts C2b), baked at publish and preview: the host's drawing when it has one,
+      // else the package's, so every product gets a post header without writing one.
+      const part = node.primitive as 'post_header' | 'post_cover' | 'post_related' | 'post_disclaimer';
+
+      if (host.elements?.[part]) return hostElement(host, part, { props: p, site, className: s.className, style: s.style });
+      const Part = { post_header: PmlPostHeader, post_cover: PmlPostCover, post_related: PmlPostRelated, post_disclaimer: PmlPostDisclaimer }[part];
+
+      return <Part props={p} className={s.className} style={s.style} />;
+    }
 
     case 'credentials':
       // The licensee badge: the host draws it from the verified register record baked at publish (its words are

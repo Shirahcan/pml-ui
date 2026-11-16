@@ -58,7 +58,7 @@ export const PML_ENUMS = {
 } as const;
 
 /** Every element, in definition order. */
-export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
@@ -328,6 +328,28 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     container: false,
     props: {
       heading: { type: 'prose' },
+    },
+  },
+  post_header: {
+    container: false,
+    props: {},
+  },
+  post_cover: {
+    container: false,
+    props: {
+      ratio: { type: 'enum', values: ['auto', 'square', '4:3', '3:2', '16:9', '3:4'] },
+    },
+  },
+  post_related: {
+    container: false,
+    props: {
+      heading: { type: 'prose' },
+    },
+  },
+  post_disclaimer: {
+    container: false,
+    props: {
+      text: { type: 'prose' },
     },
   },
   porter_intake: {

@@ -610,6 +610,48 @@ export const PML_CATALOG: PmlComponentDef[] = [
     fields: [heading()],
     defaults: { primitive: 'credentials', props: { heading: 'Regulated and accountable' } },
   },
+  // A post's own parts (post layouts C2b): they draw the post's fields (title, byline, cover, related), baked at
+  // publish and preview, so the designer shows the whole post. Module primitives, like credentials.
+  {
+    name: 'post_header',
+    label: 'Post header',
+    description: "The post's breadcrumb, title, byline, read time, badges and tags, from its own details.",
+    icon: 'Heading',
+    singleton: true,
+    hasSlot: false,
+    fields: [],
+    defaults: { primitive: 'post_header', props: {} },
+  },
+  {
+    name: 'post_cover',
+    label: 'Post cover',
+    description: "The post's cover photo and caption.",
+    icon: 'Image',
+    singleton: true,
+    hasSlot: false,
+    fields: [{ key: 'ratio', label: 'Shape', kind: 'select', options: [...PML_ENUMS.ratio], optional: true }],
+    defaults: { primitive: 'post_cover', props: { ratio: '16:9' } },
+  },
+  {
+    name: 'post_related',
+    label: 'Related guides',
+    description: 'Up to three related published guides.',
+    icon: 'BookOpen',
+    singleton: true,
+    hasSlot: false,
+    fields: [heading()],
+    defaults: { primitive: 'post_related', props: { heading: 'Related guides' } },
+  },
+  {
+    name: 'post_disclaimer',
+    label: 'Disclaimer',
+    description: 'The line that says this is general information, not advice.',
+    icon: 'Info',
+    singleton: true,
+    hasSlot: false,
+    fields: [{ key: 'text', label: 'Words', kind: 'textarea' }],
+    defaults: { primitive: 'post_disclaimer', props: { text: 'This guide is general information, not legal advice. Rules change often: check the official sources or speak with a licensed professional about your own case.' } },
+  },
   // The semantic page landmarks: container PRIMITIVES that render as <header>/<nav>/<footer>. You
   // place, select, restyle, and edit their contents like any container; the identity is bound from
   // the register (unfakeable) and the s.44 scan guarantees every page carries it. Auto-placed on a
