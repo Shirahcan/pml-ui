@@ -19,6 +19,7 @@ import {
   type LucideIcon,
   MapPin,
   MessageCircle,
+  OctagonAlert,
   Phone,
   Send,
   Star,
@@ -252,6 +253,8 @@ const CALLOUT_TONES: Record<string, { icon: LucideIcon; label: string; className
   tip: { icon: Lightbulb, label: 'Tip', className: 'border-violet-500 bg-violet-500/10', iconClass: 'text-violet-600' },
   warning: { icon: AlertTriangle, label: 'Warning', className: 'border-amber-500 bg-amber-500/10', iconClass: 'text-amber-600' },
   success: { icon: CheckCircle2, label: 'Good news', className: 'border-emerald-500 bg-emerald-500/10', iconClass: 'text-emerald-600' },
+  // An error or a stop the reader must act on (pml-kit 0.12: the email error alert).
+  danger: { icon: OctagonAlert, label: 'Important', className: 'border-red-500 bg-red-500/10', iconClass: 'text-red-600' },
 };
 
 /** The elements a box may render as (`as=`, S1-01). Mirrors PrimitiveSchema TOKEN_ENUMS['as']. */

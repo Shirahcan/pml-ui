@@ -48,7 +48,7 @@ export const PML_ENUMS = {
   auto: ['scroll', 'step'],
   focal: ['center', 'top', 'bottom', 'left', 'right'],
   as: ['div', 'section', 'article', 'aside', 'main', 'figure', 'address', 'blockquote'],
-  tone: ['info', 'tip', 'warning', 'success'],
+  tone: ['info', 'tip', 'warning', 'success', 'danger'],
   depth: ['2', '3'],
   icon: ['check-circle', 'star', 'heart', 'globe', 'briefcase', 'clock', 'file-text', 'users', 'award', 'message-circle', 'map-pin', 'phone', 'clipboard-check', 'send'],
   field_kind: ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date'],
@@ -430,7 +430,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     container: true,
     children: ['text', 'rich_text', 'p', 'pre', 'blockquote', 'definitions', 'heading', 'list', 'button', 'image', 'icon', 'box', 'grid'],
     props: {
-      tone: { type: 'enum', values: ['info', 'tip', 'warning', 'success'] },
+      tone: { type: 'enum', values: ['info', 'tip', 'warning', 'success', 'danger'] },
       title: { type: 'prose' },
       anchor: { type: 'anchor' },
     },

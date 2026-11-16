@@ -778,7 +778,7 @@ export const PML_CATALOG: PmlComponentDef[] = [
     hasSlot: false,
     fields: [
       { key: 'title', label: 'Title', kind: 'text', optional: true },
-      { key: 'tone', label: 'Tone', kind: 'select', options: ['info', 'tip', 'warning', 'success'] },
+      { key: 'tone', label: 'Tone', kind: 'select', options: ['info', 'tip', 'warning', 'success', 'danger'] },
       anchor(),
     ],
     defaults: {
