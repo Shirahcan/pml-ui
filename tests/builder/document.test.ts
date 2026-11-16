@@ -50,3 +50,11 @@ describe('isRefused and isPlaceholders', () => {
     expect(paramDefaultText({ default: null })).toBe('');
   });
 });
+
+describe('a conflict can carry the newer revision', () => {
+  it('so "Keep mine" saves from it (E4a2b)', () => {
+    const refused: SaveDraftResult = { conflict: { message: 'Changed elsewhere.', by: null, at: null, revision: 'rev-9' } };
+
+    expect(isConflict(refused) && refused.conflict.revision).toBe('rev-9');
+  });
+});

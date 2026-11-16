@@ -37,6 +37,11 @@ export interface DocumentConflict {
   /** Who saved the newer version and when, when the product knows. */
   by: string | null;
   at: string | null;
+  /**
+   * The newer version's revision, when the product returns it (E4a2b). "Keep mine" saves FROM it, which is what makes
+   * the author's choice to overwrite stick; without it the retry would be refused again.
+   */
+  revision?: string | null;
 }
 
 /**
