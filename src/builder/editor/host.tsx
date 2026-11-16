@@ -15,18 +15,24 @@ export interface BuilderHost {
   assistantName?: string;
   /** Show an error to the person. Default: the console, so nothing is swallowed while a host has not wired one. */
   onError: (error: unknown) => void;
+  /** Confirm a small success ("Copied.") the host's way, a toast in Portify. Default: nothing; the action itself shows. */
+  onSuccess: (message: string) => void;
 }
 
 const DEFAULT_HOST: BuilderHost = {
   onError: (error) => {
     console.error(error);
   },
+  onSuccess: () => undefined,
 };
 
 const HostContext = createContext<BuilderHost>(DEFAULT_HOST);
 
-export function BuilderHostProvider({ assistantName, onError, children }: Partial<BuilderHost> & { children: ReactNode }) {
-  const host = useMemo<BuilderHost>(() => ({ assistantName, onError: onError ?? DEFAULT_HOST.onError }), [assistantName, onError]);
+export function BuilderHostProvider({ assistantName, onError, onSuccess, children }: Partial<BuilderHost> & { children: ReactNode }) {
+  const host = useMemo<BuilderHost>(
+    () => ({ assistantName, onError: onError ?? DEFAULT_HOST.onError, onSuccess: onSuccess ?? DEFAULT_HOST.onSuccess }),
+    [assistantName, onError, onSuccess],
+  );
 
   return <HostContext.Provider value={host}>{children}</HostContext.Provider>;
 }

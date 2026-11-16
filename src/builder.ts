@@ -23,3 +23,4 @@ export * from './builder/editor/PmlDiffView';
 export * from './builder/editor/PaddingField';
 export * from './builder/editor/DraftConflictDialog';
 export * from './builder/editor/PlaceholdersLeftNotice';
+export * from './builder/editor/FindingsPanel';
