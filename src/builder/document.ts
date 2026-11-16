@@ -62,6 +62,11 @@ export interface DocumentPreflight {
   /** False when any finding blocks, or when a check that must run could not. */
   mayPublish: boolean;
   findings: DocumentFinding[];
+  /**
+   * A check that should have run did not (an AI review unavailable), so findings may be missing: the builder says so
+   * beside them rather than implying the copy was fully checked (E4a2b).
+   */
+  incomplete?: boolean;
 }
 
 export type SaveDraftResult = { revision: string } | { conflict: DocumentConflict };
