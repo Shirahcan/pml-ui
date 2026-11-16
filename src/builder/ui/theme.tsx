@@ -48,6 +48,9 @@ const ThemeContext = createContext<BuilderTheme | null>(null);
 export function themeVars(theme: BuilderTheme): CSSProperties {
   return {
     '--pb-accent': theme.accent,
+    // A light tint of the accent (a selected row): computed here, because Tailwind 3 cannot put an opacity on a
+    // var() colour (`bg-[var(--pb-accent)]/10` compiles to nothing there), and hosts on Tailwind 3 exist (Portify).
+    '--pb-accent-soft': `color-mix(in srgb, ${theme.accent} 10%, transparent)`,
     '--pb-accent-text': theme.accentText,
     '--pb-text': theme.text,
     '--pb-muted': theme.muted,

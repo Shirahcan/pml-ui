@@ -114,7 +114,7 @@ export function PageLayers({
             drop(path);
           }}
           style={{ paddingLeft: `${(path.length - 1) * 14 + 4}px` }}
-          className={`group/row relative flex items-center gap-1 rounded-lg py-1 pr-2 text-sm ${selected ? 'bg-[var(--pb-accent)]/10 text-[var(--pb-accent)]' : 'text-slate-700 hover:bg-slate-100'} ${
+          className={`group/row relative flex items-center gap-1 rounded-lg py-1 pr-2 text-sm ${selected ? 'bg-[var(--pb-accent-soft)] text-[var(--pb-accent)]' : 'text-slate-700 hover:bg-slate-100'} ${
             over === 'inside' ? 'ring-2 ring-inset ring-[var(--pb-accent)]' : ''
           } ${same(dragging, path) ? 'opacity-40' : ''}`}
         >

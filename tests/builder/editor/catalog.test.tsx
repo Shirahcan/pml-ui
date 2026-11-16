@@ -64,3 +64,13 @@ describe('catalog', () => {
     expect(onMoved).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the selected layer', () => {
+  it('is tinted through a theme variable, never an opacity on var() (Tailwind 3 hosts drop that class)', () => {
+    render(<PageLayers nodes={nodes} selectedPath={[1]} onSelect={vi.fn()} onMoved={vi.fn()} />, { wrapper: wrap });
+
+    const row = screen.getByRole('button', { name: 'Hero band' }).parentElement as HTMLElement;
+    expect(row.className).toContain('bg-[var(--pb-accent-soft)]');
+    expect(screen.getByRole('region', { name: 'Layers' }).getAttribute('style')).toContain('--pb-accent-soft: color-mix(in srgb, #4361EE 10%, transparent)');
+  });
+});
