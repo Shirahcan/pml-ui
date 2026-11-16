@@ -10,3 +10,4 @@ export * from './builder/card/CardCanvas';
 export * from './builder/ui/theme';
 export * from './builder/ui/controls';
 export * from './builder/ui/overlays';
+export * from './builder/ui/select';
