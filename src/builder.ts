@@ -33,3 +33,5 @@ export * from './builder/editor/canvasParts';
 export * from './builder/editor/PmlCanvas';
 export * from './builder/editor/styleControls';
 export * from './builder/editor/StyleModal';
+export * from './builder/editor/PmlCodeEditor';
+export * from './builder/editor/codeEditorFacts';
