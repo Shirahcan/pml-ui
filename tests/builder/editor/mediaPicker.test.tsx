@@ -110,4 +110,30 @@ describe('MediaPickerDialog', () => {
 
     expect(await screen.findByText(/JPEG, PNG, or WebP\. We re-encode/)).toBeTruthy();
   });
+
+  it('keeps Keep it focusable but inert while a delete runs, so focus never falls into the hidden picker', async () => {
+    let finish: () => void = () => {};
+    const remove = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    renderPicker(port(remove));
+
+    await screen.findByText(/2 of 200 images/);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete image' })[0]);
+    await screen.findByText('Delete this image?');
+    const keep = screen.getByRole('button', { name: 'Keep it' });
+    keep.focus();
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Delete image' }).at(-1)!);
+    });
+
+    expect(keep.hasAttribute('disabled')).toBe(false);
+    expect(keep.getAttribute('aria-disabled')).toBe('true');
+    expect(document.activeElement).toBe(keep);
+    fireEvent.click(keep);
+    expect(screen.getByText('Delete this image?')).toBeTruthy();
+
+    await act(async () => finish());
+    await waitFor(() => expect(screen.queryByText('Delete this image?')).toBeNull());
+  });
 });
+

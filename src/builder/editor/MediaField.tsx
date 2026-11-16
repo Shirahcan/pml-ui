@@ -252,6 +252,8 @@ export function MediaPickerDialog({
           <span>{uploading ? 'Uploading' : 'Upload an image'}</span>
           <input
             type="file"
+            // A named field, so the browser's form checks (autofill, "a form field should have an id or name") can tell what it is.
+            name="media-upload"
             accept="image/jpeg,image/png,image/webp"
             onChange={onFile}
             disabled={uploading}
@@ -342,7 +344,17 @@ export function MediaPickerDialog({
             ) : null}
             <DialogFooter>
               <AlertDialogCancel asChild>
-                <Button variant="outline" disabled={deleting}>
+                {/* aria-disabled, NOT disabled, for the same reason as Delete: disabling a focused Keep it (focus stays
+                    there when Delete is pressed without moving focus, e.g. a screen reader's virtual click) drops focus
+                    to the page, and the picker's focus trap pulls it into the still-hidden picker. */}
+                <Button
+                  variant="outline"
+                  aria-disabled={deleting}
+                  className="aria-disabled:opacity-60"
+                  onClick={(event) => {
+                    if (deleting) event.preventDefault();
+                  }}
+                >
                   Keep it
                 </Button>
               </AlertDialogCancel>
