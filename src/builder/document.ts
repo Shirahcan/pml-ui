@@ -110,8 +110,11 @@ export interface DocumentAdapter {
   /** `session` names this editor, so its own earlier saves never count as someone else's. */
   saveDraft(id: string, document: PmlDocument, revision: string, session: string): Promise<SaveDraftResult>;
   preflight(id: string): Promise<DocumentPreflight>;
-  /** `at` schedules it (a product that cannot schedule publishes now). */
-  publish(id: string, revision: string, options?: { at?: string }): Promise<PublishResult>;
+  /**
+   * `at` schedules it (a product that cannot schedule publishes now). `session` names this editor, as on saveDraft, so a
+   * draft someone ELSE saved since `revision` is refused with a conflict instead of going live unseen (E4a2a).
+   */
+  publish(id: string, revision: string, options?: { at?: string; session?: string }): Promise<PublishResult>;
   unschedule?(id: string): Promise<void>;
   unpublish(id: string): Promise<void>;
   /** Back to the last published version. */
