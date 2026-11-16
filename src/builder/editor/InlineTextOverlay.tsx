@@ -14,6 +14,29 @@ export function inlineField(node: PmlNode | null): string | null {
   return field !== null && typeof (props[field] ?? '') === 'string' && props.doc === undefined ? field : null;
 }
 
+/** Words as a reader sees them: runs of white space collapsed, the ends trimmed. */
+const words = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
+/**
+ * Which of a component's own props a double-click on `text` edits (post layouts E1, owner 2026-11-16: "double
+ * clicking on any element with text"). Only words that ARE one prop's value map back: words fixed in the
+ * component's design belong to every page that uses it, and words mixed from several props have no single
+ * home, so both stay with the panel. Exactly one match or none: two props holding the same words are
+ * ambiguous, and a guess would change the wrong one.
+ */
+export function componentTextField(node: PmlNode | null, text: string): string | null {
+  if (!node?.component) return null;
+
+  const said = words(text);
+
+  if (said === '') return null;
+
+  const props = (node.props ?? {}) as Record<string, unknown>;
+  const matches = Object.keys(props).filter((key) => typeof props[key] === 'string' && words(props[key] as string) === said);
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
 export interface InlineEdit {
   path: number[];
   field: string;

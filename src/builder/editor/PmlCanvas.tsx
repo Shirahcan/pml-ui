@@ -10,7 +10,7 @@ import type { PmlSite } from '../../renderer/PmlRenderer';
 import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
-import { fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
+import { componentTextField, fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
 import { pathElement } from './pathElement';
 
 /** The site's look around the canvas, from the host: its font classes and its theme's CSS variables (`--site-*`). */
@@ -56,6 +56,8 @@ export function PmlCanvas({
   selectedPath,
   onSelectPath,
   onEditText,
+  quickEditAll = false,
+  onQuickEdit,
   renderElementMenu,
   building = null,
   overlay = null,
@@ -79,6 +81,13 @@ export function PmlCanvas({
   onSelectPath?: (path: number[]) => void;
   /** With this, double-clicking a heading, paragraph or button edits its words in place (S4-05). */
   onEditText?: (path: number[], field: string, value: string) => void;
+  /**
+   * Quick edits reach text inside components too (post layouts E1, owner 2026-11-16): words that are one of
+   * the component's own props edit that prop in place. Off by default, so a host turns it on behind its gate.
+   */
+  quickEditAll?: boolean;
+  /** Told when a quick edit starts (true) and ends (false), so the host keeps its side panel shut meanwhile. */
+  onQuickEdit?: (editing: boolean) => void;
   /**
    * An element's own menu (creator shell, owner 2026-11-07): a three-dot button at the top-right of
    * the element under the pointer, never on the selected one (its panel is already open). A
@@ -190,8 +199,22 @@ export function PmlCanvas({
     const holder = target.closest<HTMLElement>('[data-pml-path]');
     const path = sourcePathFor(nodes, holder?.dataset.pmlPath?.split('.').map(Number) ?? [index]);
     const node = getNodeAtPath(nodes, path);
-    const field = inlineField(node);
-    const element = target.closest('h1, h2, h3, h4, h5, h6, p, a, button') ?? holder?.firstElementChild;
+    let field = inlineField(node);
+    let element: Element | null | undefined = target.closest('h1, h2, h3, h4, h5, h6, p, a, button') ?? holder?.firstElementChild;
+
+    // Inside a component: the innermost element under the pointer whose words are one of its props.
+    if (!field && quickEditAll && node?.component) {
+      const section = target.closest('[data-pml-section]');
+
+      for (let at: HTMLElement | null = target; at && at !== section; at = at.parentElement) {
+        field = componentTextField(node, at.textContent ?? '');
+
+        if (field) {
+          element = at;
+          break;
+        }
+      }
+    }
 
     if (!field || !element) return;
 
@@ -205,6 +228,7 @@ export function PmlCanvas({
       rect: { top: box.top - frame.top, left: box.left - frame.left, width: box.width, height: box.height },
       font: fontOf(element),
     });
+    onQuickEdit?.(true);
   };
 
   const hover = (event: React.MouseEvent) => {
@@ -255,10 +279,14 @@ export function PmlCanvas({
         <InlineTextOverlay
           key={inline.path.join('.')}
           edit={inline}
-          onCancel={() => setInline(null)}
+          onCancel={() => {
+            setInline(null);
+            onQuickEdit?.(false);
+          }}
           onCommit={(value) => {
             if (value !== inline.value) onEditText?.(inline.path, inline.field, value);
             setInline(null);
+            onQuickEdit?.(false);
           }}
         />
       ) : null}
