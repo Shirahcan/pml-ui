@@ -21,7 +21,10 @@ export interface PmlDocument {
   options?: Record<string, unknown>;
 }
 
-/** What the builder shows about the document beside its design. Title, slug and SEO stay in the product's own form. */
+/**
+ * What the builder shows about the document beside its design. Title, slug and SEO stay in the product's own form,
+ * unless the adapter offers `fields` (post layouts C1), which lets the designer show and edit them in place.
+ */
 export interface DocumentMeta {
   title: string;
   slug: string | null;
@@ -152,6 +155,29 @@ export interface DocumentCodeAssistant {
   complete(id: string, prefix: string, suffix: string, context: PmlEditContext): Promise<PmlCompleteResult>;
 }
 
+/** One of a document's own fields, drawn beside or inside its design (post layouts C1, owner 2026-11-16). */
+export interface DocumentField {
+  /** The product's name for it, as bound parts read it (`title`, `tags`, `read_minutes`). */
+  name: string;
+  label: string;
+  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record';
+  /** Computed by the product (a read time): shown, never edited. */
+  readOnly?: boolean;
+  /** The limit the builder counts against: characters for text, items for a list. */
+  max?: number;
+}
+
+/**
+ * A document's own fields (title, dek, tags, author, dates, read time, cover...), so the designer shows the WHOLE
+ * document, not only its design. A write follows the `saveDraft` rule: a write over a newer revision answers with a
+ * conflict, never a silent overwrite.
+ */
+export interface DocumentFieldsPort {
+  describe(id: string): Promise<DocumentField[]>;
+  read(id: string): Promise<{ values: Record<string, unknown>; revision: string }>;
+  write(id: string, name: string, value: unknown, revision: string, session: string): Promise<SaveDraftResult>;
+}
+
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
   /** `session` names this editor, so its own earlier saves never count as someone else's. */
@@ -178,6 +204,8 @@ export interface DocumentAdapter {
   components?: DocumentComponentsPort;
   /** The social card, for a product that publishes one. */
   card?: CardPort;
+  /** The document's own fields, for a product whose documents have them (a blog post's title, tags, read time). */
+  fields?: DocumentFieldsPort;
   /** The console's subject for this document (shared console C3/C4). */
   consoleSubject(id: string): { kind: string; id: string };
 }

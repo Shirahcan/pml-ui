@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { paramDefaultText } from '../../src/builder/components';
 import { pathExpr } from '../../src/pml/expressions';
-import { isConflict, isPlaceholders, isRefused, type PublishResult, type SaveDraftResult } from '../../src/builder/document';
+import { isConflict, isPlaceholders, isRefused, type DocumentFieldsPort, type PublishResult, type SaveDraftResult } from '../../src/builder/document';
 
 /**
  * The DocumentAdapter contract (shared program E4a1): a save or publish that lost a race answers a conflict, which the
@@ -56,5 +56,37 @@ describe('a conflict can carry the newer revision', () => {
     const refused: SaveDraftResult = { conflict: { message: 'Changed elsewhere.', by: null, at: null, revision: 'rev-9' } };
 
     expect(isConflict(refused) && refused.conflict.revision).toBe('rev-9');
+  });
+});
+
+/** Post layouts C1 (owner 2026-11-16): a document's own fields, read and written like its design. */
+describe('the fields port', () => {
+  it('describes, reads and writes fields, and a write over a newer revision is a conflict, never an overwrite', async () => {
+    let revision = 'r1';
+    const values: Record<string, unknown> = { title: 'Canada Express Entry 2026', tags: ['express entry'], read_minutes: 12 };
+    const fields: DocumentFieldsPort = {
+      describe: async () => [
+        { name: 'title', label: 'Title', kind: 'text', max: 60 },
+        { name: 'tags', label: 'Tags', kind: 'list', max: 8 },
+        { name: 'read_minutes', label: 'Read time', kind: 'text', readOnly: true },
+      ],
+      read: async () => ({ values: { ...values }, revision }),
+      write: async (_id, name, value, base) => {
+        if (base !== revision) return { conflict: { message: 'This post was changed somewhere else.', by: null, at: null } };
+        values[name] = value;
+        revision = `r${Number(revision.slice(1)) + 1}`;
+
+        return { revision };
+      },
+    };
+
+    expect((await fields.describe('p1')).find((f) => f.name === 'read_minutes')?.readOnly).toBe(true);
+
+    const first = await fields.write('p1', 'title', 'Express Entry 2026: who qualifies', 'r1', 's1');
+    expect(isConflict(first)).toBe(false);
+    expect((await fields.read('p1')).values.title).toBe('Express Entry 2026: who qualifies');
+
+    expect(isConflict(await fields.write('p1', 'title', 'Stale words', 'r1', 's2'))).toBe(true);
+    expect((await fields.read('p1')).values.title).toBe('Express Entry 2026: who qualifies');
   });
 });
