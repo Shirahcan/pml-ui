@@ -26,3 +26,6 @@ export * from './builder/editor/PlaceholdersLeftNotice';
 export * from './builder/editor/FindingsPanel';
 export * from './builder/editor/CommentCard';
 export * from './builder/editor/CommentPins';
+export * from './builder/editor/catalog';
+export * from './builder/editor/SelectionBreadcrumb';
+export * from './builder/editor/PageLayers';
