@@ -49,3 +49,4 @@ export * from './builder/editor/settingsContents';
 export * from './builder/editor/settingsFields';
 export * from './builder/editor/settingsContentsSlots';
 export * from './builder/editor/settingsControls';
+export * from './builder/editor/useDocumentEditor';
