@@ -298,7 +298,7 @@ export function StyleModalTrigger({
   return (
     <div className="border-t border-white/10 pt-4">
       <Button variant="outline" onClick={() => setOpen(true)} className="w-full justify-between">
-        <span className="flex items-center">
+        <span className="flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4" />
           Style
         </span>

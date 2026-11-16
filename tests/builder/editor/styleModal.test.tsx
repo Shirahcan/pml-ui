@@ -90,3 +90,11 @@ describe('StyleModalTrigger', () => {
     expect(screen.getByRole('heading', { name: 'Placement' }).closest('.overflow-y-auto')).toBeTruthy();
   });
 });
+
+describe('the rail trigger', () => {
+  it('keeps a gap between its icon and its word', () => {
+    render(<StyleModalTrigger node={{ primitive: 'box', style: {} }} onChange={() => {}} />);
+
+    expect(screen.getByRole('button', { name: /style/i }).querySelector('span')?.className).toContain('gap-2');
+  });
+});
