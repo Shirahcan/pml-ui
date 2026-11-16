@@ -45,6 +45,8 @@ describe('quick edits', () => {
     // An opaque white box with dark words over the hidden element, whatever the section's colours (owner 2026-11-16).
     expect(box.style.background).toContain('255, 255, 255');
     expect(box.style.color).toContain('15, 23, 42');
+    // One row to start from, so the box is never an empty line taller than the words (Loop 2, 2026-11-17).
+    expect(box.getAttribute('rows')).toBe('1');
     expect(screen.getByText('You need one year of skilled work.', { selector: 'p' }).style.visibility).toBe('hidden');
 
     fireEvent.change(box, { target: { value: 'One year of skilled work, in the last ten years.' } });

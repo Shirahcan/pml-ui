@@ -114,6 +114,8 @@ export function InlineTextOverlay({
     <textarea
       ref={box}
       aria-label="Edit this text"
+      // One row, so the height measured below starts at one line (a textarea's default of two left an empty line).
+      rows={1}
       value={value}
       onChange={(event) => setValue(event.target.value)}
       onClick={(event) => event.stopPropagation()}
