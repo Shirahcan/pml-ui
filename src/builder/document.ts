@@ -1,3 +1,5 @@
+import type { PmlCompleteResult, PmlEditContext } from '../pml/completion';
+import type { PmlDiagnostic } from '../pml/diagnostics';
 import type { PmlNativesPayload } from '../pml/expressions';
 import type { PmlNode } from '../pml/primitives';
 import type { DocumentComponentsPort } from './components';
@@ -113,6 +115,41 @@ export interface DocumentCodePort {
   source(id: string): Promise<string>;
   parse(id: string, source: string): Promise<PmlNode[]>;
   parseLive(id: string, source: string): Promise<{ nodes: PmlNode[] | null; error: string | null }>;
+  /** The code's problems, located (no model call; safe on a debounce). Absent, the pane shows parse errors only. */
+  diagnose?(id: string, source: string): Promise<PmlDiagnostic[]>;
+}
+
+/** The assistant's whole-source edit. `source` null with `unavailable` false and `changed` false is a refusal (`reply` says why). */
+export interface CodeEditResult {
+  source: string | null;
+  unavailable: boolean;
+  reason?: string | null;
+  reply?: string | null;
+  changed?: boolean;
+}
+
+export interface CodeSelectionEditResult {
+  replacement: string | null;
+  unavailable: boolean;
+}
+
+export interface CodeScaffoldResult {
+  block: string | null;
+  unavailable: boolean;
+  refused: boolean;
+  reason: string | null;
+}
+
+/**
+ * The code pane's assistant (E4a4f1). OPTIONAL on the adapter: a product without one omits it and the pane hides these
+ * actions. Every call is one the author asked for (an instruction, a comment to fill, a resting caret), never a timer.
+ * Each answer is a PROPOSAL the pane shows as a diff; nothing reaches the document until the author accepts it.
+ */
+export interface DocumentCodeAssistant {
+  edit(id: string, instruction: string, source: string): Promise<CodeEditResult>;
+  editSelection(id: string, instruction: string, source: string, selection: string): Promise<CodeSelectionEditResult>;
+  scaffold(id: string, comment: string, source: string, context: PmlEditContext): Promise<CodeScaffoldResult>;
+  complete(id: string, prefix: string, suffix: string, context: PmlEditContext): Promise<PmlCompleteResult>;
 }
 
 export interface DocumentAdapter {
@@ -135,6 +172,8 @@ export interface DocumentAdapter {
   preview(id: string, nodes: PmlNode[]): Promise<DocumentPreview>;
   code: DocumentCodePort;
   media: DocumentMediaPort;
+  /** The code pane's assistant; absent, the pane offers no assistant actions (E4a4f1). */
+  assistant?: DocumentCodeAssistant;
   /** The "Add a section" menu's partials and library, for a product that has them. */
   components?: DocumentComponentsPort;
   /** The social card, for a product that publishes one. */
