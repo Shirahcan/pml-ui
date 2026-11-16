@@ -44,3 +44,8 @@ export * from './builder/editor/studioBindings';
 export * from './builder/editor/ParamListEditor';
 export * from './builder/editor/StudioComponentSettings';
 export * from './builder/editor/PmlAddSectionDialog';
+export * from './builder/editor/PmlSettings';
+export * from './builder/editor/settingsContents';
+export * from './builder/editor/settingsFields';
+export * from './builder/editor/settingsContentsSlots';
+export * from './builder/editor/settingsControls';
