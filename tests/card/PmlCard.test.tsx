@@ -44,6 +44,46 @@ describe('PmlCard', () => {
     await settled(container);
   });
 
+  describe('a card with a picture (0.6.3)', () => {
+    const logo: PmlNode = { primitive: 'image', props: { src: 'https://cdn.test/logo.png', alt: '', size: 'logo' } };
+    const pictureState = (naturalWidth: number) => {
+      Object.defineProperty(HTMLImageElement.prototype, 'complete', { configurable: true, get: () => true });
+      Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', { configurable: true, get: () => naturalWidth });
+    };
+
+    afterEach(() => {
+      delete (HTMLImageElement.prototype as unknown as Record<string, unknown>).complete;
+      delete (HTMLImageElement.prototype as unknown as Record<string, unknown>).naturalWidth;
+    });
+
+    it('is ready once the picture has loaded', async () => {
+      pictureState(120);
+      const { container } = render(<PmlCard nodes={[logo, heading]} site={site} />);
+
+      await settled(container);
+    });
+
+    it('is NEVER ready when the picture failed, so a snapshot cannot store the card without it', async () => {
+      pictureState(0);
+      const { container } = render(<PmlCard nodes={[logo, heading]} site={site} />);
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(container.querySelector('img')).not.toBeNull();
+      expect(container.querySelector(CARD_READY_SELECTOR)).toBeNull();
+    });
+
+    it('draws a logo-size picture by height at its own width, not squeezed into the 48px xs slot', async () => {
+      pictureState(120);
+      const { container } = render(<PmlCard nodes={[logo, heading]} site={site} />);
+      const img = container.querySelector('img') as HTMLImageElement;
+
+      expect(img.className).toContain('h-10');
+      expect(img.className).toContain('w-auto');
+      expect(img.closest('figure')?.className).not.toContain('max-w-[48px]');
+      await settled(container);
+    });
+  });
+
   it('marks itself ready only after its fonts and pictures resolve', async () => {
     const { container } = render(<PmlCard nodes={[heading]} site={site} />);
 

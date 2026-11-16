@@ -1114,6 +1114,17 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
 
       const caption = str(p.caption);
 
+      // A brand mark (0.6.3, pml-kit 0.13.0 `image_size: logo`): bounded by HEIGHT at its own width, so a wide
+      // wordmark reads at the same size as a square one. A width cap squeezed a wordmark to ~48x16 on a share card.
+      if (str(p.size) === 'logo') {
+        return (
+          <figure className={`w-fit max-w-full ${s.className}`.trim()} style={s.style}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={assertSafeUrl(src)} alt={str(p.alt)} className="block h-10 w-auto max-w-[280px] object-contain" />
+          </figure>
+        );
+      }
+
       return (
         <figure className={`${IMAGE_SIZE[str(p.size)] ? `${IMAGE_SIZE[str(p.size)]} w-full` : ''} ${s.className}`.trim()} style={s.style}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

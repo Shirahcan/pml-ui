@@ -35,6 +35,7 @@ export const PML_ENUMS = {
   columns: ['1', '2', '3', '4', '6', '12'],
   gap: ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
   size: ['xs', 'sm', 'md', 'lg'],
+  image_size: ['xs', 'sm', 'md', 'lg', 'logo'],
   direction: ['row', 'column'],
   provider: ['youtube', 'vimeo'],
   type: ['bullet', 'numbered', 'check', 'icon'],
@@ -225,7 +226,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
       fit: { type: 'enum', values: ['cover', 'contain'] },
       ratio: { type: 'enum', values: ['auto', 'square', '4:3', '3:2', '16:9', '3:4'] },
       focal: { type: 'enum', values: ['center', 'top', 'bottom', 'left', 'right'] },
-      size: { type: 'enum', values: ['xs', 'sm', 'md', 'lg'] },
+      size: { type: 'enum', values: ['xs', 'sm', 'md', 'lg', 'logo'] },
     },
   },
   icon: {
