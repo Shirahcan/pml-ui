@@ -31,6 +31,8 @@ export interface PmlElementDef {
 /** The shared value lists (icons, field kinds, gaps, ...). */
 export const PML_ENUMS = {
   level: ['1', '2', '3', '4'],
+  cta_stage: ['awareness', 'consideration', 'decision'],
+  cta_variant: ['inline', 'rail', 'ask', 'banner'],
   variant: ['primary', 'outline', 'link', 'soft', 'ghost'],
   columns: ['1', '2', '3', '4', '6', '12'],
   gap: ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
@@ -58,7 +60,7 @@ export const PML_ENUMS = {
 } as const;
 
 /** Every element, in definition order. */
-export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
@@ -350,6 +352,13 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     container: false,
     props: {
       text: { type: 'prose' },
+    },
+  },
+  post_cta: {
+    container: false,
+    props: {
+      stage: { type: 'enum', values: ['awareness', 'consideration', 'decision'] },
+      variant: { type: 'enum', values: ['inline', 'rail', 'ask', 'banner'] },
     },
   },
   porter_intake: {

@@ -643,6 +643,19 @@ export const PML_CATALOG: PmlComponentDef[] = [
     defaults: { primitive: 'post_related', props: { heading: 'Related guides' } },
   },
   {
+    name: 'post_cta',
+    label: 'Call to action (from the library)',
+    description: 'A call to action whose words come from Calls to action, for one stage of the reader journey.',
+    icon: 'MousePointerClick',
+    singleton: false,
+    hasSlot: false,
+    fields: [
+      { key: 'stage', label: 'Stage', kind: 'select', options: [...PML_ENUMS.cta_stage] },
+      { key: 'variant', label: 'Shape', kind: 'select', options: [...PML_ENUMS.cta_variant] },
+    ],
+    defaults: { primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline' } },
+  },
+  {
     name: 'post_disclaimer',
     label: 'Disclaimer',
     description: 'The line that says this is general information, not advice.',

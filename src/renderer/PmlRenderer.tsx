@@ -34,6 +34,7 @@ import { NOT_SENT_IN_PREVIEW, PREVIEW_NOT_SENT_NOTE, useSiteInteractions } from 
 import { PmlPackages } from './modules/PmlPackages';
 import { PmlTestimonials } from './modules/PmlTestimonials';
 import { PmlPostCover, PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
+import { PmlPostCta } from './modules/PmlPostCta';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
 import { MotionStyles, PmlMotion } from './PmlMotion';
 import { SectionFrame } from './SectionFrame';
@@ -1425,6 +1426,12 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
 
       return <Part props={p} className={s.className} style={s.style} />;
     }
+
+    case 'post_cta':
+      // A call to action from the product's CTA library (post layouts C2d); a subscribe action draws the page's form.
+      if (host.elements?.post_cta) return hostElement(host, 'post_cta', { props: p, site, className: s.className, style: s.style });
+
+      return <PmlPostCta props={p} className={s.className} style={s.style} inCanvas={inCanvas} subscribeForm={<PmlGrowthFormSlot />} />;
 
     case 'credentials':
       // The licensee badge: the host draws it from the verified register record baked at publish (its words are

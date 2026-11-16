@@ -76,4 +76,39 @@ describe('PmlRenderer post parts', () => {
     expect(getByTestId('own')).toBeTruthy();
     expect(queryByRole('heading', { level: 1 })).toBeNull();
   });
+
+  it('draws a call to action from its library row, with both buttons', () => {
+    const resolvedCta = {
+      eyebrow: 'Start your Canada journey',
+      headline: 'Move forward with a licensed consultant you can trust',
+      body: 'Portify connects you with verified professionals.',
+      button: { label: 'Get Matched Now', href: '/marketplace/intake', kind: 'match' },
+      secondary: { label: 'Sign up free on Portify', href: '/register' },
+    };
+    const { getByRole, getByText } = render(<PmlRenderer nodes={[{ primitive: 'post_cta', props: { stage: 'decision', variant: 'banner', resolved: resolvedCta } } as PmlNode]} site={site} />);
+
+    expect(getByRole('complementary', { name: resolvedCta.headline })).toBeTruthy();
+    expect(getByText('Start your Canada journey')).toBeTruthy();
+    expect(getByRole('link', { name: 'Get Matched Now' }).getAttribute('href')).toBe('/marketplace/intake');
+    expect(getByRole('link', { name: 'Sign up free on Portify' }).getAttribute('href')).toBe('/register');
+  });
+
+  it("draws the page's own form for a subscribe action, never a form of its own", () => {
+    const resolvedCta = { headline: 'Rules change fast.', button: { label: 'Get updates', href: null, kind: 'subscribe' } };
+    const { getByTestId, queryByRole } = render(
+      <PmlRenderer nodes={[{ primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline', resolved: resolvedCta } } as PmlNode]} site={site} growthForm={<form data-testid="host-form" />} />,
+    );
+
+    expect(getByTestId('host-form')).toBeTruthy();
+    expect(queryByRole('link', { name: 'Get updates' })).toBeNull();
+  });
+
+  it('an unset stage draws nothing for readers and says so in the builder', () => {
+    const node = { primitive: 'post_cta', props: { stage: 'consideration', variant: 'inline' } } as PmlNode;
+    const { container } = render(<PmlRenderer nodes={[node]} site={site} />);
+    expect(container.querySelector('aside')).toBeNull();
+
+    const builder = render(<PmlRenderer nodes={[node]} site={site} builderHints />);
+    expect(builder.getByText(/No call to action is set for the consideration stage yet/)).toBeTruthy();
+  });
 });
