@@ -2,7 +2,7 @@
 
 import React, { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type LabelHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
-import { cx } from './theme';
+import { cx, useOwnVars } from './theme';
 
 /**
  * The builder's simple controls (shared program E4a3), styled only through the theme's variables so any product's
@@ -33,13 +33,16 @@ export interface BuilderButtonProps extends ButtonHTMLAttributes<HTMLButtonEleme
 
 /** A pill (a circle at `icon` size). Defaults to `type="button"`, so a button in a form never submits it by accident. */
 export const Button = forwardRef<HTMLButtonElement, BuilderButtonProps>(function Button(
-  { variant = 'primary', size = 'md', className, type = 'button', ...props },
+  { variant = 'primary', size = 'md', className, type = 'button', style, ...props },
   ref,
 ) {
+  const vars = useOwnVars(style);
+
   return (
     <button
       ref={ref}
       type={type}
+      style={vars}
       className={cx(
         'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
         FOCUS,
@@ -57,17 +60,17 @@ const FIELD = cx(
   FOCUS,
 );
 
-export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cx(FIELD, className)} {...props} />;
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, style, ...props }, ref) {
+  return <input ref={ref} className={cx(FIELD, className)} style={useOwnVars(style)} {...props} />;
 });
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
-  return <textarea ref={ref} className={cx(FIELD, 'min-h-20', className)} {...props} />;
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, style, ...props }, ref) {
+  return <textarea ref={ref} className={cx(FIELD, 'min-h-20', className)} style={useOwnVars(style)} {...props} />;
 });
 
-export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(function Label({ className, ...props }, ref) {
+export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(function Label({ className, style, ...props }, ref) {
   // The caller passes htmlFor, or wraps the control in the label.
-  return <label ref={ref} className={cx('text-sm font-medium text-[var(--pb-text)]', className)} {...props} />;
+  return <label ref={ref} className={cx('text-sm font-medium text-[var(--pb-text)]', className)} style={useOwnVars(style)} {...props} />;
 });
 
 export interface SwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
@@ -76,12 +79,15 @@ export interface SwitchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
 }
 
 /** An on/off switch: a button with `role="switch"`, toggled by click, Space or Enter (a native button's keys). */
-export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch({ checked, onCheckedChange, className, disabled, ...props }, ref) {
+export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch({ checked, onCheckedChange, className, disabled, style, ...props }, ref) {
+  const vars = useOwnVars(style);
+
   return (
     <button
       ref={ref}
       type="button"
       role="switch"
+      style={vars}
       aria-checked={checked}
       data-state={checked ? 'checked' : 'unchecked'}
       disabled={disabled}

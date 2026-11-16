@@ -41,7 +41,8 @@ export const DEFAULT_BUILDER_THEME: BuilderTheme = {
   font: 'inherit',
 };
 
-const ThemeContext = createContext<BuilderTheme>(DEFAULT_BUILDER_THEME);
+// null outside a provider, so a primitive knows it must carry the variables itself.
+const ThemeContext = createContext<BuilderTheme | null>(null);
 
 /** The CSS variables the primitives read (`var(--pb-accent)` and so on). */
 export function themeVars(theme: BuilderTheme): CSSProperties {
@@ -73,9 +74,24 @@ export function BuilderThemeProvider({ theme, children }: { theme?: Partial<Buil
 
 /** The variables for a portalled piece, which does not sit inside the provider's element. */
 export function useThemeVars(): CSSProperties {
-  const theme = useContext(ThemeContext);
+  const theme = useContext(ThemeContext) ?? DEFAULT_BUILDER_THEME;
 
   return useMemo(() => ({ ...themeVars(theme), fontFamily: 'var(--pb-font)', color: 'var(--pb-text)' }), [theme]);
+}
+
+const DEFAULT_VARS = themeVars(DEFAULT_BUILDER_THEME);
+
+/**
+ * For a primitive's own element: nothing inside a provider (the provider's element already sets the variables, and
+ * a host's override must win), the default theme's variables outside one, so a control dropped into a host page
+ * that has no provider yet still has its colours instead of resolving every `var(--pb-*)` to nothing.
+ */
+export function useOwnVars(style?: CSSProperties): CSSProperties | undefined {
+  const inProvider = useContext(ThemeContext) !== null;
+
+  if (inProvider) return style;
+
+  return style ? { ...DEFAULT_VARS, ...style } : DEFAULT_VARS;
 }
 
 /** Joins class names, skipping empty ones. */
