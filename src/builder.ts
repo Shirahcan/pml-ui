@@ -35,3 +35,5 @@ export * from './builder/editor/styleControls';
 export * from './builder/editor/StyleModal';
 export * from './builder/editor/PmlCodeEditor';
 export * from './builder/editor/codeEditorFacts';
+export * from './builder/editor/codeCopilot';
+export * from './builder/editor/PmlCodePane';
