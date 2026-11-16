@@ -3,15 +3,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
-import { getNodeAtPath, isCommentNode, isStudioComment, pageOutline, PML_CATALOG_BY_NAME, renderedPathFor, sourcePathFor, withDerivedAnchors } from '../../language';
+import { isCommentNode, isStudioComment, pageOutline, PML_CATALOG_BY_NAME, renderedPathFor, sourcePathFor, withDerivedAnchors } from '../../language';
 import type { PmlNativesPayload, PmlNode } from '../../language';
 import { selectionCornerClass } from '../../pml/primitiveStyle';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
-import { componentTextField, fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
 import { pathElement } from './pathElement';
+import { useQuickEdit } from './useQuickEdit';
 
 /** The site's look around the canvas, from the host: its font classes and its theme's CSS variables (`--site-*`). */
 export interface CanvasFrame {
@@ -56,6 +56,7 @@ export function PmlCanvas({
   selectedPath,
   onSelectPath,
   onEditText,
+  onEditWords,
   quickEditAll = false,
   onQuickEdit,
   renderElementMenu,
@@ -86,6 +87,8 @@ export function PmlCanvas({
    * the component's own props edit that prop in place. Off by default, so a host turns it on behind its gate.
    */
   quickEditAll?: boolean;
+  /** With this and `quickEditAll`, a paragraph with bold, links or page data edits in place in the rich editor (post layouts E2). */
+  onEditWords?: (path: number[], children: PmlNode[]) => void;
   /** Told when a quick edit starts (true) and ends (false), so the host keeps its side panel shut meanwhile. */
   onQuickEdit?: (editing: boolean) => void;
   /**
@@ -110,16 +113,7 @@ export function PmlCanvas({
 }): React.JSX.Element {
   const canvas = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
-  const [inline, setInline] = useState<InlineEdit | null>(null);
-  // The element a quick edit covers is hidden meanwhile, so the box can be see-through: the section's own colour
-  // (a blue banner, a photo) shows behind the words instead of the page colour painted over it.
-  const covered = useRef<HTMLElement | null>(null);
-  const endInline = () => {
-    if (covered.current) covered.current.style.visibility = '';
-    covered.current = null;
-    setInline(null);
-    onQuickEdit?.(false);
-  };
+  const quick = useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit });
   // The element under the pointer, and the element whose menu is open (it stays while the menu is).
   const [hovered, setHovered] = useState<number[] | null>(null);
   const [menuFor, setMenuFor] = useState<number[] | null>(null);
@@ -201,49 +195,6 @@ export function PmlCanvas({
     onSelectPath(sourcePathFor(nodes, rendered));
   };
 
-  const startInline = (event: React.MouseEvent, index: number) => {
-    if (!onEditText || !canvas.current) return;
-
-    const target = event.target as HTMLElement;
-    const holder = target.closest<HTMLElement>('[data-pml-path]');
-    const path = sourcePathFor(nodes, holder?.dataset.pmlPath?.split('.').map(Number) ?? [index]);
-    const node = getNodeAtPath(nodes, path);
-    let field = inlineField(node);
-    let element: Element | null | undefined = target.closest('h1, h2, h3, h4, h5, h6, p, a, button') ?? holder?.firstElementChild;
-
-    // Inside a component: the innermost element under the pointer whose words are one of its props.
-    if (!field && quickEditAll && node?.component) {
-      const section = target.closest('[data-pml-section]');
-
-      for (let at: HTMLElement | null = target; at && at !== section; at = at.parentElement) {
-        field = componentTextField(node, at.textContent ?? '');
-
-        if (field) {
-          element = at;
-          break;
-        }
-      }
-    }
-
-    if (!field || !element) return;
-
-    const box = element.getBoundingClientRect();
-    const frame = canvas.current.getBoundingClientRect();
-
-    setInline({
-      path,
-      field,
-      value: String(((node?.props ?? {}) as Record<string, unknown>)[field] ?? ''),
-      rect: { top: box.top - frame.top, left: box.left - frame.left, width: box.width, height: box.height },
-      font: fontOf(element),
-    });
-    if (element instanceof HTMLElement) {
-      element.style.visibility = 'hidden';
-      covered.current = element;
-    }
-    onQuickEdit?.(true);
-  };
-
   const hover = (event: React.MouseEvent) => {
     if (!deep) return;
 
@@ -288,17 +239,7 @@ export function PmlCanvas({
           {renderElementMenu(toolsFor, menuFor !== null, (open) => setMenuFor(open ? toolsFor : null))}
         </div>
       ) : null}
-      {inline ? (
-        <InlineTextOverlay
-          key={inline.path.join('.')}
-          edit={inline}
-          onCancel={endInline}
-          onCommit={(value) => {
-            if (value !== inline.value) onEditText?.(inline.path, inline.field, value);
-            endInline();
-          }}
-        />
-      ) : null}
+      {quick.overlay}
       {nodes.length === 0 && !building ? (
         <div className="px-6 py-20 text-center">
           <p className="text-sm font-medium">This page is empty</p>
@@ -331,7 +272,7 @@ export function PmlCanvas({
               // A press here selects this section, so the creator's panel must not close on it.
               data-pml-section={index}
               onClick={(event) => pick(event, index)}
-              onDoubleClick={(event) => startInline(event, index)}
+              onDoubleClick={(event) => quick.start(event, index)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();

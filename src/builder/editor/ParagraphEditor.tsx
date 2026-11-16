@@ -61,11 +61,20 @@ export function ParagraphEditor({
   words,
   onChange,
   labelledBy,
+  variant = 'panel',
+  autoFocus = false,
 }: {
   /** The paragraph's children (runs and inline elements). */
   words: PmlNode[];
   onChange: (children: PmlNode[]) => void;
   labelledBy?: string;
+  /**
+   * `inline` (post layouts E2): edited where it sits on the page, in the element's own type, with the toolbar
+   * floating just above it; `panel` (the default) is the boxed editor of the side panel.
+   */
+  variant?: 'panel' | 'inline';
+  /** Put the cursor at the end of the words as soon as the editor is ready. */
+  autoFocus?: boolean;
 }): React.JSX.Element {
   // The paragraph this editor last wrote, ids aside: one that comes back equal to it is its own echo.
   const written = useRef(wordsKey(words));
@@ -93,7 +102,7 @@ export function ParagraphEditor({
     content: paragraphToDoc(words) ?? { type: 'doc', content: [{ type: 'paragraph' }] },
     editorProps: {
       attributes: {
-        class: 'min-h-[88px] px-3 py-2 text-sm leading-relaxed outline-none focus:outline-none',
+        class: variant === 'inline' ? 'outline-none focus:outline-none' : 'min-h-[88px] px-3 py-2 text-sm leading-relaxed outline-none focus:outline-none',
         ...(labelledBy ? { 'aria-labelledby': labelledBy } : {}),
         role: 'textbox',
         'aria-multiline': 'true',
@@ -163,8 +172,12 @@ export function ParagraphEditor({
     editor.chain().focus().insertContent({ type: EXPR_NODE, attrs: { expr: pathExpr(name) } }).run();
   }, [editor]);
 
+  useEffect(() => {
+    if (autoFocus && editor) editor.commands.focus('end');
+  }, [autoFocus, editor]);
+
   if (!editor) {
-    return <div className="min-h-[120px] rounded-xl border border-white/20 bg-white/50 dark:bg-white/5" />;
+    return variant === 'inline' ? <div /> : <div className="min-h-[120px] rounded-xl border border-white/20 bg-white/50 dark:bg-white/5" />;
   }
 
   const button = (active: boolean, onClick: () => void, label: string, Icon: React.ComponentType<{ className?: string }>) => (
@@ -180,16 +193,33 @@ export function ParagraphEditor({
     </button>
   );
 
+  const tools = (
+    <>
+      {button(editor.isActive('bold'), () => editor.chain().focus().toggleBold().run(), 'Bold', Bold)}
+      {button(editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), 'Italic', Italic)}
+      {button(editor.isActive('code'), () => editor.chain().focus().toggleCode().run(), 'Code', Code)}
+      {button(editor.isActive('link'), setLink, 'Link', Link2)}
+      <span className="mx-1 h-5 w-px bg-current/15" aria-hidden />
+      {button(false, insertPageData, 'Insert page data', Braces)}
+    </>
+  );
+
+  // On the page: the words in the element's own type; the toolbar floats above in its own readable colours,
+  // whatever colour the words are (white words on a banner must not give a white toolbar).
+  if (variant === 'inline') {
+    return (
+      <div className="relative">
+        <div role="toolbar" aria-label="Format these words" className="absolute bottom-full left-0 z-10 mb-2 flex items-center gap-1 rounded-lg border border-black/10 bg-white px-1.5 py-1 font-sans text-sm text-slate-800 shadow-lg">
+          {tools}
+        </div>
+        <EditorContent editor={editor} />
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-white/20 bg-white/60 backdrop-blur-xl dark:bg-white/5">
-      <div className="flex flex-wrap items-center gap-1 border-b border-white/20 px-2 py-1.5">
-        {button(editor.isActive('bold'), () => editor.chain().focus().toggleBold().run(), 'Bold', Bold)}
-        {button(editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), 'Italic', Italic)}
-        {button(editor.isActive('code'), () => editor.chain().focus().toggleCode().run(), 'Code', Code)}
-        {button(editor.isActive('link'), setLink, 'Link', Link2)}
-        <span className="mx-1 h-5 w-px bg-current/15" aria-hidden />
-        {button(false, insertPageData, 'Insert page data', Braces)}
-      </div>
+      <div className="flex flex-wrap items-center gap-1 border-b border-white/20 px-2 py-1.5">{tools}</div>
 
       <EditorContent editor={editor} />
     </div>

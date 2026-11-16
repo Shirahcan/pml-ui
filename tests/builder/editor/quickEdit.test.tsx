@@ -79,3 +79,64 @@ describe('quick edits', () => {
     expect(onQuickEdit).toHaveBeenLastCalledWith(false);
   });
 });
+
+/** Post layouts E2: a paragraph with rich words opens the rich editor where it sits. */
+describe('rich quick edits', () => {
+  const rich = [
+    {
+      primitive: 'box',
+      props: {},
+      children: [
+        { primitive: 'heading', props: { text: 'Where they started', level: 2 } },
+        { primitive: 'p', props: {}, children: [{ primitive: 'text', props: { value: 'A worker in ' } }, { primitive: 'strong', props: {}, children: [{ primitive: 'text', props: { value: 'Calgary' } }] }] },
+      ],
+    },
+  ] as unknown as PmlNode[];
+
+  it('opens the rich editor over the whole paragraph, hides it meanwhile, and Escape leaves the words alone', async () => {
+    const onEditWords = vi.fn();
+    const onQuickEdit = vi.fn();
+    const { container } = render(<PmlCanvas {...base} nodes={rich} compiled={rich} onSelectPath={vi.fn()} onEditText={vi.fn()} onEditWords={onEditWords} quickEditAll onQuickEdit={onQuickEdit} />);
+
+    // A click on the bold word still opens its paragraph.
+    fireEvent.doubleClick(screen.getByText('Calgary'));
+
+    expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
+    expect(onQuickEdit).toHaveBeenLastCalledWith(true);
+    // The page's own paragraph (not the editor's copy of it) is the one hidden.
+    const hidden = [...container.querySelectorAll<HTMLElement>('*')].filter((el) => el.style.visibility === 'hidden');
+    expect(hidden).toHaveLength(1);
+    const paragraph = hidden[0];
+    expect(paragraph.textContent).toBe('A worker in Calgary');
+
+    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Format these words' }), { key: 'Escape' });
+
+    expect(onEditWords).not.toHaveBeenCalled();
+    expect(onQuickEdit).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+    expect(paragraph.style.visibility).toBe('');
+  });
+
+  it('clicking away without a change keeps nothing, and a heading whose words are a prop keeps the plain box', async () => {
+    const onEditWords = vi.fn();
+    render(<PmlCanvas {...base} nodes={rich} compiled={rich} onSelectPath={vi.fn()} onEditText={vi.fn()} onEditWords={onEditWords} quickEditAll onQuickEdit={vi.fn()} />);
+
+    fireEvent.doubleClick(screen.getByText('A worker in', { exact: false }));
+    await screen.findByRole('toolbar', { name: 'Format these words' });
+    fireEvent.mouseDown(document.body);
+    expect(onEditWords).not.toHaveBeenCalled();
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+
+    fireEvent.doubleClick(screen.getByRole('heading', { name: 'Where they started' }));
+    expect((screen.getByRole('textbox', { name: 'Edit this text' }) as HTMLTextAreaElement).value).toBe('Where they started');
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+  });
+
+  it('leaves rich words to the panel while the host has not turned quick edits on', () => {
+    render(<PmlCanvas {...base} nodes={rich} compiled={rich} onSelectPath={vi.fn()} onEditText={vi.fn()} onEditWords={vi.fn()} />);
+
+    fireEvent.doubleClick(screen.getByText('Calgary'));
+
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+  });
+});
