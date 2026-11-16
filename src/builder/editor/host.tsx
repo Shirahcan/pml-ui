@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useMemo, type ReactNode } from 'react';
 
+import type { PmlHost } from '../../renderer/PmlRenderer';
+
 /**
  * What the product hosting the builder tells it once (shared program E4a4b): the assistant's name, so a label can
  * say "Porter's note" in Portify and "Mira's note" in MployNow without the package naming either, and where an error
@@ -17,6 +19,8 @@ export interface BuilderHost {
   onError: (error: unknown) => void;
   /** Confirm a small success ("Copied.") the host's way, a toast in Portify. Default: nothing; the action itself shows. */
   onSuccess: (message: string) => void;
+  /** What the canvas's renderer hands the product's own elements (its lead form, its assistant widget), as on its public pages. */
+  renderer?: PmlHost;
 }
 
 const DEFAULT_HOST: BuilderHost = {
@@ -28,10 +32,10 @@ const DEFAULT_HOST: BuilderHost = {
 
 const HostContext = createContext<BuilderHost>(DEFAULT_HOST);
 
-export function BuilderHostProvider({ assistantName, onError, onSuccess, children }: Partial<BuilderHost> & { children: ReactNode }) {
+export function BuilderHostProvider({ assistantName, onError, onSuccess, renderer, children }: Partial<BuilderHost> & { children: ReactNode }) {
   const host = useMemo<BuilderHost>(
-    () => ({ assistantName, onError: onError ?? DEFAULT_HOST.onError, onSuccess: onSuccess ?? DEFAULT_HOST.onSuccess }),
-    [assistantName, onError, onSuccess],
+    () => ({ assistantName, onError: onError ?? DEFAULT_HOST.onError, onSuccess: onSuccess ?? DEFAULT_HOST.onSuccess, renderer }),
+    [assistantName, onError, onSuccess, renderer],
   );
 
   return <HostContext.Provider value={host}>{children}</HostContext.Provider>;

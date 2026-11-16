@@ -29,3 +29,5 @@ export * from './builder/editor/CommentPins';
 export * from './builder/editor/catalog';
 export * from './builder/editor/SelectionBreadcrumb';
 export * from './builder/editor/PageLayers';
+export * from './builder/editor/canvasParts';
+export * from './builder/editor/PmlCanvas';
