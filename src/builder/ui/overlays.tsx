@@ -19,7 +19,7 @@ import { cx, useThemeVars } from './theme';
 
 const OVERLAY = 'fixed inset-0 z-50 bg-black/40';
 const PANEL = cx(
-  'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden',
+  'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden',
   'rounded-[var(--pb-radius)] border border-[var(--pb-border)] bg-[var(--pb-surface)] text-[var(--pb-text)] shadow-xl outline-none',
 );
 
@@ -27,14 +27,20 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
-export const DialogContent = forwardRef<ElementRef<typeof DialogPrimitive.Content>, ComponentPropsWithoutRef<typeof DialogPrimitive.Content>>(
-  function DialogContent({ className, style, children, ...props }, ref) {
+/** How wide a dialog may grow (a class join cannot override one width with another, so the width is a prop). */
+const DIALOG_WIDTH = { md: 'max-w-lg', lg: 'max-w-xl', xl: 'max-w-2xl' } as const;
+
+export const DialogContent = forwardRef<
+  ElementRef<typeof DialogPrimitive.Content>,
+  ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { size?: keyof typeof DIALOG_WIDTH }
+>(
+  function DialogContent({ className, style, children, size = 'md', ...props }, ref) {
     const vars = useThemeVars();
 
     return (
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={OVERLAY} style={vars} />
-        <DialogPrimitive.Content ref={ref} className={cx(PANEL, className)} style={{ ...vars, ...style }} {...props}>
+        <DialogPrimitive.Content ref={ref} className={cx(PANEL, DIALOG_WIDTH[size], className)} style={{ ...vars, ...style }} {...props}>
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -76,7 +82,7 @@ export const AlertDialogContent = forwardRef<ElementRef<typeof AlertDialogPrimit
     return (
       <AlertDialogPrimitive.Portal>
         <AlertDialogPrimitive.Overlay className={OVERLAY} style={vars} />
-        <AlertDialogPrimitive.Content ref={ref} className={cx(PANEL, className)} style={{ ...vars, ...style }} {...props}>
+        <AlertDialogPrimitive.Content ref={ref} className={cx(PANEL, 'max-w-lg', className)} style={{ ...vars, ...style }} {...props}>
           {children}
         </AlertDialogPrimitive.Content>
       </AlertDialogPrimitive.Portal>

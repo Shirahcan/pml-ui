@@ -31,3 +31,5 @@ export * from './builder/editor/SelectionBreadcrumb';
 export * from './builder/editor/PageLayers';
 export * from './builder/editor/canvasParts';
 export * from './builder/editor/PmlCanvas';
+export * from './builder/editor/styleControls';
+export * from './builder/editor/StyleModal';
