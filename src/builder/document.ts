@@ -109,7 +109,8 @@ export interface DocumentPreview {
 
 /** The media port: the card's `upload`, plus the library the builder's pickers list and prune. */
 export interface DocumentMediaPort extends CardMediaPort {
-  list(): Promise<{ media: MediaRef[]; quota?: { used: number; limit: number } | null }>;
+  /** The library, newest first, and its quota in bytes (with its image count, when the host limits that too). */
+  list(): Promise<{ media: MediaRef[]; quota?: { used: number; limit: number; files?: { used: number; limit: number } } | null }>;
   remove(id: string): Promise<void>;
 }
 

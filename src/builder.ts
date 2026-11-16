@@ -37,3 +37,4 @@ export * from './builder/editor/PmlCodeEditor';
 export * from './builder/editor/codeEditorFacts';
 export * from './builder/editor/codeCopilot';
 export * from './builder/editor/PmlCodePane';
+export * from './builder/editor/MediaField';

@@ -77,6 +77,8 @@ export interface MediaRef {
   height?: number;
   mime?: string;
   bytes?: number;
+  /** What the picture shows, when the author said so (E4a4f4: the media picker names an image by it). */
+  alt?: string | null;
 }
 
 /** The adapter's `card` port (E0_AUDIT): errors throw with the real reason. */
