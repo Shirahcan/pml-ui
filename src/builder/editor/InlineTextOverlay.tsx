@@ -37,6 +37,15 @@ export function componentTextField(node: PmlNode | null, text: string): string |
   return matches.length === 1 ? matches[0] : null;
 }
 
+/**
+ * The surface every quick edit types on (owner 2026-11-16: "The quick edit text field should use an opaque background
+ * (e.g. white) - currently looks broken when it overlaps adjacent elements"). Solid white with dark words, whatever
+ * the section's colours: a see-through box let the words below show through wherever the edit grew over them, and the
+ * page colour alone turned white words on a banner white on white. The element's own type (font, size, weight,
+ * spacing, alignment) is kept, only the colours are the editor's.
+ */
+export const EDIT_SURFACE: React.CSSProperties = { background: '#ffffff', color: '#0f172a', boxShadow: '0 10px 30px -12px rgba(15, 23, 42, 0.45)' };
+
 export interface InlineEdit {
   path: number[];
   field: string;
@@ -92,6 +101,15 @@ export function InlineTextOverlay({
     box.current?.select();
   }, []);
 
+  // The box grows with the words (never below the element's own height), so nothing typed is ever clipped.
+  useEffect(() => {
+    const el = box.current;
+
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(edit.rect.height, el.scrollHeight)}px`;
+  }, [value, edit.rect.height]);
+
   return (
     <textarea
       ref={box}
@@ -110,7 +128,7 @@ export function InlineTextOverlay({
           finish(true);
         }
       }}
-      style={{ ...edit.rect, ...edit.font, position: 'absolute', zIndex: 20, resize: 'none', overflow: 'hidden', padding: 0, border: 0, background: 'transparent' }}
+      style={{ ...edit.rect, ...edit.font, ...EDIT_SURFACE, position: 'absolute', zIndex: 20, resize: 'none', overflow: 'hidden', padding: 0, border: 0 }}
       className="rounded-sm outline outline-2 outline-offset-2 outline-[var(--site-accent)]"
     />
   );

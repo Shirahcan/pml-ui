@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import type { PmlNode } from '../../language';
+import { EDIT_SURFACE } from './InlineTextOverlay';
 import { ParagraphEditor } from './ParagraphEditor';
 
 /** A paragraph's words opened for editing where they sit (post layouts E2). */
@@ -73,7 +74,7 @@ export function InlineWordsOverlay({
           finish.current(true);
         }
       }}
-      style={{ ...edit.rect, height: undefined, minHeight: edit.rect.height, ...edit.font, position: 'absolute', zIndex: 20 }}
+      style={{ ...edit.rect, height: undefined, minHeight: edit.rect.height, ...edit.font, ...EDIT_SURFACE, position: 'absolute', zIndex: 20 }}
       className="rounded-sm outline outline-2 outline-offset-2 outline-[var(--site-accent)]"
     >
       <ParagraphEditor words={edit.words} variant="inline" autoFocus onChange={(children) => (latest.current = children)} />

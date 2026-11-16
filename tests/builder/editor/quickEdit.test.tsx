@@ -42,8 +42,9 @@ describe('quick edits', () => {
     const box = screen.getByRole('textbox', { name: 'Edit this text' }) as HTMLTextAreaElement;
     expect(box.value).toBe('You need one year of skilled work.');
     expect(onQuickEdit).toHaveBeenLastCalledWith(true);
-    // The box is see-through over the hidden words, so the section's own colour shows behind it.
-    expect(box.style.background).toBe('transparent');
+    // An opaque white box with dark words over the hidden element, whatever the section's colours (owner 2026-11-16).
+    expect(box.style.background).toContain('255, 255, 255');
+    expect(box.style.color).toContain('15, 23, 42');
     expect(screen.getByText('You need one year of skilled work.', { selector: 'p' }).style.visibility).toBe('hidden');
 
     fireEvent.change(box, { target: { value: 'One year of skilled work, in the last ten years.' } });
