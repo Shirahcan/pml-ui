@@ -102,8 +102,40 @@ export const AlertDialogDescription = forwardRef<ElementRef<typeof AlertDialogPr
   },
 );
 
-export const AlertDialogCancel = AlertDialogPrimitive.Cancel;
-export const AlertDialogAction = AlertDialogPrimitive.Action;
+/** The dialog's header and footer, named as an alert dialog's for code moved from shadcn (E4a4g). */
+export const AlertDialogHeader = DialogHeader;
+export const AlertDialogFooter = DialogFooter;
+
+// A pill like the package Button. Used only WITHOUT asChild: with asChild the child (a Button) styles itself, and
+// these classes would be merged onto it by Radix's Slot.
+const ALERT_BUTTON =
+  'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--pb-accent)] focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50';
+
+export const AlertDialogCancel = forwardRef<ElementRef<typeof AlertDialogPrimitive.Cancel>, ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>>(
+  function AlertDialogCancel({ className, asChild, ...props }, ref) {
+    return (
+      <AlertDialogPrimitive.Cancel
+        ref={ref}
+        asChild={asChild}
+        className={asChild ? className : cx(ALERT_BUTTON, 'border border-[var(--pb-border)] bg-[var(--pb-surface)] text-[var(--pb-text)] hover:bg-[var(--pb-subtle)]', className)}
+        {...props}
+      />
+    );
+  },
+);
+
+export const AlertDialogAction = forwardRef<ElementRef<typeof AlertDialogPrimitive.Action>, ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>>(
+  function AlertDialogAction({ className, asChild, ...props }, ref) {
+    return (
+      <AlertDialogPrimitive.Action
+        ref={ref}
+        asChild={asChild}
+        className={asChild ? className : cx(ALERT_BUTTON, 'bg-[var(--pb-accent)] text-[var(--pb-accent-text)] hover:opacity-90', className)}
+        {...props}
+      />
+    );
+  },
+);
 
 export const DropdownMenu = MenuPrimitive.Root;
 export const DropdownMenuTrigger = MenuPrimitive.Trigger;
