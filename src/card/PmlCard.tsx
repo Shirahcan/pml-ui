@@ -62,9 +62,15 @@ export function PmlCard({
       const fonts = typeof document !== 'undefined' ? (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts : undefined;
       await fonts?.ready;
       const pictures = Array.from(frame.current?.querySelectorAll('img') ?? []);
-      await Promise.all(pictures.map((img) => (img.complete ? Promise.resolve() : img.decode().catch(() => undefined))));
+      // LOADED, not merely finished: a picture that failed is `complete` too (with no pixels), and counting it as
+      // ready let a snapshot store a card without its logo (found 2026-11-16, on a box whose API host the snapshot
+      // browser could not reach). A picture that fails leaves the card NOT ready, so the snapshot reports not_ready
+      // and the last good picture keeps serving instead of a broken one being stored.
+      const loaded = await Promise.all(
+        pictures.map((img) => (img.complete ? Promise.resolve(img.naturalWidth > 0) : img.decode().then(() => true, () => false))),
+      );
 
-      if (!cancelled) {
+      if (!cancelled && loaded.every(Boolean)) {
         setReadyFor(card);
       }
     })();
