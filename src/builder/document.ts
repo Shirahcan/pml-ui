@@ -1,4 +1,6 @@
+import type { PmlNativesPayload } from '../pml/expressions';
 import type { PmlNode } from '../pml/primitives';
+import type { DocumentComponentsPort } from './components';
 import type { CardMediaPort, CardPort, CardRef, MediaRef } from './sharing/types';
 
 /**
@@ -59,10 +61,36 @@ export interface DocumentPreflight {
 
 export type SaveDraftResult = { revision: string } | { conflict: DocumentConflict };
 
+/** What is left before a document may go live: placeholders an author has not replaced yet (a picture, a line). */
+export interface DocumentPlaceholders {
+  message: string;
+  total: number;
+  pictures: number;
+  other: number;
+  /** Up to three of the notes, word for word. */
+  examples: string[];
+}
+
+/**
+ * A publish answers; it does not throw for a reason the author can act on. `refused`: a check that must pass did not
+ * (the findings say why). `placeholders`: the design still shows placeholders. `conflict`: someone saved since (E4a2a).
+ */
 export type PublishResult =
   | { published: true; url: string | null; card?: CardRef | null; warning?: string | null }
   | { scheduled: string }
-  | { conflict: DocumentConflict };
+  | { conflict: DocumentConflict }
+  | { refused: DocumentPreflight }
+  | { placeholders: DocumentPlaceholders };
+
+/**
+ * The canvas's compile: the host's own compiled tree for the design, what its `{...}` expressions read, and a located
+ * error that keeps the last good compile on screen rather than blanking it.
+ */
+export interface DocumentPreview {
+  tree: PmlNode[];
+  natives: PmlNativesPayload | null;
+  error: { message: string; path: string } | null;
+}
 
 /** The media port: the card's `upload`, plus the library the builder's pickers list and prune. */
 export interface DocumentMediaPort extends CardMediaPort {
@@ -90,8 +118,12 @@ export interface DocumentAdapter {
   rollback(id: string): Promise<{ revision: string }>;
   /** A signed, short-lived address that shows the draft to someone without an account. */
   previewUrl(id: string): Promise<string>;
+  /** The canvas's compile of a design (the current one, or a proposal Porter has not applied yet). */
+  preview(id: string, nodes: PmlNode[]): Promise<DocumentPreview>;
   code: DocumentCodePort;
   media: DocumentMediaPort;
+  /** The "Add a section" menu's partials and library, for a product that has them. */
+  components?: DocumentComponentsPort;
   /** The social card, for a product that publishes one. */
   card?: CardPort;
   /** The console's subject for this document (shared console C3/C4). */
@@ -101,4 +133,14 @@ export interface DocumentAdapter {
 /** True when a save or publish answered with a conflict rather than a result. */
 export function isConflict(result: SaveDraftResult | PublishResult): result is { conflict: DocumentConflict } {
   return typeof result === 'object' && result !== null && 'conflict' in result;
+}
+
+/** True when a publish was refused by a check that must pass. */
+export function isRefused(result: PublishResult): result is { refused: DocumentPreflight } {
+  return typeof result === 'object' && result !== null && 'refused' in result;
+}
+
+/** True when a publish was held back because the design still shows placeholders. */
+export function isPlaceholders(result: PublishResult): result is { placeholders: DocumentPlaceholders } {
+  return typeof result === 'object' && result !== null && 'placeholders' in result;
 }
