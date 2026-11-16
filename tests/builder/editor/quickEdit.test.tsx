@@ -42,6 +42,9 @@ describe('quick edits', () => {
     const box = screen.getByRole('textbox', { name: 'Edit this text' }) as HTMLTextAreaElement;
     expect(box.value).toBe('You need one year of skilled work.');
     expect(onQuickEdit).toHaveBeenLastCalledWith(true);
+    // The box is see-through over the hidden words, so the section's own colour shows behind it.
+    expect(box.style.background).toBe('transparent');
+    expect(screen.getByText('You need one year of skilled work.', { selector: 'p' }).style.visibility).toBe('hidden');
 
     fireEvent.change(box, { target: { value: 'One year of skilled work, in the last ten years.' } });
     fireEvent.keyDown(box, { key: 'Enter' });
@@ -49,6 +52,7 @@ describe('quick edits', () => {
     expect(onEditText).toHaveBeenCalledWith([0], 'answer', 'One year of skilled work, in the last ten years.');
     expect(onQuickEdit).toHaveBeenLastCalledWith(false);
     expect(screen.queryByRole('textbox', { name: 'Edit this text' })).toBeNull();
+    expect(screen.getByText('You need one year of skilled work.', { selector: 'p' }).style.visibility).toBe('');
   });
 
   it('leaves component text to the panel while the host has not turned quick edits on', () => {

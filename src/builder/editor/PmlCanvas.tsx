@@ -111,6 +111,15 @@ export function PmlCanvas({
   const canvas = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
   const [inline, setInline] = useState<InlineEdit | null>(null);
+  // The element a quick edit covers is hidden meanwhile, so the box can be see-through: the section's own colour
+  // (a blue banner, a photo) shows behind the words instead of the page colour painted over it.
+  const covered = useRef<HTMLElement | null>(null);
+  const endInline = () => {
+    if (covered.current) covered.current.style.visibility = '';
+    covered.current = null;
+    setInline(null);
+    onQuickEdit?.(false);
+  };
   // The element under the pointer, and the element whose menu is open (it stays while the menu is).
   const [hovered, setHovered] = useState<number[] | null>(null);
   const [menuFor, setMenuFor] = useState<number[] | null>(null);
@@ -228,6 +237,10 @@ export function PmlCanvas({
       rect: { top: box.top - frame.top, left: box.left - frame.left, width: box.width, height: box.height },
       font: fontOf(element),
     });
+    if (element instanceof HTMLElement) {
+      element.style.visibility = 'hidden';
+      covered.current = element;
+    }
     onQuickEdit?.(true);
   };
 
@@ -279,14 +292,10 @@ export function PmlCanvas({
         <InlineTextOverlay
           key={inline.path.join('.')}
           edit={inline}
-          onCancel={() => {
-            setInline(null);
-            onQuickEdit?.(false);
-          }}
+          onCancel={endInline}
           onCommit={(value) => {
             if (value !== inline.value) onEditText?.(inline.path, inline.field, value);
-            setInline(null);
-            onQuickEdit?.(false);
+            endInline();
           }}
         />
       ) : null}

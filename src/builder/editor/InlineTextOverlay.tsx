@@ -110,7 +110,7 @@ export function InlineTextOverlay({
           finish(true);
         }
       }}
-      style={{ ...edit.rect, ...edit.font, position: 'absolute', zIndex: 20, resize: 'none', overflow: 'hidden', padding: 0, border: 0, background: 'var(--site-bg)' }}
+      style={{ ...edit.rect, ...edit.font, position: 'absolute', zIndex: 20, resize: 'none', overflow: 'hidden', padding: 0, border: 0, background: 'transparent' }}
       className="rounded-sm outline outline-2 outline-offset-2 outline-[var(--site-accent)]"
     />
   );
