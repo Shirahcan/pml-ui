@@ -167,6 +167,11 @@ export interface PmlNode {
   /** Which named slot of the component around it this element goes into on a page (component props p04). */
   slot?: string;
   /**
+   * Which part of the document's layout this element is (a post's hook, a question section, an FAQ): pml-kit's layout
+   * checks read it, and the designer draws that part's guides (word counts, add or remove another) from it.
+   */
+  part?: string;
+  /**
    * A first-class, non-rendering comment (`<!-- -->`). Present ONLY on a comment node, which carries
    * no primitive/component. The compiler drops it from the render tree and the canvas shows it as an
    * inert note, but the stored AST keeps it so it round-trips to the Code view. See isCommentNode.

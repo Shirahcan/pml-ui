@@ -4,7 +4,7 @@ import React, { useEffect, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
-import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
+import { fieldGroupsOf, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import {
@@ -27,6 +27,7 @@ import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel } from './FindingsPanel';
 import { PageEditorHeader } from './PageEditorHeader';
 import { PageLayers } from './PageLayers';
+import { PartGuides } from './PartGuides';
 import { PlaceholdersLeftNotice } from './PlaceholdersLeftNotice';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
@@ -138,6 +139,11 @@ export interface PageEditorProps {
    */
   locked?: boolean;
   /**
+   * The document's layout (its parts, their rules and starters): with it the canvas shows each part's word count
+   * against its rule and "Add" / "Remove last" after a repeating part (owner 2026-11-17, T2).
+   */
+  layout?: DocumentLayout | null;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -162,7 +168,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -276,6 +282,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     <EditorNounProvider noun={noun}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
+        {/* The host's console FIRST: its dock is sticky, so drawn after the canvas it would sit at the bottom of a long
+            document and its tab would vanish below the fold (owner 2026-11-17: "it should always be visible"). */}
+        {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
         {renderControls ? renderControls(controls) : <PageEditorHeader controls={controls} />}
         {notice}
         {editor.placeholdersLeft ? <PlaceholdersLeftNotice message={editor.placeholdersLeft.message} left={editor.placeholdersLeft.left} /> : null}
@@ -297,6 +306,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             bare
             // Locked while the assistant works: the canvas's own "building" state takes no presses (no skeleton row).
             building={locked ? { at: nodes.length + 1, label: null } : null}
+            afterSection={layout && layout.parts.length > 0 ? (index) => <PartGuides nodes={nodes} index={index} layout={layout} change={change} /> : undefined}
             nodes={nodes}
             compiled={editor.compiled}
             natives={editor.natives}
@@ -387,7 +397,6 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           unavailable={[...unavailable]}
           title={addLabel}
         />
-        {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
         <UnpublishDialog
           open={confirmUnpublish}

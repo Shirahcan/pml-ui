@@ -58,6 +58,7 @@ export function PmlCanvas({
   onMove,
   onDelete,
   bare = false,
+  afterSection,
   selectedPath,
   onSelectPath,
   onEditText,
@@ -82,6 +83,8 @@ export function PmlCanvas({
   onDelete: (index: number) => void;
   /** No page edge around the design: for a surface that already sits on the site's background. */
   bare?: boolean;
+  /** Editor-only guides drawn right after a section (its layout part's word count, add or remove another). */
+  afterSection?: (index: number) => React.ReactNode;
   /** With these, any element inside a section can be selected, not only the section (S4-02). */
   selectedPath?: number[] | null;
   onSelectPath?: (path: number[]) => void;
@@ -345,6 +348,7 @@ export function PmlCanvas({
                 </div>
               ) : null}
             </div>
+            {afterSection?.(index)}
             </React.Fragment>
           );
         })

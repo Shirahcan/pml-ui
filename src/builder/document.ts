@@ -189,6 +189,27 @@ export interface DocumentFieldGroup {
   label: string;
 }
 
+/**
+ * A document's layout as the designer guides it (owner 2026-11-17, T2): its parts in order, each a key a node names with
+ * `part`, its label, its kind, how many times a repeating part may appear, the rules its words follow, and (for a
+ * repeating part) one instance's starter to add another from.
+ */
+export interface DocumentLayoutPart {
+  key: string;
+  label: string;
+  kind: string;
+  min?: number | null;
+  max?: number | null;
+  rules?: { words?: { min?: number; max?: number }; chars?: { max?: number } } | null;
+  starter?: PmlNode[] | null;
+}
+
+export interface DocumentLayout {
+  key?: string;
+  version?: number;
+  parts: DocumentLayoutPart[];
+}
+
 /** A document's field groups, in the order their fields come (the port lists fields group by group). */
 export function fieldGroupsOf(fields: DocumentField[]): DocumentFieldGroup[] {
   const seen = new Map<string, DocumentFieldGroup>();
