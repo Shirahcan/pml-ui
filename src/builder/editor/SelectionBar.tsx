@@ -8,8 +8,9 @@ import type { DocumentLayout } from '../document';
 import { canDelete, instancePaths, neighbourInstance, partOf, swapSiblings } from './layoutParts';
 
 /**
- * A post piece, or a block made only of them (the opening): its words are the post's FIELDS, so the assistant's asks,
- * which rewrite design, are not offered (the server refuses exactly this set: GrowthPostConsoleController::onlyPostPieces).
+ * The default when the host does not say which elements its assistant can take: a post piece, or a block made only of
+ * them (the opening), is the post's FIELDS, not design text, so no ask is offered. A host whose assistant drafts some
+ * fields (a post's title and summary as a proposal card) passes `canAsk` with its own server's set instead.
  */
 function onlyPostPieces(node: PmlNode): boolean {
   if ((node.primitive ?? '').startsWith('post_')) return true;
@@ -45,6 +46,7 @@ export function SelectionBar({
   change,
   select,
   onAsk,
+  canAsk,
 }: {
   nodes: PmlNode[];
   path: number[];
@@ -53,6 +55,8 @@ export function SelectionBar({
   change: (next: PmlNode[]) => void;
   select: (path: number[] | null) => void;
   onAsk?: (ask: AssistantAsk) => void;
+  /** Which elements the host's assistant takes an ask about (its server's own rule). Absent: every element that is not the post's fields. */
+  canAsk?: (node: PmlNode, path: number[]) => boolean;
 }): React.JSX.Element | null {
   const node = getNodeAtPath(nodes, path);
   if (!node) return null;
@@ -65,7 +69,7 @@ export function SelectionBar({
   const up = repeat ? neighbourInstance(nodes, path, -1) : null;
   const down = repeat ? neighbourInstance(nodes, path, 1) : null;
   const parent = path.slice(0, -1);
-  const fieldPiece = onlyPostPieces(node);
+  const askable = canAsk ? canAsk(node, path) : !onlyPostPieces(node);
 
   const move = (to: number) => {
     change(swapSiblings(nodes, path, to));
@@ -89,7 +93,7 @@ export function SelectionBar({
         {String(path[0] + 1).padStart(2, '0')} · {label}
         {repeat && instances.length > 1 ? ` · ${nth} of ${instances.length}` : ''}
       </span>
-      {onAsk && !fieldPiece ? (
+      {onAsk && askable ? (
         <>
           <button type="button" className={button} onClick={() => onAsk({ kind: 'write', path, node, label })}>
             <Wand2 className="h-3 w-3" aria-hidden />

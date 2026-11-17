@@ -166,6 +166,12 @@ export interface PageEditorProps {
    */
   onAskAssistant?: (ask: AssistantAsk) => void;
   /**
+   * Which elements the host's assistant takes an ask about, mirroring its server (a post's designer: its console drafts
+   * the title and summary as a proposal, but not the author, the dates, the cover, the badges or a call to action).
+   * Absent: every element except the post's own fields.
+   */
+  canAskAssistant?: (node: PmlNode, path: number[]) => boolean;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -190,7 +196,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -396,7 +402,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             renderSelectionBar={
               locked
                 ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} />
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} />
             }
             onDelete={(index) => {
               if (!deletable([index])) return;

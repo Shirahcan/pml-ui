@@ -99,6 +99,17 @@ describe('the selection bar (owner 2026-11-17, the reference studio)', () => {
     expect(screen.queryByRole('button', { name: /AI write/ })).toBeNull();
   });
 
+  it("follows the host's own rule when it gives one (its assistant drafts the title, not the author)", () => {
+    const pieces = [{ primitive: 'post_title', props: {} }, { primitive: 'post_author', props: {} }] as unknown as PmlNode[];
+    const canAsk = (node: PmlNode) => node.primitive === 'post_title';
+    const { unmount } = render(<SelectionBar nodes={pieces} path={[0]} change={() => undefined} select={() => undefined} onAsk={vi.fn()} canAsk={canAsk} />);
+    expect(screen.getByRole('button', { name: /AI write/ })).toBeTruthy();
+    unmount();
+
+    render(<SelectionBar nodes={pieces} path={[1]} change={() => undefined} select={() => undefined} onAsk={vi.fn()} canAsk={canAsk} />);
+    expect(screen.queryByRole('button', { name: /AI write/ })).toBeNull();
+  });
+
   it('shows no repeat controls for a part that does not repeat', () => {
     render(<SelectionBar nodes={design} path={[0]} layout={layout} change={() => undefined} select={() => undefined} />);
 
