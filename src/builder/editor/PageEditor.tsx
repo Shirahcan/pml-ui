@@ -19,6 +19,7 @@ import {
 } from '../ui/overlays';
 import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
+import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel } from './FindingsPanel';
 import { PageLayers } from './PageLayers';
@@ -83,6 +84,13 @@ export interface PageEditorProps {
    * cover and images come from the PRODUCT's library); without one an image is an address field.
    */
   quickEdit?: boolean;
+  /**
+   * The host's console (S7c): drawn after the editor; the host mounts ai-ui's `ConsoleHost` here, which positions
+   * itself (it overlays, it never shrinks the page), so pml-ui never imports ai-ui.
+   */
+  console?: ReactNode;
+  /** The host's own panel in the rail when nothing is selected (above the document's details and layers). */
+  aside?: ReactNode;
 }
 
 const NO_SITE: PmlSite = {};
@@ -94,7 +102,7 @@ const NO_SITE: PmlSite = {};
  * the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, quickEdit = false }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -221,6 +229,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               />
             ) : (
               <>
+                {aside}
+                {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} /> : null}
                 {editor.scan ? <FindingsPanel preflight={editor.scan} words={{ clean: `Nothing here needs to change. Ready to publish.` }} /> : null}
                 <PageLayers
                   nodes={nodes}
@@ -245,6 +255,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           unavailable={[...unavailable]}
           title={addLabel}
         />
+        {consoleSlot}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
         <AlertDialog open={confirmRollback} onOpenChange={setConfirmRollback}>
           <AlertDialogContent>
