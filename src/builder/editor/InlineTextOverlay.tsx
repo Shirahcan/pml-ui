@@ -50,6 +50,8 @@ export interface InlineEdit {
   path: number[];
   field: string;
   value: string;
+  /** Set when the words are the document's own field (a post's title): the revision they were read at. */
+  documentRevision?: string;
   rect: { top: number; left: number; width: number; height: number };
   font: React.CSSProperties;
 }

@@ -4,7 +4,7 @@ import React, { useEffect, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
-import { fieldGroupsOf, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
+import { fieldGroupsOf, isConflict, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import {
@@ -224,6 +224,39 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     onFieldSaved?.(name);
   };
 
+  // A double-click on a post's title, line under the title or author types it where it sits and saves it to the
+  // document (owner 2026-11-17: "double on the title for quick edit"). Written at the revision it was read at, so a
+  // change made elsewhere meanwhile is refused, never overwritten.
+  const fieldsPort = adapter.fields;
+  const documentText = fieldsPort
+    ? {
+        read: async (name: string) => {
+          try {
+            const read = await fieldsPort.read(id);
+            const value = read.values[name];
+
+            return { value: typeof value === 'string' ? value : '', revision: read.revision };
+          } catch (error) {
+            host.onError(error);
+            throw error;
+          }
+        },
+        write: (name: string, value: string, revision: string) => {
+          fieldsPort
+            .write(id, name, value, revision, editor.session)
+            .then((result) => {
+              if (isConflict(result)) {
+                host.onError(new Error(`This ${noun} was changed somewhere else after you opened it. Open its details to load the latest, then try again.`));
+
+                return;
+              }
+              fieldSaved(name);
+            })
+            .catch((error) => host.onError(error));
+        },
+      }
+    : undefined;
+
   // A template part the document cannot do without (required: a post's header, its cover) offers no Delete, nothing
   // inside a locked part is deleted, and a repeating part keeps at least its minimum (owner 2026-11-17: deleting the
   // cover or the header just breaks the post).
@@ -361,6 +394,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
             }}
             quickEditAll={quickEdit}
+            documentText={documentText}
             onQuickEdit={quickEdit ? onQuickEdit : undefined}
             // Rich words edited in place: the paragraph keeps its own shape, only its words change.
             onEditWords={(path, children) => {

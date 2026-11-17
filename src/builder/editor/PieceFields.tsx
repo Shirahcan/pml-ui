@@ -25,6 +25,16 @@ export const PIECE_FIELDS: Readonly<Record<string, readonly string[]>> = {
   post_cta: ['cta_kind', 'cta_ref'],
 };
 
+/**
+ * The pieces whose words ARE one text field of the post, so a double-click types them where they sit (owner
+ * 2026-11-17: "double on the title for quick edit"). Everything else edits in its panel.
+ */
+export const PIECE_TEXT_FIELD: Readonly<Record<string, string>> = {
+  post_title: 'title',
+  post_dek: 'dek',
+  post_author: 'author_name',
+};
+
 /** The document fields `node` draws, by its element name. */
 export function pieceFieldNames(node: PmlNode | null | undefined): readonly string[] {
   return PIECE_FIELDS[node?.primitive ?? ''] ?? [];

@@ -12,7 +12,7 @@ import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
 import { pathElement } from './pathElement';
 import { useEditorNoun, useEditorSurface } from './surface';
-import { useQuickEdit } from './useQuickEdit';
+import { useQuickEdit, type QuickEditOptions } from './useQuickEdit';
 
 /** The site's look around the canvas, from the host: its font classes and its theme's CSS variables (`--site-*`). */
 export interface CanvasFrame {
@@ -65,6 +65,7 @@ export function PmlCanvas({
   onEditText,
   onEditWords,
   quickEditAll = false,
+  documentText,
   onQuickEdit,
   renderElementMenu,
   building = null,
@@ -98,6 +99,8 @@ export function PmlCanvas({
    * the component's own props edit that prop in place. Off by default, so a host turns it on behind its gate.
    */
   quickEditAll?: boolean;
+  /** The document's own text fields, typed in place on the pieces that draw them (see useQuickEdit). */
+  documentText?: QuickEditOptions['documentText'];
   /** With this and `quickEditAll`, a paragraph with bold, links or page data edits in place in the rich editor (post layouts E2). */
   onEditWords?: (path: number[], children: PmlNode[]) => void;
   /** Told when a quick edit starts (true) and ends (false), so the host keeps its side panel shut meanwhile. */
@@ -124,7 +127,7 @@ export function PmlCanvas({
 }): React.JSX.Element {
   const canvas = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
-  const quick = useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit });
+  const quick = useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit, documentText });
   // The element under the pointer, and the element whose menu is open (it stays while the menu is).
   const [hovered, setHovered] = useState<number[] | null>(null);
   const [menuFor, setMenuFor] = useState<number[] | null>(null);

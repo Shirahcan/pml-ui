@@ -6,6 +6,7 @@ import { getNodeAtPath, holdsWords, renderedPathFor, sourcePathFor } from '../..
 import type { PmlNode } from '../../language';
 import { componentTextField, fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
 import { InlineWordsOverlay, type InlineWordsEdit } from './InlineWordsOverlay';
+import { PIECE_TEXT_FIELD } from './PieceFields';
 import { canEditVisually } from './ParagraphEditor';
 import { pathElement } from './pathElement';
 
@@ -18,6 +19,14 @@ export interface QuickEditOptions {
   /** Text inside components and rich paragraphs too, not only plain headings, paragraphs and buttons. */
   quickEditAll: boolean;
   onQuickEdit?: (editing: boolean) => void;
+  /**
+   * The document's own text fields (a post's title, line under the title, author), when the host has them: a
+   * double-click on the piece that draws one types it in place and saves it to the document, never to the design.
+   */
+  documentText?: {
+    read: (name: string) => Promise<{ value: string; revision: string }>;
+    write: (name: string, value: string, revision: string) => void;
+  };
 }
 
 /** Run-level tags: a paragraph's own words, never a wrapper around it. */
@@ -74,7 +83,7 @@ function wordsHolder(nodes: PmlNode[], path: number[]): number[] | null {
  * a paragraph with bold, links or page data gets the rich editor, and a component's words edit the one prop they
  * come from. The covered element is hidden meanwhile so the box can be see-through.
  */
-export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit }: QuickEditOptions): {
+export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit, documentText }: QuickEditOptions): {
   start: (event: React.MouseEvent, index: number) => void;
   overlay: React.ReactNode;
 } {
@@ -104,12 +113,34 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
   };
 
   const start = (event: React.MouseEvent, index: number) => {
-    if (!canvas.current || (!onEditText && !onEditWords)) return;
+    if (!canvas.current || (!onEditText && !onEditWords && !documentText)) return;
 
     const target = event.target as HTMLElement;
     const holder = target.closest<HTMLElement>('[data-pml-path]');
     const path = sourcePathFor(nodes, holder?.dataset.pmlPath?.split('.').map(Number) ?? [index]);
     const node = getNodeAtPath(nodes, path);
+
+    // A piece whose words are the document's own field: read it fresh, type it where it sits, save it to the document.
+    const fieldName = documentText ? PIECE_TEXT_FIELD[node?.primitive ?? ''] : undefined;
+
+    if (documentText && fieldName) {
+      const element = holder ? pathElement(holder) : null;
+      if (!element) return;
+      const rect = rectOf(element);
+      const font = fontOf(element);
+
+      void documentText
+        .read(fieldName)
+        .then(({ value, revision }) => {
+          setText({ path, field: fieldName, value, rect, font, documentRevision: revision });
+          cover(element);
+          onQuickEdit?.(true);
+        })
+        // The host reports a failed read itself (its port); nothing opens.
+        .catch(() => undefined);
+
+      return;
+    }
 
     // A paragraph with rich words: the rich editor, over the whole paragraph.
     const paragraph = quickEditAll && onEditWords ? wordsHolder(nodes, path) : null;
@@ -165,7 +196,10 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
       edit={text}
       onCancel={end}
       onCommit={(value) => {
-        if (value !== text.value) onEditText?.(text.path, text.field, value);
+        if (value !== text.value) {
+          if (text.documentRevision !== undefined) documentText?.write(text.field, value, text.documentRevision);
+          else onEditText?.(text.path, text.field, value);
+        }
         end();
       }}
     />

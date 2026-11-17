@@ -67,6 +67,24 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
     expect(onFieldSaved).toHaveBeenCalledWith('title');
   });
 
+  it('a double-click on the title types it where it sits and saves it to the post, never to the design', async () => {
+    const adapter = fakeAdapter();
+    const onFieldSaved = vi.fn();
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} onFieldSaved={onFieldSaved} />);
+
+    fireEvent.doubleClick(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 }));
+    const box = (await screen.findByRole('textbox', { name: 'Edit this text' })) as HTMLTextAreaElement;
+    expect(box.value).toBe('Work permits');
+
+    fireEvent.change(box, { target: { value: 'Work permits in 2026' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    // Written at the revision it was read at, so a change made elsewhere meanwhile is refused rather than overwritten.
+    await waitFor(() => expect(adapter.fields.write).toHaveBeenCalledWith('p1', 'title', 'Work permits in 2026', '1', expect.any(String)));
+    await waitFor(() => expect(onFieldSaved).toHaveBeenCalledWith('title'));
+    expect(adapter.saveDraft).not.toHaveBeenCalled();
+  });
+
   it("a post's designer draws the canvas in the blog reading look", async () => {
     const adapter = fakeAdapter();
     const withAnswer = [...design, { primitive: 'callout', props: { title: 'Short answer' }, children: [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most can.' } }] }] }];
