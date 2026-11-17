@@ -81,19 +81,24 @@ export function FieldRow({
         </div>
       );
     case 'media': {
+      // A field that reads `null` while unset holds the picture WITH its words ({url, alt, caption}: a post's cover); only
+      // a field that reads an address string keeps writing a string. Reading `null` as "a string field" wrote a bare
+      // address on the first pick and hid "What the picture shows" and the caption until a reload (2026-11-17).
+      const withWords = value === null || (typeof value === 'object' && value !== undefined);
       const media = (value ?? '') as MediaValue;
       const url = typeof media === 'string' ? media : (media.url ?? '');
+      const picture = typeof media === 'string' ? (media ? { url: media } : {}) : media;
       const withPicture = (patch: Partial<{ url: string; alt: string; caption: string }>) =>
-        typeof media === 'string' && patch.url !== undefined && Object.keys(patch).length === 1 ? patch.url : { ...(typeof media === 'string' ? { url: media } : media), ...patch };
+        !withWords && patch.url !== undefined && Object.keys(patch).length === 1 ? patch.url : { ...picture, ...patch };
 
       return (
         <div className="space-y-2">
           <p className="text-sm font-medium">{field.label}</p>
           <MediaField value={url} onChange={(next) => onCommit(withPicture({ url: next }))} />
-          {typeof media === 'object' ? (
+          {withWords && url ? (
             <>
-              <Input aria-label={`${field.label}: what it shows`} placeholder="What the picture shows" value={media.alt ?? ''} onChange={(e) => onDraft(withPicture({ alt: e.target.value }))} onBlur={(e) => onCommit(withPicture({ alt: e.target.value }))} className="px-3 py-2 outline-none" />
-              <Input aria-label={`${field.label}: caption`} placeholder="Caption (optional)" value={media.caption ?? ''} onChange={(e) => onDraft(withPicture({ caption: e.target.value }))} onBlur={(e) => onCommit(withPicture({ caption: e.target.value }))} className="px-3 py-2 outline-none" />
+              <Input aria-label={`${field.label}: what it shows`} placeholder="What the picture shows" value={picture.alt ?? ''} onChange={(e) => onDraft(withPicture({ alt: e.target.value }))} onBlur={(e) => onCommit(withPicture({ alt: e.target.value }))} className="px-3 py-2 outline-none" />
+              <Input aria-label={`${field.label}: caption`} placeholder="Caption (optional)" value={picture.caption ?? ''} onChange={(e) => onDraft(withPicture({ caption: e.target.value }))} onBlur={(e) => onCommit(withPicture({ caption: e.target.value }))} className="px-3 py-2 outline-none" />
             </>
           ) : null}
         </div>

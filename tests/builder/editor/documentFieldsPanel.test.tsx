@@ -60,6 +60,33 @@ describe('DocumentFieldsPanel', () => {
     expect(screen.getByText('4')).toBeTruthy();
   });
 
+  it("a picture field that is unset (null) takes its first pick as {url} and offers the picture's words at once", async () => {
+    const fields = port({ cover: null });
+    render(<DocumentFieldsPanel id="p1" fields={fields} session="s" />);
+
+    const address = (await screen.findByLabelText('Image address')) as HTMLInputElement;
+    expect(screen.queryByLabelText('Cover: what it shows')).toBeNull();
+    fireEvent.change(address, { target: { value: 'https://img.test/b.png' } });
+
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { url: 'https://img.test/b.png' }, 'r1', 's'));
+    // No reload needed: what it shows and its caption are there to type.
+    const caption = await screen.findByLabelText('Cover: caption');
+    fireEvent.change(caption, { target: { value: 'A greenhouse in Leamington.' } });
+    fireEvent.blur(caption);
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { url: 'https://img.test/b.png', caption: 'A greenhouse in Leamington.' }, 'r2', 's'));
+  });
+
+  it('a picture field that holds an address keeps writing an address', async () => {
+    const fields = port({ cover: 'https://img.test/a.png' });
+    render(<DocumentFieldsPanel id="p1" fields={fields} session="s" />);
+
+    const address = (await screen.findByLabelText('Image address')) as HTMLInputElement;
+    fireEvent.change(address, { target: { value: 'https://img.test/c.png' } });
+
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', 'https://img.test/c.png', 'r1', 's'));
+    expect(screen.queryByLabelText('Cover: what it shows')).toBeNull();
+  });
+
   it('never writes an unchanged field, and a conflict puts the old value back and offers the latest', async () => {
     const fields = port();
     fields.write.mockResolvedValueOnce({ conflict: { message: 'changed', by: null, at: null, revision: 'r9' } });
