@@ -33,7 +33,7 @@ import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
 import { CanvasFlavorContext } from './canvasFlavor';
-import { canDelete as layoutAllowsDelete } from './layoutParts';
+import { canDelete as layoutAllowsDelete, canReorder } from './layoutParts';
 import { PieceFieldsPanel } from './PieceFields';
 import { SelectionBar, type AssistantAsk } from './SelectionBar';
 import { PmlSettings } from './PmlSettings';
@@ -379,8 +379,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             onSelectPath={selectPath}
             viewport="desktop"
             onSelect={(index) => selectPath(index === null ? null : [index])}
-            onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
             canDelete={(index) => deletable([index])}
+            // A template part keeps its place (moving the cover or the contents breaks the post's order and starts a
+            // layout finding); a repeat instance moves with its selection bar's Up / Down, among its own kind only.
+            canMove={(index) => canReorder(nodes, layout, [index])}
+            onMove={(from, to) => {
+              if (!canReorder(nodes, layout, [from])) return;
+              change(moveTopLevel(nodes, from, to));
+            }}
             renderSelectionBar={
               locked
                 ? undefined
@@ -450,6 +456,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           ) : panel === 'layers' ? (
             <PageLayers
               nodes={nodes}
+              canDrag={(path) => canReorder(nodes, layout, path)}
               selectedPath={selectedPath}
               onSelect={selectPath}
               onMoved={(moved) => {

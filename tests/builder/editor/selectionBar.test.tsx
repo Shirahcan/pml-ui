@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { DocumentLayout, EditableDocumentAdapter } from '../../../src/builder/document';
-import { canDelete } from '../../../src/builder/editor/layoutParts';
+import { canDelete, canReorder } from '../../../src/builder/editor/layoutParts';
 import { PageEditor } from '../../../src/builder/editor/PageEditor';
 import { SelectionBar } from '../../../src/builder/editor/SelectionBar';
 import type { PmlNode } from '../../../src/language';
@@ -99,6 +99,34 @@ describe('what may be deleted, by the layout', () => {
     expect(canDelete(design, layout, [2])).toBe(true); // two questions, one is enough
     expect(canDelete(design, layout, [5, 0])).toBe(false); // two FAQ items, two are needed
     expect(canDelete(design, layout, [1])).toBe(true); // a note is no part
+  });
+
+  it('a template part, and anything inside a locked part, keeps its place; everything else moves freely', () => {
+    expect(canReorder(design, layout, [0])).toBe(false); // the opening
+    expect(canReorder(design, layout, [0, 0])).toBe(false); // the title inside the locked opening
+    expect(canReorder(design, layout, [2])).toBe(false); // a question section moves only with its bar's Up / Down
+    expect(canReorder(design, layout, [1])).toBe(true); // a note
+  });
+});
+
+describe("a template part keeps its place on the canvas (ab's Loop 2: the cover offered Move up / Move down)", () => {
+  it('a part offers no frame moves; an element the author added freely still moves', async () => {
+    const withFree = [...design, { primitive: 'heading', props: { text: 'An extra note', level: 2 } }] as unknown as PmlNode[];
+    const adapter = {
+      load: vi.fn(async () => ({ document: { nodes: withFree }, revision: 'd1', meta: { title: 'Work permits', slug: 'work-permits', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } })),
+      saveDraft: vi.fn(async () => ({ revision: 'd2' })),
+      preview: vi.fn(async (_id: string, nodes: PmlNode[]) => ({ tree: nodes.filter((node) => !('comment' in node)), natives: null, error: null })),
+      preflight: vi.fn(async () => ({ mayPublish: true, findings: [] })),
+    } as unknown as EditableDocumentAdapter;
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+
+    fireEvent.click(await screen.findByRole('heading', { name: 'Who can apply?' }, { timeout: 3000 }));
+    await screen.findByRole('toolbar', { name: 'Question section tools' }, { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: 'Move up' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Move down' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('heading', { name: 'An extra note' }));
+    expect(await screen.findByRole('button', { name: 'Move up' }, { timeout: 3000 })).toBeTruthy();
   });
 });
 

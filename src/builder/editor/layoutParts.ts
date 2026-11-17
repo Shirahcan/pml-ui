@@ -48,6 +48,22 @@ export function canDelete(nodes: PmlNode[], layout: DocumentLayout | null | unde
   return true;
 }
 
+/**
+ * Whether the element at `path` may be dragged or moved freely (the frame's Move up / Move down, a drag in Layers). A
+ * template part keeps its place (moving the cover or the contents breaks the post's order and starts a layout
+ * finding), and so does anything inside a locked part (the opening's pieces). A repeat instance moves with its
+ * selection bar's Up / Down, among its own kind only.
+ */
+export function canReorder(nodes: PmlNode[], layout: DocumentLayout | null | undefined, path: number[]): boolean {
+  if (partOf(layout, getNodeAtPath(nodes, path)?.part)) return false;
+
+  for (let depth = 1; depth < path.length; depth++) {
+    if (partOf(layout, getNodeAtPath(nodes, path.slice(0, depth))?.part)?.locked) return false;
+  }
+
+  return true;
+}
+
 /** The position of the nearest sibling before (-1) or after (+1) the element that is the same part, or null. */
 export function neighbourInstance(nodes: PmlNode[], path: number[], direction: -1 | 1): number | null {
   const node = getNodeAtPath(nodes, path);

@@ -60,6 +60,7 @@ export function PmlCanvas({
   bare = false,
   afterSection,
   canDelete,
+  canMove,
   renderSelectionBar,
   selectedPath,
   onSelectPath,
@@ -90,6 +91,11 @@ export function PmlCanvas({
   afterSection?: (index: number) => React.ReactNode;
   /** False for a section the document cannot do without: its frame offers no Delete. Absent, every section can go. */
   canDelete?: (index: number) => boolean;
+  /**
+   * False for a section whose place the document's layout fixes (a post's header, cover, contents): its frame offers no
+   * Move up / Move down. Absent, every section can move.
+   */
+  canMove?: (index: number) => boolean;
   /**
    * The selected element's bar, drawn over its top-left corner (above it when there is room): its name, the
    * assistant's asks, a repeat's moves. Absent, nothing is drawn.
@@ -365,26 +371,30 @@ export function PmlCanvas({
 
               {selected && !renderElementMenu ? (
                 <div className="absolute right-2 top-2 z-10 flex gap-1">
-                  <FrameButton
-                    label="Move up"
-                    disabled={index === 0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMove(index, index - 1);
-                    }}
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </FrameButton>
-                  <FrameButton
-                    label="Move down"
-                    disabled={index === nodes.length - 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMove(index, index + 1);
-                    }}
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </FrameButton>
+                  {canMove?.(index) === false ? null : (
+                    <>
+                      <FrameButton
+                        label="Move up"
+                        disabled={index === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMove(index, index - 1);
+                        }}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </FrameButton>
+                      <FrameButton
+                        label="Move down"
+                        disabled={index === nodes.length - 1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMove(index, index + 1);
+                        }}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </FrameButton>
+                    </>
+                  )}
                   {canDelete?.(index) === false ? null : (
                     <FrameButton
                       label="Delete section"

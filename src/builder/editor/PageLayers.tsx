@@ -34,8 +34,11 @@ export function PageLayers({
   selectedPath,
   onSelect,
   onMoved,
+  canDrag,
 }: {
   nodes: PmlNode[];
+  /** False for an element whose place the document's layout fixes: it is not dragged. Absent, everything drags. */
+  canDrag?: (path: number[]) => boolean;
   selectedPath: number[] | null;
   onSelect: (path: number[]) => void;
   onMoved: (moved: Moved) => void;
@@ -84,7 +87,7 @@ export function PageLayers({
   };
 
   const row = (node: PmlNode, path: number[]): React.ReactNode => {
-    // A comment is a note for whoever edits the page (a template's "what goes here"): shown here, never on the canvas.
+    // A comment is a note for whoever edits the page (a template's "what goes here"): a note here, a strip on the canvas.
     if (isCommentNode(node)) {
       const note = (node.comment ?? '').trim();
 
@@ -103,8 +106,13 @@ export function PageLayers({
     return (
       <li key={key}>
         <div
-          draggable
+          draggable={canDrag?.(path) !== false}
           onDragStart={(event) => {
+            if (canDrag?.(path) === false) {
+              event.preventDefault();
+
+              return;
+            }
             event.dataTransfer.effectAllowed = 'move';
             setDragging(path);
           }}
