@@ -275,6 +275,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         ) : (
         <div className="min-w-0">
           <PmlCanvas
+            // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
+            bare
             nodes={nodes}
             compiled={editor.compiled}
             natives={editor.natives}
@@ -323,6 +325,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           {panel === 'selected' && selected && selectedPath ? (
             <PmlSettings
               node={selected}
+              pageNodes={nodes}
               onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
               onDelete={() => {
                 change(removeNodeAtPath(nodes, selectedPath));

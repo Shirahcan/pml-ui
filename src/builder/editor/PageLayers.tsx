@@ -84,7 +84,16 @@ export function PageLayers({
   };
 
   const row = (node: PmlNode, path: number[]): React.ReactNode => {
-    if (isCommentNode(node)) return null;
+    // A comment is a note for whoever edits the page (a template's "what goes here"): shown here, never on the canvas.
+    if (isCommentNode(node)) {
+      const note = (node.comment ?? '').trim();
+
+      return note ? (
+        <li key={path.join('.')} role="note" style={{ paddingLeft: `${(path.length - 1) * 14 + 22}px` }} className="py-0.5 pr-2 text-xs italic text-slate-500">
+          {note}
+        </li>
+      ) : null;
+    }
 
     const key = path.join('.');
     const selected = same(selectedPath, path);

@@ -15,6 +15,7 @@ import { ContainerContents } from './settingsContents';
 import { PartialSettings, SlotContents } from './settingsContentsSlots';
 import { CodeControl, ItemList, MarkdownControl, ProseSlot, ScriptView, TextBodyControl, WordsControl } from './settingsControls';
 import { BindableField } from './settingsFields';
+import { TocRebuild } from './TocRebuild';
 
 /**
  * The settings rail for a selected PML section.
@@ -34,6 +35,7 @@ export function PmlSettings({
   spanContext,
   onDuplicate,
   creatorControls,
+  pageNodes,
 }: {
   node: PmlNode;
   onChange: (next: PmlNode) => void;
@@ -52,6 +54,8 @@ export function PmlSettings({
    * shown.
    */
   creatorControls?: React.ReactNode;
+  /** The whole page, for controls that read it (a contents list's "Rebuild from the headings"). */
+  pageNodes?: PmlNode[];
 }): React.JSX.Element {
   const name = node.component ?? node.primitive ?? '';
   const def = PML_CATALOG_BY_NAME[name];
@@ -141,6 +145,7 @@ export function PmlSettings({
       {node.primitive === 'pre' ? <CodeControl value={typeof props.text === 'string' ? props.text : ''} onChange={(next) => setProp('text', next)} /> : null}
       {node.primitive === 'script' ? <ScriptView source={typeof props.source === 'string' ? props.source : ''} /> : null}
       {holdsWords(node) ? <WordsControl node={node} onChange={onChange} /> : null}
+      {node.primitive === 'toc' && pageNodes ? <TocRebuild node={node} pageNodes={pageNodes} onChange={onChange} /> : null}
 
       {def.container ? (
         <ContainerContents

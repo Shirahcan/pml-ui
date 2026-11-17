@@ -119,6 +119,12 @@ export function PmlPostHeader({ props, className, style }: { props: Record<strin
 
 const RATIOS: Record<string, string> = { square: '1 / 1', '4:3': '4 / 3', '3:2': '3 / 2', '16:9': '16 / 9', '3:4': '3 / 4' };
 
+/**
+ * A cover's tallest (owner 2026-11-17, T1: "cover photo with appropriate/sensible default height"): 16:9 on a phone,
+ * never taller than this on a wide page, where a full-width 16:9 photo would push the post below the fold.
+ */
+const COVER_MAX_HEIGHT = 420;
+
 export function PmlPostCover({ props, className, style }: { props: Record<string, unknown>; className: string; style: React.CSSProperties }): React.JSX.Element {
   const cover = record(fields(props).cover);
   const url = str(cover.url);
@@ -127,14 +133,18 @@ export function PmlPostCover({ props, className, style }: { props: Record<string
   if (!url) {
     return (
       <figure className={className} style={style}>
-        <Empty icon={ImageIcon}>The post&rsquo;s cover photo and its caption show here.</Empty>
+        <div className="flex w-full items-center justify-center" style={{ aspectRatio: ratio, maxHeight: COVER_MAX_HEIGHT }}>
+          <div className="w-full">
+            <Empty icon={ImageIcon}>The post&rsquo;s cover photo and its caption show here.</Empty>
+          </div>
+        </div>
       </figure>
     );
   }
 
   return (
     <figure className={className} style={style}>
-      <img src={url} alt={str(cover.alt)} className="w-full rounded-[var(--site-radius)] object-cover" style={{ aspectRatio: ratio }} />
+      <img src={url} alt={str(cover.alt)} className="w-full rounded-[var(--site-radius)] object-cover" style={{ aspectRatio: ratio, maxHeight: COVER_MAX_HEIGHT }} />
       {str(cover.caption) ? <figcaption className="mt-2 text-sm opacity-70">{str(cover.caption)}</figcaption> : null}
     </figure>
   );

@@ -53,6 +53,7 @@ export const PML_ENUMS = {
   as: ['div', 'section', 'article', 'aside', 'main', 'figure', 'address', 'blockquote'],
   tone: ['info', 'tip', 'warning', 'success', 'danger'],
   depth: ['2', '3'],
+  date_kind: ['published', 'updated'],
   icon: ['check-circle', 'star', 'heart', 'globe', 'briefcase', 'clock', 'file-text', 'users', 'award', 'message-circle', 'map-pin', 'phone', 'clipboard-check', 'send'],
   field_kind: ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'number', 'date'],
   form_layout: ['stacked', 'inline', 'prompt'],
@@ -60,12 +61,12 @@ export const PML_ENUMS = {
 } as const;
 
 /** Every element, in definition order. */
-export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'post_story', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_breadcrumbs', 'post_title', 'post_dek', 'post_meta', 'post_author', 'post_date', 'post_read_time', 'post_reviewer', 'post_tags', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'post_story', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'toc_item', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
 /** The elements that may hold children. */
-export const CONTAINER_ELEMENTS = ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'box', 'grid', 'form', 'list', 'list_item', 'table', 'row', 'cell', 'header', 'nav', 'footer', 'callout', 'sources', 'faq', 'faq_item', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const CONTAINER_ELEMENTS = ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'box', 'grid', 'form', 'post_meta', 'list', 'list_item', 'table', 'row', 'cell', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'faq', 'faq_item', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 /** Prop names that are visible words only as a component's setting (no element owns them). */
 export const COMPONENT_PROSE = ['subhead', 'headline', 'body', 'description', 'note', 'address'] as const;
@@ -336,6 +337,45 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     container: false,
     props: {},
   },
+  post_breadcrumbs: {
+    container: false,
+    props: {},
+  },
+  post_title: {
+    container: false,
+    props: {},
+  },
+  post_dek: {
+    container: false,
+    props: {},
+  },
+  post_meta: {
+    container: true,
+    children: ['post_author', 'post_date', 'post_read_time', 'post_reviewer'],
+    props: {},
+  },
+  post_author: {
+    container: false,
+    props: {},
+  },
+  post_date: {
+    container: false,
+    props: {
+      kind: { type: 'enum', values: ['published', 'updated'] },
+    },
+  },
+  post_read_time: {
+    container: false,
+    props: {},
+  },
+  post_reviewer: {
+    container: false,
+    props: {},
+  },
+  post_tags: {
+    container: false,
+    props: {},
+  },
   post_cover: {
     container: false,
     props: {
@@ -476,10 +516,19 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     },
   },
   toc: {
-    container: false,
+    container: true,
+    children: ['toc_item'],
     props: {
       title: { type: 'prose' },
       depth: { type: 'enum', values: ['2', '3'], number: true },
+    },
+  },
+  toc_item: {
+    container: false,
+    parent: ['toc'],
+    props: {
+      label: { type: 'prose' },
+      target: { type: 'anchor' },
     },
   },
   sources: {

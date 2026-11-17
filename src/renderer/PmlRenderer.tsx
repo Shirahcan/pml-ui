@@ -34,6 +34,7 @@ import { NOT_SENT_IN_PREVIEW, PREVIEW_NOT_SENT_NOTE, useSiteInteractions } from 
 import { PmlPackages } from './modules/PmlPackages';
 import { PmlTestimonials } from './modules/PmlTestimonials';
 import { PmlPostCover, PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
+import { PmlPostAuthor, PmlPostBreadcrumbs, PmlPostDate, PmlPostDek, PmlPostReadTime, PmlPostReviewer, PmlPostTags, PmlPostTitle } from './modules/PmlPostPieces';
 import { PmlPostCta } from './modules/PmlPostCta';
 import { PmlPostStory } from './modules/PmlPostStory';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
@@ -1387,8 +1388,14 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     }
 
     case 'toc':
-      // `depth=3` arrives as a number from unquoted source and as "3" from the builder: accept both.
-      return <PmlToc title={str(p.title)} depth={String(p.depth ?? '') === '3' ? 3 : 2} className={s.className} style={s.style} />;
+      // `depth=3` arrives as a number from unquoted source and as "3" from the builder: accept both. A toc holding
+      // toc_item children lists exactly those (T1: "a container with individual children for easy updates"); an empty
+      // one lists the page's headings by itself.
+      return <PmlToc title={str(p.title)} depth={String(p.depth ?? '') === '3' ? 3 : 2} items={tocItems(node)} className={s.className} style={s.style} />;
+
+    case 'toc_item':
+      // Drawn by its toc; a stray one draws nothing.
+      return null;
 
     case 'list':
       return <PmlList node={node} site={site} className={s.className} style={s.style} />;
@@ -1413,6 +1420,41 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       // The consultant's ATTESTED + visible client testimonials, baked into the snapshot at
       // publish (CICC s.45). Inert content, so no funnel wiring; empty in the builder by design.
       return <PmlTestimonials props={p} className={s.className} style={s.style} />;
+
+    case 'post_breadcrumbs':
+    case 'post_title':
+    case 'post_dek':
+    case 'post_author':
+    case 'post_date':
+    case 'post_read_time':
+    case 'post_reviewer':
+    case 'post_tags': {
+      // The Classic template's post pieces (owner 2026-11-17, T1): one element each, so a template places them one by
+      // one. The host's drawing when it has one, else the package's, from the post's own baked details.
+      const piece = node.primitive as 'post_breadcrumbs' | 'post_title' | 'post_dek' | 'post_author' | 'post_date' | 'post_read_time' | 'post_reviewer' | 'post_tags';
+
+      if (host.elements?.[piece]) return hostElement(host, piece, { props: p, site, className: s.className, style: s.style });
+      const Piece = {
+        post_breadcrumbs: PmlPostBreadcrumbs,
+        post_title: PmlPostTitle,
+        post_dek: PmlPostDek,
+        post_author: PmlPostAuthor,
+        post_date: PmlPostDate,
+        post_read_time: PmlPostReadTime,
+        post_reviewer: PmlPostReviewer,
+        post_tags: PmlPostTags,
+      }[piece];
+
+      return <Piece props={p} className={s.className} style={s.style} inCanvas={inCanvas} />;
+    }
+
+    case 'post_meta':
+      // The byline row: its pieces (author, date, read time, reviewer) side by side, each its own element to move or drop.
+      return (
+        <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm opacity-75 ${s.className}`.trim()} style={s.style}>
+          {children(node, site, ctx)}
+        </div>
+      );
 
     case 'post_header':
     case 'post_cover':
@@ -1669,18 +1711,29 @@ function FormNode({ node, site }: { node: PmlNode; site: PublicSite }): React.JS
  * linking to their anchors. Built at render from the page itself, so it is never out of date.
  * Renders nothing when the page has no headings to list.
  */
+/** A toc's own items, in order: `{label, target}` each; an item without a label or a target is left out. */
+function tocItems(node: PmlNode): { text: string; anchor: string; level: number }[] {
+  return (node.children ?? [])
+    .filter((child) => child.primitive === 'toc_item')
+    .map((child) => ({ text: str(child.props?.label), anchor: str(child.props?.target).replace(/^#/, ''), level: 2 }))
+    .filter((item) => item.text !== '' && item.anchor !== '');
+}
+
 function PmlToc({
   title,
   depth,
+  items,
   className,
   style,
 }: {
   title: string;
   depth: 2 | 3;
+  items: { text: string; anchor: string; level: number }[];
   className: string;
   style: React.CSSProperties;
 }): React.JSX.Element | null {
-  const entries = React.useContext(OutlineContext).filter((e) => e.level >= 2 && e.level <= depth);
+  const outline = React.useContext(OutlineContext).filter((e) => e.level >= 2 && e.level <= depth);
+  const entries = items.length > 0 ? items : outline;
   const hints = React.useContext(BuilderHintsContext);
   const label = title || 'On this page';
 
