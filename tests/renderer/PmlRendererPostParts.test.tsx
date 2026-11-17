@@ -93,6 +93,20 @@ describe('PmlRenderer post parts', () => {
     expect(getByText('Start your Canada journey')).toBeTruthy();
     expect(getByRole('link', { name: 'Get Matched Now' }).getAttribute('href')).toBe('/marketplace/intake');
     expect(getByRole('link', { name: 'Sign up free on Portify' }).getAttribute('href')).toBe('/register');
+    // The decision stage wears the site's emphasis colour (Website > Theme), the site's text colour when unset.
+    const main = getByRole('link', { name: 'Get Matched Now' }) as HTMLElement;
+    expect(main.getAttribute('style')).toContain('var(--site-strong, var(--site-text))');
+    expect(main.getAttribute('style')).toContain('var(--site-on-strong');
+    expect(main.className).not.toContain('bg-[var(--site-accent)]');
+  });
+
+  it('keeps the accent for the awareness and consideration stages', () => {
+    const resolvedCta = { headline: 'Rules change fast.', button: { label: 'Read the guide', href: '/guide', kind: 'link' } };
+    const { getByRole } = render(<PmlRenderer nodes={[{ primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline', resolved: resolvedCta } } as PmlNode]} site={site} />);
+
+    const main = getByRole('link', { name: 'Read the guide' }) as HTMLElement;
+    expect(main.className).toContain('bg-[var(--site-accent)]');
+    expect(main.getAttribute('style')).toBeNull();
   });
 
   it("draws the page's own form for a subscribe action, never a form of its own", () => {

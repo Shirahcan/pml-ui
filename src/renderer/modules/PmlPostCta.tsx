@@ -60,13 +60,21 @@ export function PmlPostCta({
   const main = action(row.button);
   const second = action(row.secondary);
   const subscribe = main.kind === 'subscribe';
-  const accent = stage === 'decision' ? 'border-t-[var(--site-text,currentColor)]' : 'border-t-[var(--site-accent)]';
+  const decision = stage === 'decision';
+  const accent = decision ? '' : 'border-t-[var(--site-accent)]';
+  // The decision stage wears the site's EMPHASIS colour (Website > Theme, --site-strong: the reference studio's navy),
+  // with its readable text colour; unset, it falls back to the site's text colour as before. Inline, so the host's CSS
+  // build never has to know these values.
+  const strongEdge: React.CSSProperties | undefined = decision ? { borderTopColor: 'var(--site-strong, var(--site-text, currentColor))' } : undefined;
+  const strongButton: React.CSSProperties | undefined = decision
+    ? { background: 'var(--site-strong, var(--site-text))', color: 'var(--site-on-strong, var(--site-surface, #fff))' }
+    : undefined;
 
   return (
     <aside
       aria-label={headline}
-      className={`rounded-[var(--site-radius)] border border-current/15 border-t-4 ${accent} p-6 ${banner ? 'text-center' : ''} ${className}`.trim()}
-      style={style}
+      className={`rounded-[var(--site-radius)] border border-current/15 border-t-4 ${accent} p-6 ${banner ? 'text-center' : ''} ${className}`.replace(/\s+/g, ' ').trim()}
+      style={{ ...strongEdge, ...style }}
     >
       {str(row.eyebrow) ? <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--site-accent)]">{str(row.eyebrow)}</p> : null}
       <p className={`mt-1 font-extrabold leading-snug ${banner ? 'text-2xl md:text-3xl' : 'text-xl'}`}>{headline}</p>
@@ -76,7 +84,11 @@ export function PmlPostCta({
       ) : (
         <div className={`mt-4 flex flex-wrap gap-3 ${banner ? 'justify-center' : ''}`}>
           {str(main.label) && str(main.href) ? (
-            <a href={str(main.href)} className="inline-flex items-center rounded-[var(--site-radius)] bg-[var(--site-accent)] px-4 py-2.5 font-semibold text-white">
+            <a
+              href={str(main.href)}
+              className={`inline-flex items-center rounded-[var(--site-radius)] px-4 py-2.5 font-semibold ${decision ? '' : 'bg-[var(--site-accent)] text-white'}`.trim()}
+              style={strongButton}
+            >
               {str(main.label)}
             </a>
           ) : null}
