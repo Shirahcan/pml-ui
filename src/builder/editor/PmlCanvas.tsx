@@ -24,6 +24,20 @@ export interface CanvasFrame {
  * The selection outline is the EDITOR's colour, not the site's (owner 2026-11-17, the reference studio: 2px #625FFB):
  * a site whose accent is black drew black outlines that read as part of the design. --pml-select overrides it.
  */
+/**
+ * The element an event's target belongs to: the innermost `data-pml-path` holder that DRAWS a box. A run of words
+ * inside a paragraph is marked too, but draws no box of its own (it is text inside the paragraph's box), so the pointer
+ * over words means the paragraph (owner 2026-11-17: over text the bar never showed, and moving between words and the
+ * paragraph's empty space made it flicker on and off).
+ */
+function holderAt(target: EventTarget | null): HTMLElement | null {
+  let holder = (target as HTMLElement | null)?.closest?.<HTMLElement>('[data-pml-path]') ?? null;
+
+  while (holder && !pathElement(holder)) holder = holder.parentElement?.closest<HTMLElement>('[data-pml-path]') ?? null;
+
+  return holder;
+}
+
 const SELECTED = 'z-10 outline outline-2 outline-offset-2 outline-[var(--pml-select,#625FFB)]';
 const IDLE =
   'hover:outline hover:outline-1 hover:outline-offset-2 hover:outline-[color-mix(in_srgb,var(--pml-select,#625FFB)_45%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pml-select,#625FFB)]';
@@ -182,7 +196,7 @@ export function PmlCanvas({
   /** The source path of the element at an event's target, or null outside every element. */
   const pathAt = (target: EventTarget | null): number[] | null => {
     const element = target as HTMLElement | null;
-    const holder = element?.closest?.<HTMLElement>('[data-pml-path]');
+    const holder = holderAt(element);
     const section = element?.closest?.<HTMLElement>('[data-pml-section]');
     const rendered = holder?.dataset.pmlPath?.split('.').map(Number) ?? (section ? [Number(section.dataset.pmlSection)] : null);
 
@@ -247,7 +261,7 @@ export function PmlCanvas({
     // On the canvas a click selects; a link inside the design must not navigate away.
     event.preventDefault();
 
-    const holder = (event.target as HTMLElement).closest<HTMLElement>('[data-pml-path]');
+    const holder = holderAt(event.target);
     const rendered = holder?.dataset.pmlPath?.split('.').map(Number) ?? [index];
 
     onSelectPath(sourcePathFor(nodes, rendered));
@@ -260,14 +274,26 @@ export function PmlCanvas({
     if (tools.current?.contains(event.target as Node) || bar.current?.contains(event.target as Node)) return;
 
     canvas.current?.querySelectorAll(`[${HOVER}]`).forEach((element) => element.removeAttribute(HOVER));
-    pathElement((event.target as HTMLElement).closest('[data-pml-path]'))?.setAttribute(HOVER, 'true');
+    pathElement(holderAt(event.target))?.setAttribute(HOVER, 'true');
 
     if (renderElementMenu || renderSelectionBar) {
       const path = pathAt(event.target);
 
+      if (leave.current) clearTimeout(leave.current);
+      // Only a different element changes the bar; moving within the same one never re-renders it.
       if (!same(path, hovered) && (path !== null || hovered !== null)) setHovered(path);
     }
   };
+
+  // Leaving the canvas hides the hover bar after a short grace, so the edge of an element never makes it flicker.
+  const leave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unhover = () => {
+    if (leave.current) clearTimeout(leave.current);
+    leave.current = setTimeout(() => setHovered(null), 200);
+  };
+  useEffect(() => () => {
+    if (leave.current) clearTimeout(leave.current);
+  }, []);
 
   const studioCatalog = useCatalog();
   const { assistantName } = useBuilderHost();
@@ -287,7 +313,7 @@ export function PmlCanvas({
     <div
       ref={canvas}
       onMouseMove={hover}
-      onMouseLeave={() => setHovered(null)}
+      onMouseLeave={unhover}
       onContextMenu={contextMenu}
       aria-busy={building ? true : undefined}
       className={`relative mx-auto ${width} bg-[var(--site-bg)] text-[var(--site-text)] ${bare ? '' : 'border border-black/10 shadow-sm'} ${frame?.className ?? ''} ${building ? 'pointer-events-none select-none' : ''}`}

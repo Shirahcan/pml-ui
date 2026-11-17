@@ -240,6 +240,28 @@ describe('moving a block within its range (moves_within)', () => {
   });
 });
 
+describe("the hover bar over words (owner 2026-11-17: over text it never showed, and it flickered)", () => {
+  it("hovering a paragraph's words shows the PARAGRAPH's bar, visible, and moving onto its empty space keeps it", async () => {
+    const words = [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most people with a job offer can apply.' } }] }] as unknown as PmlNode[];
+    const adapter = {
+      load: vi.fn(async () => ({ document: { nodes: words }, revision: 'd1', meta: { title: 'A post', slug: 'a-post', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } })),
+      saveDraft: vi.fn(async () => ({ revision: 'd2' })),
+      preview: vi.fn(async (_id: string, nodes: PmlNode[]) => ({ tree: nodes, natives: null, error: null })),
+      preflight: vi.fn(async () => ({ mayPublish: true, findings: [] })),
+    } as unknown as EditableDocumentAdapter;
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} />);
+
+    // The pointer over the words lands on the run's own marker, which draws no box.
+    const text = await screen.findByText('Most people with a job offer can apply.', {}, { timeout: 3000 });
+    fireEvent.mouseMove(text);
+    const bar = await screen.findByRole('toolbar', { name: 'Paragraph tools' }, { timeout: 3000 });
+    expect((bar.parentElement as HTMLElement).style.visibility).toBe('visible');
+
+    fireEvent.mouseMove(text.closest('p') as HTMLElement);
+    expect(screen.getByRole('toolbar', { name: 'Paragraph tools' })).toBe(bar);
+  });
+});
+
 describe('the bar on the canvas', () => {
   it('draws over the selected section and reaches the host', async () => {
     const onAskAssistant = vi.fn();
