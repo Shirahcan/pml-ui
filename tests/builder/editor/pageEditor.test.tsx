@@ -80,3 +80,52 @@ describe('PageEditor', () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 });
+
+/** Quick edits, the code view and media in the page editor (blog-on-growth-service S7b). */
+describe('PageEditor quick edits and code', () => {
+  const words = [
+    { primitive: 'heading', props: { text: 'Who can apply', level: 2 } },
+    { primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most people with a job offer can apply.' } }] },
+  ] as unknown as PmlNode[];
+
+  const rangeProto = Range.prototype as unknown as Record<string, unknown>;
+  const had = { rects: rangeProto.getClientRects, box: rangeProto.getBoundingClientRect };
+  beforeAll(() => {
+    rangeProto.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] });
+    rangeProto.getBoundingClientRect = () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+  });
+  afterAll(() => {
+    rangeProto.getClientRects = had.rects;
+    rangeProto.getBoundingClientRect = had.box;
+  });
+
+  it('a double-click edits words in place and the section settings stay closed', async () => {
+    const adapter = fakeAdapter({ load: vi.fn(async () => ({ document: { nodes: words }, revision: 'd1', meta: {} })) } as unknown as Partial<EditableDocumentAdapter>);
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} quickEdit />);
+    const paragraph = await screen.findByText('Most people with a job offer can apply.', undefined, { timeout: 3000 });
+
+    fireEvent.click(paragraph);
+    fireEvent.click(paragraph);
+    fireEvent.doubleClick(paragraph);
+
+    expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Layers and checks' })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Format these words' }), { key: 'Escape' });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 350)));
+    expect(screen.queryByRole('button', { name: /Delete section/ })).toBeNull();
+  });
+
+  it('offers the code view only when the document has code', async () => {
+    const { unmount } = render(<PageEditor adapter={fakeAdapter()} id="p1" />);
+    await screen.findByRole('button', { name: /Publish/ });
+    expect(screen.queryByRole('button', { name: 'Code' })).toBeNull();
+    unmount();
+
+    const code = { source: vi.fn(async () => '<heading text="Who can apply" level="2" />'), parse: vi.fn(), parseLive: vi.fn(async () => ({ nodes: design, error: null })) };
+    render(<PageEditor adapter={fakeAdapter({ code } as Partial<EditableDocumentAdapter>)} id="p1" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Code' }));
+    await waitFor(() => expect(code.source).toHaveBeenCalledWith('p1'));
+    expect(await screen.findByRole('button', { name: /Back to the design/ })).toBeTruthy();
+  });
+});

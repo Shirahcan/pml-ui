@@ -28,7 +28,7 @@ export function PmlCodePane({
 }: {
   pageId: string;
   /** The document's adapter: its code port, and its assistant when the host has one (absent, no assistant actions). */
-  adapter: DocumentAdapter;
+  adapter: Pick<DocumentAdapter, 'code'> & Partial<Pick<DocumentAdapter, 'assistant'>>;
   onApply: (nodes: PmlNode[]) => void;
   onCancel: () => void;
   /** The localStorage prefix for prompt history, so a host keeps the history its people already have. */

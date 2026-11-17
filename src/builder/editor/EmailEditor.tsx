@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import React, { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
@@ -18,6 +18,7 @@ import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlSettings } from './PmlSettings';
 import { EditorSurfaceProvider } from './surface';
 import { useDocumentEditor } from './useDocumentEditor';
+import { useQuickEditSelection } from './useQuickEditSelection';
 
 /** What the host may place in its own chrome (a top bar) instead of the editor's header. */
 export interface EmailEditorControls {
@@ -58,12 +59,6 @@ export interface EmailEditorProps {
   quickEdit?: boolean;
 }
 
-/**
- * How long a click waits before the side column shows the block's settings, so the double-click that starts a quick
- * edit never flashes them (the page builder's QUICK_EDIT_WINDOW_MS).
- */
-const QUICK_EDIT_WINDOW_MS = 250;
-
 const NO_SITE: PmlSite = {};
 
 /** The standard header and footer parts' roots: in the email profile, but never something an author adds to a body. */
@@ -84,7 +79,6 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
   });
   const vars = useOwnVars();
   const [tab, setTab] = useState<'design' | 'sent'>('design');
-  const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [sentVersion, setSentVersion] = useState(0);
   const [sentStale, setSentStale] = useState(false);
@@ -96,44 +90,10 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     () => Object.keys(PML_CATALOG_BY_NAME).filter((name) => !allowedElements.includes(name) || CHROME_ROOTS.includes(name)),
     [allowedElements],
   );
+
+  // One rule for when the settings show, shared with the page editor (QUICK_EDIT_WINDOW_MS lives there).
+  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit);
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
-
-  // "The right panel shouldn't be open when quick editing" (owner 2026-11-16). With quick edits on, a click selects
-  // the block at once but its settings wait out the double-click window; a quick edit puts the column back on the
-  // email's checks, and it stays there after the edit until the next click.
-  const [settingsShown, setSettingsShown] = useState(false);
-  const pendingSettings = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cancelPendingSettings = useCallback(() => {
-    if (pendingSettings.current) clearTimeout(pendingSettings.current);
-    pendingSettings.current = null;
-  }, []);
-  useEffect(() => cancelPendingSettings, [cancelPendingSettings]);
-
-  const selectPath = useCallback(
-    (path: number[] | null) => {
-      setSelectedPath(path);
-      cancelPendingSettings();
-      if (path === null) {
-        setSettingsShown(false);
-      } else if (!quickEdit) {
-        setSettingsShown(true);
-      } else if (!settingsShown) {
-        pendingSettings.current = setTimeout(() => {
-          pendingSettings.current = null;
-          setSettingsShown(true);
-        }, QUICK_EDIT_WINDOW_MS);
-      }
-    },
-    [cancelPendingSettings, quickEdit, settingsShown],
-  );
-  const onQuickEdit = useCallback(
-    (editing: boolean) => {
-      if (!editing) return;
-      cancelPendingSettings();
-      setSettingsShown(false);
-    },
-    [cancelPendingSettings],
-  );
 
   const track = useCallback((write: Promise<unknown>) => {
     fieldWrites.current.add(write);

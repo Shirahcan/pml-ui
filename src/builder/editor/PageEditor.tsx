@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
-import { Link2, Plus, Redo2, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react';
+import { Code2, Link2, Plus, Redo2, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
 import type { EditableDocumentAdapter } from '../document';
@@ -25,8 +25,10 @@ import { PageLayers } from './PageLayers';
 import { PlaceholdersLeftNotice } from './PlaceholdersLeftNotice';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
+import { PmlCodePane } from './PmlCodePane';
 import { PmlSettings } from './PmlSettings';
 import { useDocumentEditor } from './useDocumentEditor';
+import { useQuickEditSelection } from './useQuickEditSelection';
 
 /** What the host may draw in its own chrome (a top bar) instead of the editor's header. */
 export interface PageEditorControls {
@@ -43,6 +45,9 @@ export interface PageEditorControls {
   rollback?: () => void;
   /** Copy a shareable preview link; absent when the document has none. */
   copyPreviewLink?: () => void;
+  /** Which view shows: the design or its code; `toggleCode` is absent when the document has no code port. */
+  view: 'design' | 'code';
+  toggleCode?: () => void;
 }
 
 /** The words a host gives the editor, so it never calls a post a "page". */
@@ -72,6 +77,12 @@ export interface PageEditorProps {
   labels?: PageEditorLabels;
   /** After a publish lands. */
   onPublished?: () => void;
+  /**
+   * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
+   * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
+   * cover and images come from the PRODUCT's library); without one an image is an address field.
+   */
+  quickEdit?: boolean;
 }
 
 const NO_SITE: PmlSite = {};
@@ -83,7 +94,7 @@ const NO_SITE: PmlSite = {};
  * the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, quickEdit = false }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -93,8 +104,10 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     onPublished: () => onPublished?.(),
   });
   const vars = useOwnVars();
-  const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
+  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit);
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<'design' | 'code'>('design');
+  const code = adapter.code;
   const [confirmRollback, setConfirmRollback] = useState(false);
   const { nodes, change } = editor;
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
@@ -112,6 +125,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     publish: () => void editor.publish(),
     rollback: editor.canRollback ? () => setConfirmRollback(true) : undefined,
     copyPreviewLink: editor.canPreviewLink ? () => void editor.copyPreviewLink() : undefined,
+    view,
+    toggleCode: code
+      ? () => {
+          // The code view reads the SAVED document: send a waiting save first.
+          if (view === 'design') void editor.flush().then(() => setView('code'));
+          else setView('design');
+        }
+      : undefined,
   };
 
   if (editor.loading) {
@@ -136,6 +157,17 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         {notice}
         {editor.placeholdersLeft ? <PlaceholdersLeftNotice message={editor.placeholdersLeft.message} left={editor.placeholdersLeft.left} /> : null}
 
+        {view === 'code' && code ? (
+          <PmlCodePane
+            pageId={id}
+            adapter={{ code, assistant: adapter.assistant }}
+            onApply={(next) => {
+              change(next);
+              setView('design');
+            }}
+            onCancel={() => setView('design')}
+          />
+        ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
             <PmlCanvas
@@ -146,17 +178,24 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               frame={frame}
               selectedIndex={selectedPath ? selectedPath[0] : null}
               selectedPath={selectedPath}
-              onSelectPath={setSelectedPath}
+              onSelectPath={selectPath}
               viewport="desktop"
-              onSelect={(index) => setSelectedPath(index === null ? null : [index])}
+              onSelect={(index) => selectPath(index === null ? null : [index])}
               onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
               onDelete={(index) => {
                 change(removeNodeAtPath(nodes, [index]));
-                setSelectedPath(null);
+                selectPath(null);
               }}
               onEditText={(path, field, value) => {
                 const node = getNodeAtPath(nodes, path);
                 if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
+              }}
+              quickEditAll={quickEdit}
+              onQuickEdit={quickEdit ? onQuickEdit : undefined}
+              // Rich words edited in place: the paragraph keeps its own shape, only its words change.
+              onEditWords={(path, children) => {
+                const node = getNodeAtPath(nodes, path);
+                if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
               }}
             />
             {editor.previewError ? (
@@ -170,14 +209,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             </Button>
           </div>
 
-          <aside aria-label={selected ? 'Selected section' : 'Layers and checks'} className="space-y-3">
-            {selected && selectedPath ? (
+          <aside aria-label={selected && settingsShown ? 'Selected section' : 'Layers and checks'} className="space-y-3">
+            {selected && selectedPath && settingsShown ? (
               <PmlSettings
                 node={selected}
                 onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
                 onDelete={() => {
                   change(removeNodeAtPath(nodes, selectedPath));
-                  setSelectedPath(null);
+                  selectPath(null);
                 }}
               />
             ) : (
@@ -186,16 +225,17 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 <PageLayers
                   nodes={nodes}
                   selectedPath={selectedPath}
-                  onSelect={setSelectedPath}
+                  onSelect={selectPath}
                   onMoved={(moved) => {
                     change(moved.nodes);
-                    setSelectedPath(moved.path);
+                    selectPath(moved.path);
                   }}
                 />
               </>
             )}
           </aside>
         </div>
+        )}
 
         <PmlAddSectionDialog
           open={adding}
@@ -219,7 +259,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               <AlertDialogAction
                 onClick={() => {
                   setConfirmRollback(false);
-                  setSelectedPath(null);
+                  selectPath(null);
                   void editor.undo();
                 }}
               >
@@ -248,6 +288,12 @@ function PageEditorHeader({ controls }: { controls: PageEditorControls }): React
       <Button size="icon" variant="ghost" aria-label="Redo" disabled={!controls.canRedo} onClick={controls.redo}>
         <Redo2 />
       </Button>
+      {controls.toggleCode ? (
+        <Button size="sm" variant="outline" aria-pressed={controls.view === 'code'} onClick={controls.toggleCode}>
+          <Code2 />
+          {controls.view === 'code' ? 'Back to the design' : 'Code'}
+        </Button>
+      ) : null}
       <Button size="sm" variant="outline" onClick={controls.check}>
         <ShieldCheck />
         Run the checks
