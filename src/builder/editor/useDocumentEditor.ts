@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ensureUids, type PmlNativesPayload, type PmlNode } from '../../language';
 import type { DocumentLibraryComponent, DocumentPartial } from '../components';
-import { isConflict, isPlaceholders, isRefused, type DocumentAdapter, type DocumentPlaceholders, type DocumentPreflight } from '../document';
+import { isConflict, isPlaceholders, isRefused, type EditableDocumentAdapter, type DocumentPlaceholders, type DocumentPreflight } from '../document';
 import { useBuilderHost } from './host';
 import { useEditHistory } from './useEditHistory';
 
@@ -44,7 +44,7 @@ export interface DocumentEditorOptions<H> {
  * the only moment a check can refuse. No silent overwrite: a save from a revision someone else replaced is a conflict
  * the author decides. Pass a STABLE adapter (memoised): a new one each render reloads the document each render.
  */
-export function useDocumentEditor<H = unknown>(adapter: DocumentAdapter, id: string, options: DocumentEditorOptions<H> = {}) {
+export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter, id: string, options: DocumentEditorOptions<H> = {}) {
   const ctx = useBuilderHost();
   const noun = options.noun ?? 'page';
   const say = { success: options.onSuccess ?? ctx.onSuccess, warning: options.onWarning ?? options.onSuccess ?? ctx.onSuccess, error: options.onError ?? ctx.onError };
@@ -282,6 +282,8 @@ export function useDocumentEditor<H = unknown>(adapter: DocumentAdapter, id: str
   };
 
   const publish = async () => {
+    // A document with no publish step (an email) has nothing to do here; its editor never offers the action.
+    if (!adapter.publish) return;
     // Never publish past a refused save, and send the revision on screen so a newer draft is refused, not published.
     if (!(await flush())) return;
     setPublishing(true);
@@ -313,6 +315,8 @@ export function useDocumentEditor<H = unknown>(adapter: DocumentAdapter, id: str
   };
 
   const undo = async () => {
+    if (!adapter.rollback) return;
+
     try {
       await adapter.rollback(id);
       await refresh();
@@ -324,6 +328,7 @@ export function useDocumentEditor<H = unknown>(adapter: DocumentAdapter, id: str
 
   /** A signed, 24-hour, never-indexed link to the current draft, copied for sharing. */
   const copyPreviewLink = async () => {
+    if (!adapter.previewUrl) return;
     await flush();
 
     try {
@@ -338,6 +343,8 @@ export function useDocumentEditor<H = unknown>(adapter: DocumentAdapter, id: str
   return {
     host,
     setHost,
+    /** Whether this document has a publish step (and so a rollback and a preview link). An email does not. */
+    canPublish: Boolean(adapter.publish),
     nodes,
     partials,
     studioComponents,

@@ -106,3 +106,16 @@ describe('forceDarkMode', () => {
     expect(forceDarkMode('@media (prefers-color-scheme: dark) { .a { color: #fff } }')).toBe('@media all { .a { color: #fff } }');
   });
 });
+
+describe('an email adapter has no publish step', () => {
+  it('opens and saves with only what an email needs, and draws the host notice', async () => {
+    const full = fakeAdapter();
+    const { load, saveDraft, preview, preflight, fields } = full;
+    const adapter = { load, saveDraft, preview, preflight, fields };
+
+    render(<EmailEditor adapter={adapter} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} notice={<p>No design yet.</p>} />);
+
+    expect(await screen.findByText('No design yet.')).toBeTruthy();
+    expect(await screen.findByLabelText('Subject')).toBeTruthy();
+  });
+});

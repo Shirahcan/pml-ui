@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Plus, Redo2, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
-import type { DocumentAdapter } from '../document';
+import type { EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import { useOwnVars } from '../ui/theme';
@@ -32,7 +32,7 @@ export interface EmailEditorControls {
 }
 
 export interface EmailEditorProps {
-  adapter: DocumentAdapter;
+  adapter: EditableDocumentAdapter;
   id: string;
   /** The elements an email may hold (the server's email profile: one authority). Everything else is off the menu. */
   allowedElements: readonly string[];
@@ -42,6 +42,8 @@ export interface EmailEditorProps {
   site?: PmlSite;
   /** Given, the host draws the controls (tabs, undo, check, save state) in its own chrome; otherwise a header does. */
   renderControls?: (controls: EmailEditorControls) => ReactNode;
+  /** A host's note above the email (e.g. "this email has no design yet, so it still sends as written"). */
+  notice?: ReactNode;
 }
 
 const NO_SITE: PmlSite = {};
@@ -52,7 +54,7 @@ const NO_SITE: PmlSite = {};
  * selected, the email's checks, and the email exactly as sent (light, dark, plain text). Saving IS the change, so
  * there is no publish here; the host decides what a saved design does.
  */
-export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls }: EmailEditorProps): React.JSX.Element {
+export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice }: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, { noun: 'email' });
   const vars = useOwnVars();
   const [tab, setTab] = useState<'design' | 'sent'>('design');
@@ -98,6 +100,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {renderControls ? renderControls(controls) : <EmailEditorHeader controls={controls} />}
+        {notice}
 
         {tab === 'sent' ? (
           <EmailAsSent render={render} version={sentVersion} />

@@ -180,6 +180,14 @@ export interface DocumentFieldsPort {
   write(id: string, name: string, value: unknown, revision: string, session: string): Promise<SaveDraftResult>;
 }
 
+/**
+ * What the visual editor needs from a host (pml-email C2b): a document it can open, save, compile and check. Publishing,
+ * rolling back and a shareable preview link are optional, because some documents have no publish step: an email's
+ * saved design IS the email, so its host leaves them out rather than faking them. Every `DocumentAdapter` is one.
+ */
+export type EditableDocumentAdapter = Pick<DocumentAdapter, 'load' | 'saveDraft' | 'preflight' | 'preview' | 'components' | 'fields'> &
+  Partial<Pick<DocumentAdapter, 'publish' | 'rollback' | 'previewUrl'>>;
+
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
   /** `session` names this editor, so its own earlier saves never count as someone else's. */
