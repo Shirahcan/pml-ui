@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
 import { elementLabel, isCommentNode, isStudioComment, pageOutline, PML_CATALOG_BY_NAME, renderedPathFor, sourcePathFor, withDerivedAnchors } from '../../language';
@@ -60,6 +60,7 @@ export function PmlCanvas({
   bare = false,
   afterSection,
   canDelete,
+  renderSelectionBar,
   selectedPath,
   onSelectPath,
   onEditText,
@@ -89,6 +90,11 @@ export function PmlCanvas({
   afterSection?: (index: number) => React.ReactNode;
   /** False for a section the document cannot do without: its frame offers no Delete. Absent, every section can go. */
   canDelete?: (index: number) => boolean;
+  /**
+   * The selected element's bar, drawn over its top-left corner (above it when there is room): its name, the
+   * assistant's asks, a repeat's moves. Absent, nothing is drawn.
+   */
+  renderSelectionBar?: (path: number[]) => React.ReactNode;
   /** With these, any element inside a section can be selected, not only the section (S4-02). */
   selectedPath?: number[] | null;
   onSelectPath?: (path: number[]) => void;
@@ -127,6 +133,7 @@ export function PmlCanvas({
 }): React.JSX.Element {
   const canvas = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   const quick = useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEditAll, onQuickEdit, documentText });
   // The element under the pointer, and the element whose menu is open (it stays while the menu is).
   const [hovered, setHovered] = useState<number[] | null>(null);
@@ -134,6 +141,34 @@ export function PmlCanvas({
   const deep = onSelectPath !== undefined;
   const same = (a: number[] | null | undefined, b: number[] | null | undefined) => (a ?? []).join('.') === (b ?? []).join('.') && a != null && b != null;
   const toolsFor = menuFor ?? (hovered && !same(hovered, selectedPath) ? hovered : null);
+
+  // The selection bar sits on the selected element's top-left corner: above it when there is room, inside it otherwise.
+  // Measured after every render (a compile, a selection, a panel opening all move it); a position is not state.
+  useLayoutEffect(() => {
+    const root = canvas.current;
+    const element = bar.current;
+
+    if (!root || !element || !selectedPath) return;
+
+    const target =
+      selectedPath.length > 1
+        ? pathElement(root.querySelector(`[data-pml-path="${renderedPathFor(nodes, selectedPath).join('.')}"]`))
+        : root.querySelector(`[data-pml-section="${selectedPath[0]}"]`);
+
+    if (!target) {
+      element.style.visibility = 'hidden';
+
+      return;
+    }
+
+    const box = target.getBoundingClientRect();
+    const frame = root.getBoundingClientRect();
+    const top = box.top - frame.top;
+
+    element.style.top = `${top >= element.offsetHeight + 2 ? top - element.offsetHeight : top}px`;
+    element.style.left = `${Math.max(box.left - frame.left, 0)}px`;
+    element.style.visibility = 'visible';
+  });
 
   /** The source path of the element at an event's target, or null outside every element. */
   const pathAt = (target: EventTarget | null): number[] | null => {
@@ -253,6 +288,11 @@ export function PmlCanvas({
       {renderElementMenu && toolsFor ? (
         <div ref={tools} data-creator-keep-panel="" className="absolute z-30 -translate-x-full">
           {renderElementMenu(toolsFor, menuFor !== null, (open) => setMenuFor(open ? toolsFor : null))}
+        </div>
+      ) : null}
+      {renderSelectionBar && deep && selectedPath ? (
+        <div ref={bar} className="absolute z-30" style={{ top: 0, left: 0, visibility: 'hidden' }}>
+          {renderSelectionBar(selectedPath)}
         </div>
       ) : null}
       {quick.overlay}

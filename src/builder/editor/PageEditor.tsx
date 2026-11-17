@@ -33,7 +33,9 @@ import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
 import { CanvasFlavorContext } from './canvasFlavor';
+import { canDelete as layoutAllowsDelete } from './layoutParts';
 import { PieceFieldsPanel } from './PieceFields';
+import { SelectionBar, type AssistantAsk } from './SelectionBar';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
 import { UnpublishDialog } from './UnpublishDialog';
@@ -153,6 +155,12 @@ export interface PageEditorProps {
    */
   onFieldSaved?: (name: string) => void;
   /**
+   * The selected element's "AI write" / "AI suggest" (the reference studio's selection bar). The editor makes no call:
+   * the host sends a scoped ask to its assistant (a post's designer: its docked console, as an ordinary turn about that
+   * element). Absent, the two asks are not offered.
+   */
+  onAskAssistant?: (ask: AssistantAsk) => void;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -177,7 +185,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -258,20 +266,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     : undefined;
 
   // A template part the document cannot do without (required: a post's header, its cover) offers no Delete, nothing
-  // inside a locked part is deleted, and a repeating part keeps at least its minimum (owner 2026-11-17: deleting the
-  // cover or the header just breaks the post).
-  const deletable = (path: number[]): boolean => {
-    const key = nodes[path[0]]?.part;
-    const part = key ? layout?.parts.find((candidate) => candidate.key === key) : undefined;
-
-    if (!part) return true;
-    if (part.locked) return false;
-    if (path.length > 1) return true;
-
-    const floor = Math.max(part.min ?? 0, part.required ? 1 : 0);
-
-    return nodes.filter((node) => node.part === key).length > floor;
-  };
+  // inside a locked part is deleted, and a repeating part keeps at least its minimum, nested repeats too (owner
+  // 2026-11-17: deleting the cover or the header just breaks the post). One rule, shared with the selection bar.
+  const deletable = (path: number[]): boolean => layoutAllowsDelete(nodes, layout, path);
 
   // The panel shows the selected section's settings once they are due (useQuickEditSelection), otherwise what the host
   // asked for, otherwise a refused publish's findings until they are dismissed. Derived, so nothing syncs in an effect.
@@ -384,6 +381,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             onSelect={(index) => selectPath(index === null ? null : [index])}
             onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
             canDelete={(index) => deletable([index])}
+            renderSelectionBar={
+              locked
+                ? undefined
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} />
+            }
             onDelete={(index) => {
               if (!deletable([index])) return;
               change(removeNodeAtPath(nodes, [index]));
