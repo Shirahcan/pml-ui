@@ -10,6 +10,8 @@ import { ParagraphEditor } from './ParagraphEditor';
 export interface InlineWordsEdit {
   path: number[];
   words: PmlNode[];
+  /** What follows the words and is not words (a list item's nested list): kept as is, put back after them. */
+  tail?: PmlNode[];
   rect: { top: number; left: number; width: number; height: number };
   font: React.CSSProperties;
 }

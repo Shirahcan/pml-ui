@@ -65,7 +65,7 @@ export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'empha
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
 /** The elements that may hold children. */
-export const CONTAINER_ELEMENTS = ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'box', 'grid', 'form', 'list', 'table', 'row', 'cell', 'header', 'nav', 'footer', 'callout', 'sources', 'faq', 'faq_item', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const CONTAINER_ELEMENTS = ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'box', 'grid', 'form', 'list', 'list_item', 'table', 'row', 'cell', 'header', 'nav', 'footer', 'callout', 'sources', 'faq', 'faq_item', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 /** Prop names that are visible words only as a component's setting (no element owns them). */
 export const COMPONENT_PROSE = ['subhead', 'headline', 'body', 'description', 'note', 'address'] as const;
@@ -98,7 +98,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   strong: {
@@ -106,7 +106,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   emphasis: {
@@ -114,7 +114,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   small: {
@@ -122,7 +122,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   mark: {
@@ -130,7 +130,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   link: {
@@ -138,7 +138,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {
       href: { type: 'url' },
     },
@@ -148,7 +148,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {
       cite: { type: 'url' },
     },
@@ -158,7 +158,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   sub: {
@@ -166,7 +166,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   sup: {
@@ -174,7 +174,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   abbr: {
@@ -182,7 +182,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {
       title: { type: 'prose' },
     },
@@ -192,7 +192,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     category: 'inline',
     holds: 'inline',
     children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br'],
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {
       datetime: { type: 'string' },
     },
@@ -200,7 +200,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
   code: {
     container: false,
     category: 'inline',
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {
       text: { type: 'prose' },
     },
@@ -208,7 +208,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
   br: {
     container: false,
     category: 'inline',
-    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'summary', 'term', 'caption'],
+    parent: ['p', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'list_item', 'summary', 'term', 'caption'],
     props: {},
   },
   heading: {
@@ -404,7 +404,9 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     },
   },
   list_item: {
-    container: false,
+    container: true,
+    holds: 'inline',
+    children: ['text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'list'],
     props: {
       icon: {
         type: 'enum',

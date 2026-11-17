@@ -83,6 +83,34 @@ describe('S1-02: anchors', () => {
     expect(slugify('!!!')).toBe('section');
   });
 
+  it('draws a list item that holds words: its bold label, its marks and links, and a nested list under it', () => {
+    const c = renderNodes([
+      {
+        primitive: 'list',
+        props: { type: 'bullet' },
+        children: [
+          { primitive: 'list_item', props: { text: 'Plain, as before' } },
+          {
+            primitive: 'list_item',
+            props: { title: 'Fees' },
+            children: [
+              { primitive: 'text', props: { value: '– pay at ' } },
+              { primitive: 'link', props: { href: 'https://ircc.example/fees' }, children: [{ primitive: 'text', props: { value: 'IRCC' } }] },
+              { primitive: 'list', props: { type: 'numbered' }, children: [{ primitive: 'list_item', props: { text: 'Keep the receipt' } }] },
+            ],
+          },
+        ],
+      },
+    ] as unknown as PmlNode[]);
+
+    const items = c.querySelectorAll(':scope ul > li');
+    expect(items[0].innerHTML).toBe('Plain, as before');
+    expect(items[1].querySelector('strong')?.textContent).toBe('Fees');
+    expect(items[1].querySelector('a')?.getAttribute('href')).toBe('https://ircc.example/fees');
+    expect(items[1].textContent).toContain('Fees – pay at IRCC');
+    expect(items[1].querySelector('ol li')?.textContent).toBe('Keep the receipt');
+  });
+
   it('renders an untitled list as a plain group, not an unlabelled section', () => {
     const c = renderNodes([{ primitive: 'list', props: { type: 'bullet' }, children: [{ primitive: 'list_item', props: { text: 'One' } }] }]);
 

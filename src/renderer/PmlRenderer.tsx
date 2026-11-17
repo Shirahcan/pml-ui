@@ -1391,7 +1391,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       return <PmlToc title={str(p.title)} depth={String(p.depth ?? '') === '3' ? 3 : 2} className={s.className} style={s.style} />;
 
     case 'list':
-      return <PmlList node={node} className={s.className} style={s.style} />;
+      return <PmlList node={node} site={site} className={s.className} style={s.style} />;
 
     case 'list_item':
       // Rendered by its parent <list>; a stray one on its own renders nothing.
@@ -1709,12 +1709,61 @@ function PmlToc({
   );
 }
 
+/** A list item's index among ALL its list's children: its path, which the canvas selects and edits by. */
+function itemIndex(list: PmlNode, item: PmlNode): number {
+  return (list.children ?? []).indexOf(item);
+}
+
+/**
+ * A list item that holds words (pml-kit 0.25.0): its own runs of words with marks and links, and at most one nested
+ * list after them (designer sole surface P3: a written post's linked or nested list items convert without loss). An
+ * item WITHOUT children is drawn by its list exactly as before. Its words carry the item's path on their own span, so a
+ * double-click edits just the words and the nested list keeps its own path, drawn under them.
+ */
+function ListItemBody({ item, index, site }: { item: PmlNode; index: number; site: PublicSite }): React.JSX.Element {
+  const ctx = useListCtx();
+  const all = item.children ?? [];
+  const words = all.filter((child) => child.primitive !== 'list');
+  const nestedAt = all.findIndex((child) => child.primitive === 'list');
+  const ip = item.props ?? {};
+  const title = str(ip.title);
+  // Words, when the item has any, ARE its words (its `text` is ignored); otherwise its text, as a plain item draws it.
+  const said: React.ReactNode =
+    words.length > 0 ? <InlineContext.Provider value={true}>{children({ ...item, children: words }, site, ctx)}</InlineContext.Provider> : str(ip.text) || null;
+
+  return (
+    <NodePath index={index} self>
+      <ListItemWords title={words.length > 0 ? title : str(ip.text) ? '' : title}>{said}</ListItemWords>
+      {nestedAt >= 0 ? (
+        <NodePath index={nestedAt}>
+          <PmlNodeView node={all[nestedAt]} site={site} />
+        </NodePath>
+      ) : null}
+    </NodePath>
+  );
+}
+
+/** An item's words (its bold opening label first, as the converter keeps it), marked with the item's own path. */
+function ListItemWords({ title, children: said }: { title: string; children: React.ReactNode }): React.JSX.Element {
+  const selfPath = React.useContext(SelfPathContext);
+
+  return (
+    <span {...selfPathProps(selfPath)}>
+      {title ? <strong>{title}</strong> : null}
+      {title && said ? ' ' : null}
+      {said}
+    </span>
+  );
+}
+
 function PmlList({
   node,
+  site,
   className,
   style,
 }: {
   node: PmlNode;
+  site: PublicSite;
   className: string;
   style: React.CSSProperties;
 }): React.JSX.Element {
@@ -1740,6 +1789,7 @@ function PmlList({
           {items.map((item, i) => {
             const ip = item.props ?? {};
             const Icon = ICON_MAP[str(ip.icon)];
+            const rich = (item.children ?? []).length > 0;
 
             return (
               <div
@@ -1748,7 +1798,13 @@ function PmlList({
               >
                 {Icon ? <Icon className="mb-3 h-6 w-6 text-[var(--site-accent)]" aria-hidden /> : null}
                 {str(ip.title) ? <h3 className="text-base font-semibold">{str(ip.title)}</h3> : null}
-                {str(ip.text) ? <p className="mt-1 text-sm opacity-80">{str(ip.text)}</p> : null}
+                {rich ? (
+                  <div className="mt-1 text-sm opacity-80">
+                    <ListItemBody item={{ ...item, props: { ...ip, title: '' } }} index={itemIndex(node, item)} site={site} />
+                  </div>
+                ) : str(ip.text) ? (
+                  <p className="mt-1 text-sm opacity-80">{str(ip.text)}</p>
+                ) : null}
               </div>
             );
           })}
@@ -1767,17 +1823,19 @@ function PmlList({
         {items.map((item, i) => {
           const ip = item.props ?? {};
           const text = str(ip.text) || str(ip.title);
+          // An item holding words or a nested list (pml-kit 0.25.0); a plain item draws exactly as before.
+          const body = (item.children ?? []).length > 0 ? <ListItemBody item={item} index={itemIndex(node, item)} site={site} /> : null;
 
           if (type === 'check') {
             return (
               <li key={i} className="flex list-none items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--site-accent)]" aria-hidden />
-                <span>{text}</span>
+                {body ? <div>{body}</div> : <span>{text}</span>}
               </li>
             );
           }
 
-          return <li key={i}>{text}</li>;
+          return <li key={i}>{body ?? text}</li>;
         })}
       </Tag>
     </Wrapper>

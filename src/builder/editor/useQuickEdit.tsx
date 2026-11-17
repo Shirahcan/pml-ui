@@ -115,14 +115,17 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
     const paragraph = quickEditAll && onEditWords ? wordsHolder(nodes, path) : null;
     const paragraphNode = paragraph ? getNodeAtPath(nodes, paragraph) : null;
 
-    // Words held as children only: a heading or text whose words are a prop keeps the plain box below.
-    const held = paragraphNode?.children ?? [];
+    // Words held as children only: a heading or text whose words are a prop keeps the plain box below. A list item's
+    // nested list is not words: it is left out of the editor and put back after them on commit (pml-kit 0.25.0).
+    const all = paragraphNode?.children ?? [];
+    const held = all.filter((child) => child.primitive !== 'list');
+    const tail = all.filter((child) => child.primitive === 'list');
 
     if (paragraph && held.length > 0 && canEditVisually(held)) {
       const element = wordsElement(canvas.current, nodes, paragraph);
 
       if (element) {
-        setWords({ path: paragraph, words: held, rect: rectOf(element), font: fontOf(element) });
+        setWords({ path: paragraph, words: held, tail, rect: rectOf(element), font: fontOf(element) });
         cover(element);
         onQuickEdit?.(true);
 
@@ -172,7 +175,7 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
       edit={words}
       onCancel={end}
       onCommit={(children) => {
-        onEditWords?.(words.path, children);
+        onEditWords?.(words.path, [...children, ...(words.tail ?? [])]);
         end();
       }}
     />
