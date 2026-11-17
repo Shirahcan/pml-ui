@@ -16,6 +16,7 @@ import { FindingsPanel } from './FindingsPanel';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlSettings } from './PmlSettings';
+import { EditorSurfaceProvider } from './surface';
 import { useDocumentEditor } from './useDocumentEditor';
 
 /** What the host may place in its own chrome (a top bar) instead of the editor's header. */
@@ -134,6 +135,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
   }
 
   return (
+    <EditorSurfaceProvider surface="email">
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {renderControls ? renderControls(controls) : <EmailEditorHeader controls={controls} />}
@@ -181,6 +183,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
               {selected && selectedPath ? (
                 <PmlSettings
                   node={selected}
+                  deleteLabel="Delete block"
                   onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
                   onDelete={() => {
                     change(removeNodeAtPath(nodes, selectedPath));
@@ -210,6 +213,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
         <DraftConflictDialog open={editor.conflict !== null} noun="email" onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
       </div>
     </CatalogProvider>
+    </EditorSurfaceProvider>
   );
 }
 

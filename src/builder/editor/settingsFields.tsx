@@ -13,6 +13,7 @@ import { type PmlFieldDef } from '../../language';
 import { isExpr, pathExpr } from '../../language';
 import { type PmlNode } from '../../language';
 import { tokenLabel } from '../../language';
+import { useEditorSurface } from './surface';
 /**
  * The field kinds a Studio component can hand to each page, and the setting kind each becomes (component
  * props p06a: every field but an anchor, which is the element's identity, not its content).
@@ -114,6 +115,7 @@ export function FieldControl({
   // Every control has an id its label points at, and a name (Chrome flags a field with neither, and a
   // screen reader reads an unlabelled one as just "edit text").
   const id = `pml-field-${useId()}`;
+  const surface = useEditorSurface();
   const label = (
     <label htmlFor={id} className="mb-1 block text-sm font-medium">
       {field.label}
@@ -200,6 +202,9 @@ export function FieldControl({
       </div>
     );
   }
+
+  // An email has no #links or table of contents: its anchors would be names nothing can reach.
+  if (field.kind === 'anchor' && surface === 'email') return <></>;
 
   if (field.kind === 'anchor') {
     // A link name (S1-02): typed as words, kept as the slug the server accepts ("Who can apply" ->

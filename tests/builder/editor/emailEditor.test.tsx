@@ -160,3 +160,15 @@ describe('an email adapter has no publish step', () => {
     expect(screen.queryByRole('button', { name: /Save for everyone/ })).toBeNull();
   });
 });
+
+describe('the email surface', () => {
+  it('leaves page-only controls out of an email: no #link name, a block is a block', async () => {
+    render(<EmailEditor adapter={fakeAdapter()} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} />);
+
+    const heading = await screen.findByRole('heading', { name: 'Your appointment moved' }, { timeout: 3000 });
+    fireEvent.click(heading.closest('[data-pml-section]') as HTMLElement);
+
+    expect(await screen.findByRole('button', { name: /Delete block/ })).toBeTruthy();
+    expect(screen.queryByText(/Link name/)).toBeNull();
+  });
+});

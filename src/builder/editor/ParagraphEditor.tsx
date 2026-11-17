@@ -10,6 +10,7 @@ import { pathExpr, type PmlExpr } from '../../language';
 import { docToParagraph, EXPR_NODE, keepUids, paragraphToDoc, wordsKey } from '../../language';
 import type { PmlNode } from '../../language';
 import { isSafeUrl } from '../../language';
+import { useEditorSurface } from './surface';
 
 /**
  * A paragraph's words, edited visually (PML v3 L6): bold, italic, inline code, links, line breaks and page
@@ -76,6 +77,8 @@ export function ParagraphEditor({
   /** Put the cursor at the end of the words as soon as the editor is ready. */
   autoFocus?: boolean;
 }): React.JSX.Element {
+  // An email fills {{variables}} at send time; page data means nothing there (pml-email C2b).
+  const surface = useEditorSurface();
   // The paragraph this editor last wrote, ids aside: one that comes back equal to it is its own echo.
   const written = useRef(wordsKey(words));
   // The words as the page holds them (with their element ids), for keeping those ids across an edit.
@@ -199,8 +202,12 @@ export function ParagraphEditor({
       {button(editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), 'Italic', Italic)}
       {button(editor.isActive('code'), () => editor.chain().focus().toggleCode().run(), 'Code', Code)}
       {button(editor.isActive('link'), setLink, 'Link', Link2)}
-      <span className="mx-1 h-5 w-px bg-current/15" aria-hidden />
-      {button(false, insertPageData, 'Insert page data', Braces)}
+      {surface === 'email' ? null : (
+        <>
+          <span className="mx-1 h-5 w-px bg-current/15" aria-hidden />
+          {button(false, insertPageData, 'Insert page data', Braces)}
+        </>
+      )}
     </>
   );
 
