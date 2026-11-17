@@ -111,4 +111,23 @@ describe('PmlRenderer post parts', () => {
     const builder = render(<PmlRenderer nodes={[node]} site={site} builderHints />);
     expect(builder.getByText(/No call to action is set for the consideration stage yet/)).toBeTruthy();
   });
+
+  it('draws a baked client story under its four headings, and only its story fields', () => {
+    const story = { case_type: 'Canadian Experience Class', challenge: 'A score just under recent cutoffs.', strategy: 'Reference letters rebuilt to match the NOC duties.', outcome: 'Invited in the next draw.', how_found: 'Through Portify Marketplace.' };
+    const { getByText, getByRole } = render(<PmlRenderer nodes={[{ primitive: 'post_story', props: { heading: 'Client story', resolved: story } } as PmlNode]} site={site} />);
+
+    expect(getByRole('heading', { name: 'Client story' })).toBeTruthy();
+    expect(getByText('The challenge')).toBeTruthy();
+    expect(getByText('Invited in the next draw.')).toBeTruthy();
+    expect(getByText('How they found their consultant: Through Portify Marketplace.')).toBeTruthy();
+  });
+
+  it('a story that was not baked draws nothing for readers and a note in the builder', () => {
+    const node = { primitive: 'post_story', props: { heading: 'Client story' } } as PmlNode;
+    const { container } = render(<PmlRenderer nodes={[node]} site={site} />);
+    expect(container.querySelector('section')).toBeNull();
+
+    const builder = render(<PmlRenderer nodes={[node]} site={site} builderHints />);
+    expect(builder.getByText(/Pick a client story with written consent/)).toBeTruthy();
+  });
 });

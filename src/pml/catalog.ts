@@ -656,6 +656,16 @@ export const PML_CATALOG: PmlComponentDef[] = [
     defaults: { primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline' } },
   },
   {
+    name: 'post_story',
+    label: 'Client story',
+    description: 'A client story from Client stories: shown only when it is verified and the client gave written consent.',
+    icon: 'Quote',
+    singleton: true,
+    hasSlot: false,
+    fields: [heading()],
+    defaults: { primitive: 'post_story', props: { heading: 'Client story' } },
+  },
+  {
     name: 'post_disclaimer',
     label: 'Disclaimer',
     description: 'The line that says this is general information, not advice.',

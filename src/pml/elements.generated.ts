@@ -60,7 +60,7 @@ export const PML_ENUMS = {
 } as const;
 
 /** Every element, in definition order. */
-export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'post_story', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
@@ -359,6 +359,12 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     props: {
       stage: { type: 'enum', values: ['awareness', 'consideration', 'decision'] },
       variant: { type: 'enum', values: ['inline', 'rail', 'ask', 'banner'] },
+    },
+  },
+  post_story: {
+    container: false,
+    props: {
+      heading: { type: 'prose' },
     },
   },
   porter_intake: {

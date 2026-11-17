@@ -35,6 +35,7 @@ import { PmlPackages } from './modules/PmlPackages';
 import { PmlTestimonials } from './modules/PmlTestimonials';
 import { PmlPostCover, PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
 import { PmlPostCta } from './modules/PmlPostCta';
+import { PmlPostStory } from './modules/PmlPostStory';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
 import { MotionStyles, PmlMotion } from './PmlMotion';
 import { SectionFrame } from './SectionFrame';
@@ -1432,6 +1433,12 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       if (host.elements?.post_cta) return hostElement(host, 'post_cta', { props: p, site, className: s.className, style: s.style });
 
       return <PmlPostCta props={p} className={s.className} style={s.style} inCanvas={inCanvas} subscribeForm={<PmlGrowthFormSlot />} />;
+
+    case 'post_story':
+      // A consented client story from the product's story bank (post layouts C2e).
+      if (host.elements?.post_story) return hostElement(host, 'post_story', { props: p, site, className: s.className, style: s.style });
+
+      return <PmlPostStory props={p} className={s.className} style={s.style} inCanvas={inCanvas} />;
 
     case 'credentials':
       // The licensee badge: the host draws it from the verified register record baked at publish (its words are
