@@ -56,6 +56,8 @@ describe('studio comments in the page editor', () => {
 
     fireEvent.mouseEnter(await screen.findByRole('button', { name: /Comment by Template: Purpose/ }));
     expect(await screen.findByText('Purpose: a question readers ask, as they would ask it.')).toBeTruthy();
+    // A template's note carries no time, and the card says nothing about one.
+    expect(screen.queryByText('No time recorded')).toBeNull();
   });
 
   it('offers the host Show / Hide comments for its menu', async () => {

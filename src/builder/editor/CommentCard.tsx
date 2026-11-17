@@ -145,10 +145,12 @@ export function CommentCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-900">{comment.note.author ?? 'Someone'}</p>
-          <p className="text-xs text-slate-500" title={stamp?.full}>
-            {stamp?.short ?? 'No time recorded'}
-            {resolved ? ', resolved' : ''}
-          </p>
+          {/* A note a template or a prepare wrote carries no time: then nothing is said about one (2026-11-17). */}
+          {stamp || resolved ? (
+            <p className="text-xs text-slate-500" title={stamp?.full}>
+              {stamp ? `${stamp.short}${resolved ? ', resolved' : ''}` : 'Resolved'}
+            </p>
+          ) : null}
         </div>
         {editing ? null : (
           <DropdownMenu>
