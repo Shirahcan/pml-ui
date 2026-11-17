@@ -202,6 +202,10 @@ export interface DocumentLayoutPart {
   max?: number | null;
   rules?: { words?: { min?: number; max?: number }; chars?: { max?: number } } | null;
   starter?: PmlNode[] | null;
+  /** The document cannot do without it (a post's header, its cover): the designer offers no Delete for it. */
+  required?: boolean;
+  /** Its shape is fixed by the template: neither it nor anything inside it is deleted on the canvas. */
+  locked?: boolean;
 }
 
 export interface DocumentLayout {

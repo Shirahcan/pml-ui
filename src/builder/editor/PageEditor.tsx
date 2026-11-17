@@ -32,6 +32,7 @@ import { PlaceholdersLeftNotice } from './PlaceholdersLeftNotice';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
+import { PieceFieldsPanel } from './PieceFields';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
 import { UnpublishDialog } from './UnpublishDialog';
@@ -209,6 +210,22 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     selected && selectedPath && selectedPath.length > 1 ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents) : 'Section settings';
   const addLabel = labels.add ?? 'Add a section';
 
+  // A template part the document cannot do without (required: a post's header, its cover) offers no Delete, nothing
+  // inside a locked part is deleted, and a repeating part keeps at least its minimum (owner 2026-11-17: deleting the
+  // cover or the header just breaks the post).
+  const deletable = (path: number[]): boolean => {
+    const key = nodes[path[0]]?.part;
+    const part = key ? layout?.parts.find((candidate) => candidate.key === key) : undefined;
+
+    if (!part) return true;
+    if (part.locked) return false;
+    if (path.length > 1) return true;
+
+    const floor = Math.max(part.min ?? 0, part.required ? 1 : 0);
+
+    return nodes.filter((node) => node.part === key).length > floor;
+  };
+
   // The panel shows the selected section's settings once they are due (useQuickEditSelection), otherwise what the host
   // asked for, otherwise a refused publish's findings until they are dismissed. Derived, so nothing syncs in an effect.
   const [asked, setAsked] = useState<PageEditorPanel | null>(null);
@@ -318,7 +335,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             viewport="desktop"
             onSelect={(index) => selectPath(index === null ? null : [index])}
             onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
+            canDelete={(index) => deletable([index])}
             onDelete={(index) => {
+              if (!deletable([index])) return;
               change(removeNodeAtPath(nodes, [index]));
               selectPath(null);
             }}
@@ -353,23 +372,29 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
-            <PmlSettings
-              node={selected}
-              pageNodes={nodes}
-              onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
-              onDelete={() => {
-                change(removeNodeAtPath(nodes, selectedPath));
-                selectPath(null);
-              }}
-            />
+            <div className="space-y-4">
+              {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
+              {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={editor.refreshPreview} /> : null}
+              <PmlSettings
+                node={selected}
+                pageNodes={nodes}
+                onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
+                canDelete={deletable(selectedPath)}
+                onDelete={() => {
+                  if (!deletable(selectedPath)) return;
+                  change(removeNodeAtPath(nodes, selectedPath));
+                  selectPath(null);
+                }}
+              />
+            </div>
           ) : openHost ? (
             openHost.render(controls)
           ) : openGroup ? (
-            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} aside={aside} />
+            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} aside={aside} onSaved={editor.refreshPreview} />
           ) : panel === 'details' ? (
             <div className="space-y-4">
               {aside}
-              {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} /> : null}
+              {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={editor.refreshPreview} /> : null}
             </div>
           ) : panel === 'layers' ? (
             <PageLayers

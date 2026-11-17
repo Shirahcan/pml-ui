@@ -1,0 +1,98 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+
+import type { DocumentLayout, EditableDocumentAdapter } from '../../../src/builder/document';
+import { PageEditor } from '../../../src/builder/editor/PageEditor';
+import type { PmlNode } from '../../../src/language';
+
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+Element.prototype.scrollIntoView ??= () => undefined;
+
+const resolved = { title: 'Work permits', author_name: 'Portify Editorial Team' };
+
+/** A Classic post's opening: the header part (required), its notes, and one question (a repeat at its minimum). */
+const design = [
+  { primitive: 'box', part: 'header', children: [{ primitive: 'post_title', props: { resolved } }] },
+  { comment: 'Purpose: the opening, built from the post’s own details.' },
+  { comment: 'VERIFY: the fee is still $155 on canada.ca.' },
+  { primitive: 'heading', part: 'question', props: { text: 'Who can apply?', level: 2 } },
+] as unknown as PmlNode[];
+
+const layout: DocumentLayout = {
+  parts: [
+    { key: 'header', label: 'Header', kind: 'header', required: true },
+    { key: 'question', label: 'Question', kind: 'section', min: 1, max: 8 },
+  ],
+};
+
+function fakeAdapter() {
+  let n = 1;
+
+  return {
+    load: vi.fn(async () => ({ document: { nodes: design }, revision: 'd1', meta: { title: 'Work permits', slug: 'work-permits', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } })),
+    saveDraft: vi.fn(async () => ({ revision: 'd2' })),
+    // The real compile drops comments, so the canvas lines its previews up by the non-comment nodes.
+    preview: vi.fn(async (_id: string, nodes: PmlNode[]) => ({ tree: nodes.filter((node) => !('comment' in node)), natives: null, error: null })),
+    preflight: vi.fn(async () => ({ mayPublish: true, findings: [] })),
+    fields: {
+      describe: vi.fn(async () => [
+        { name: 'title', label: 'Title', kind: 'text', max: 200, group: { key: 'post', label: 'The post' } },
+        { name: 'dek', label: 'Line under the title', kind: 'text', max: 500, group: { key: 'post', label: 'The post' } },
+      ]),
+      read: vi.fn(async () => ({ values: { title: 'Work permits', dek: '' }, revision: '1' })),
+      write: vi.fn(async () => ({ revision: String(++n) })),
+    },
+  } as unknown as EditableDocumentAdapter & { preview: ReturnType<typeof vi.fn>; saveDraft: ReturnType<typeof vi.fn>; fields: { write: ReturnType<typeof vi.fn> } };
+}
+
+describe("a post piece's own panel (owner 2026-11-17: each section offers its own options)", () => {
+  it('selecting the title opens its Title field; saving it writes the post and compiles the canvas again', async () => {
+    const adapter = fakeAdapter();
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+
+    fireEvent.click(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 }));
+    const panel = await screen.findByRole('complementary', { name: 'Title' }, { timeout: 3000 });
+    const title = (await within(panel).findByLabelText('Title')) as HTMLInputElement;
+    // Only the piece's own field: the line under the title is the other piece's.
+    expect(within(panel).queryByLabelText('Line under the title')).toBeNull();
+
+    const compiles = adapter.preview.mock.calls.length;
+    fireEvent.change(title, { target: { value: 'Work permits in 2026' } });
+    fireEvent.blur(title);
+
+    await waitFor(() => expect(adapter.fields.write).toHaveBeenCalledWith('p1', 'title', 'Work permits in 2026', '1', expect.any(String)));
+    await waitFor(() => expect(adapter.preview.mock.calls.length).toBeGreaterThan(compiles), { timeout: 3000 });
+  });
+
+  it('a part the post cannot do without offers no Delete, and a repeat at its minimum neither', async () => {
+    render(<PageEditor adapter={fakeAdapter()} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+    await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 });
+
+    for (const name of [/Box, section 1/, /Heading, section 4/]) {
+      fireEvent.click(screen.getByRole('button', { name }));
+      const panel = await screen.findByRole('complementary', { name: 'Section settings' }, { timeout: 3000 });
+
+      expect(await within(panel).findByText('The template needs this part, so it cannot be deleted.')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Delete section' })).toBeNull();
+    }
+  });
+});
+
+describe('notes on the canvas', () => {
+  it('draws the Purpose line quietly and a VERIFY check in amber, removed with one click', async () => {
+    const adapter = fakeAdapter();
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+
+    expect(await screen.findByText(/Purpose: the opening/, {}, { timeout: 3000 })).toBeTruthy();
+    const check = screen.getByRole('note', { name: 'Check before publishing' });
+    expect(check.textContent).toContain('the fee is still $155 on canada.ca.');
+
+    fireEvent.click(within(check).getByRole('button', { name: 'Checked, remove note' }));
+
+    await waitFor(() => expect(screen.queryByRole('note', { name: 'Check before publishing' })).toBeNull());
+    expect(screen.getByText(/Purpose: the opening/)).toBeTruthy();
+    await waitFor(() => expect(adapter.saveDraft).toHaveBeenCalled(), { timeout: 5000 });
+    const saved = adapter.saveDraft.mock.calls.at(-1)?.[1] as { nodes: PmlNode[] };
+    expect(saved.nodes.map((node) => node.comment ?? node.primitive)).toEqual(['box', 'Purpose: the opening, built from the post’s own details.', 'heading']);
+  });
+});

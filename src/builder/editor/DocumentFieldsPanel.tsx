@@ -14,11 +14,31 @@ import { useBuilderHost } from './host';
  * changed, a refused or conflicting write puts the old value back, and a conflict offers "Load the latest". Text saves
  * when the author leaves it, rich words after a short pause, everything else at once.
  */
-export function DocumentFieldsPanel({ id, fields, session, group, label = 'Details' }: { id: string; fields: DocumentFieldsPort; session: string; group?: string; label?: string }): React.JSX.Element | null {
+export function DocumentFieldsPanel({
+  id,
+  fields,
+  session,
+  group,
+  label = 'Details',
+  only,
+  onSaved,
+}: {
+  id: string;
+  fields: DocumentFieldsPort;
+  session: string;
+  group?: string;
+  label?: string;
+  /** Only these fields, in the port's order: one element's own panel (a post's title, its cover). */
+  only?: readonly string[];
+  /** A field was saved: the canvas compiles again, so what the design draws from it is current. */
+  onSaved?: (name: string) => void;
+}): React.JSX.Element | null {
   const host = useBuilderHost();
   const hostRef = useRef(host);
+  const onSavedRef = useRef(onSaved);
   useEffect(() => {
     hostRef.current = host;
+    onSavedRef.current = onSaved;
   });
   const vars = useOwnVars();
   const [described, setDescribed] = useState<DocumentField[]>([]);
@@ -75,6 +95,7 @@ export function DocumentFieldsPanel({ id, fields, session, group, label = 'Detai
 
         revision.current = result.revision || revision.current;
         saved.current = { ...saved.current, [name]: value };
+        onSavedRef.current?.(name);
       } catch (err) {
         set(name, saved.current[name]);
         hostRef.current.onError(err);
@@ -83,7 +104,8 @@ export function DocumentFieldsPanel({ id, fields, session, group, label = 'Detai
   };
 
   // One group's panel draws only that group's fields (designer sole surface P2a); without a group, every field.
-  const shown = group === undefined ? described : described.filter((field) => field.group?.key === group);
+  const inGroup = group === undefined ? described : described.filter((field) => field.group?.key === group);
+  const shown = only === undefined ? inGroup : inGroup.filter((field) => only.includes(field.name));
 
   if (shown.length === 0) return null;
 

@@ -628,18 +628,18 @@ export const PML_CATALOG: PmlComponentDef[] = [
   // are set. Kept inside the header (isItem), not offered in the top-level Add menu.
   ...(
     [
-      ['post_breadcrumbs', 'Breadcrumbs', 'Home, Blog and the post’s category, linked. The category comes from the post’s Details.', 'Navigation'],
-      ['post_category', 'Category', 'The post’s category, as a small label above the title. Choose it in Details.', 'Tag'],
-      ['post_title', 'Title', 'The post’s title, as its main heading. It is the post’s Title in Details.', 'Heading'],
-      ['post_dek', 'Summary', 'The one line under the title. It is the post’s summary (dek) in Details.', 'AlignLeft'],
-      ['post_meta', 'Byline', 'The row under the summary: author and date, side by side. Each is its own element.', 'Rows3'],
-      ['post_author', 'Author', 'Who wrote the post, from its Details.', 'User'],
+      ['post_breadcrumbs', 'Breadcrumbs', 'Home, Blog and the post’s category, linked. Choose the category on the Category element.', 'Navigation'],
+      ['post_category', 'Category', 'The post’s category, as a small label above the title.', 'Tag'],
+      ['post_title', 'Title', 'The post’s title, as its main heading.', 'Heading'],
+      ['post_dek', 'Line under the title', 'The one line under the title that says what the post covers.', 'AlignLeft'],
+      ['post_meta', 'Byline', 'The row under the title: author and date, side by side. Each is its own element.', 'Rows3'],
+      ['post_author', 'Author', 'Who wrote the post.', 'User'],
       ['post_read_time', 'Read time', 'How long the post takes to read, worked out from its words.', 'Clock'],
       ['post_reviewer', 'Reviewer', 'The licensed reviewer, shown only once they have confirmed this version.', 'BadgeCheck'],
       ['post_badges', 'Trust badges', 'The row of trust badges: the reviewer and the official sources. Each is its own element.', 'ShieldCheck'],
-      ['post_reviewer_badge', 'Reviewer badge', '“Reviewed by” and the licensed reviewer, shown only once they have confirmed this version.', 'BadgeCheck'],
-      ['post_sources_badge', 'Sources badge', 'The official sites the post cites, from its sources.', 'Link'],
-      ['post_tags', 'Tags', 'The post’s tags, from its Details.', 'Tags'],
+      ['post_reviewer_badge', 'Reviewer badge', '“Reviewed by” and the licensed reviewer, shown only once they have confirmed this version. It is never typed here.', 'BadgeCheck'],
+      ['post_sources_badge', 'Sources badge', 'The official sites the post cites, from the figures it quotes and where each is checked.', 'Link'],
+      ['post_tags', 'Tags', 'The post’s tags.', 'Tags'],
     ] as const
   ).map(
     ([name, label, description, icon]): PmlComponentDef => ({
@@ -656,7 +656,7 @@ export const PML_CATALOG: PmlComponentDef[] = [
   {
     name: 'post_date',
     label: 'Date',
-    description: 'A date from the post: when it was published, last updated, or last verified against the official sources.',
+    description: 'A date from the post’s history: when it was published, last updated, or last verified against the official sources. It is never typed here.',
     icon: 'Calendar',
     isItem: true,
     hasSlot: false,

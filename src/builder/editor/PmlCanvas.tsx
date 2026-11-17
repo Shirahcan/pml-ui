@@ -7,7 +7,7 @@ import { elementLabel, isCommentNode, isStudioComment, pageOutline, PML_CATALOG_
 import type { PmlNativesPayload, PmlNode } from '../../language';
 import { selectionCornerClass } from '../../pml/primitiveStyle';
 import type { PmlSite } from '../../renderer/PmlRenderer';
-import { FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
+import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
 import { pathElement } from './pathElement';
@@ -59,6 +59,7 @@ export function PmlCanvas({
   onDelete,
   bare = false,
   afterSection,
+  canDelete,
   selectedPath,
   onSelectPath,
   onEditText,
@@ -85,6 +86,8 @@ export function PmlCanvas({
   bare?: boolean;
   /** Editor-only guides drawn right after a section (its layout part's word count, add or remove another). */
   afterSection?: (index: number) => React.ReactNode;
+  /** False for a section the document cannot do without: its frame offers no Delete. Absent, every section can go. */
+  canDelete?: (index: number) => boolean;
   /** With these, any element inside a section can be selected, not only the section (S4-02). */
   selectedPath?: number[] | null;
   onSelectPath?: (path: number[]) => void;
@@ -272,19 +275,20 @@ export function PmlCanvas({
         )
       ) : (
         nodes.map((node, index) => {
-          // A studio comment (D1) is drawn as a pin by the overlay, never as a strip in the page. A template's note (the
-          // "Purpose: ..." lines written for the assistant) is not drawn on the design either (owner 2026-11-17: the
-          // reference shows none); it stays in the code view, in Layers and in the PML.
-          if (isStudioComment(node) || isCommentNode(node)) return index === skeletonAt ? <SectionSkeleton key={index} label={building?.label ?? null} /> : null;
+          // A studio comment (D1) is drawn as a pin by the overlay, never as a strip in the page.
+          if (isStudioComment(node)) return index === skeletonAt ? <SectionSkeleton key={index} label={building?.label ?? null} /> : null;
 
+          // A template's note IS drawn (owner 2026-11-17: "visible PML comments ... Same as the Purpose lines"): a
+          // "Purpose: ..." line as a quiet strip, a "VERIFY: ..." check in amber with its own "Checked, remove note".
+          const comment = isCommentNode(node);
           const name = node.component ?? node.primitive ?? 'section';
-          const label = PML_CATALOG_BY_NAME[name]?.label ?? studioCatalog.find((c) => c.key === name)?.name ?? 'Section';
+          const label = comment ? 'Comment' : (PML_CATALOG_BY_NAME[name]?.label ?? studioCatalog.find((c) => c.key === name)?.name ?? 'Section');
           // The compiled preview DROPS comments (they never render), so a non-comment node's preview
           // sits at its position AMONG non-comment nodes, not at its raw index. Mapping by that count
           // keeps every block's preview aligned even when comments are interleaved (a top-level comment
           // would otherwise shift every later preview by one - the desync this fixes).
-          const compiledIndex = nodes.slice(0, index).filter((n) => !isCommentNode(n)).length;
-          const preview = compiled?.[compiledIndex] ?? null;
+          const compiledIndex = comment ? -1 : nodes.slice(0, index).filter((n) => !isCommentNode(n)).length;
+          const preview = comment ? null : (compiled?.[compiledIndex] ?? null);
           const selected = deep ? selectedPath?.length === 1 && selectedPath[0] === index : selectedIndex === index;
 
           return (
@@ -308,7 +312,9 @@ export function PmlCanvas({
               }}
               className={`group relative cursor-pointer ${selectionCornerClass(node.style)} ${selected ? SELECTED : IDLE}`}
             >
-              {preview ? (
+              {comment ? (
+                <CommentStrip text={typeof node.comment === 'string' ? node.comment : ''} onRemove={building ? undefined : () => onDelete(index)} />
+              ) : preview ? (
                 <SectionPreview preview={preview} natives={natives} site={site} mobile={viewport === 'mobile'} outline={outline} index={deep ? index : null} />
               ) : (
                 <div className="px-6 py-10 text-center text-sm opacity-40">{label}…</div>
@@ -336,15 +342,17 @@ export function PmlCanvas({
                   >
                     <ChevronDown className="h-4 w-4" />
                   </FrameButton>
-                  <FrameButton
-                    label="Delete section"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(index);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </FrameButton>
+                  {canDelete?.(index) === false ? null : (
+                    <FrameButton
+                      label="Delete section"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(index);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </FrameButton>
+                  )}
                 </div>
               ) : null}
             </div>

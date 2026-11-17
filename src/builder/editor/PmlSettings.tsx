@@ -36,10 +36,13 @@ export function PmlSettings({
   onDuplicate,
   creatorControls,
   pageNodes,
+  canDelete = true,
 }: {
   node: PmlNode;
   onChange: (next: PmlNode) => void;
   onDelete: () => void;
+  /** False for a template part the document cannot do without (a post's header or cover): no Delete is offered. */
+  canDelete?: boolean;
   /** Scale-tier: unlocks the Motion control + the gradient/image backgrounds. */
   canAuthorPml?: boolean;
   /** "Remove element" when this rail is nested inside a layout container's contents. */
@@ -178,15 +181,14 @@ export function PmlSettings({
             Duplicate
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onDelete}
-          className="w-full whitespace-nowrap text-red-600 outline-none"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          {deleteLabel}
-        </Button>
+        {canDelete ? (
+          <Button type="button" variant="outline" onClick={onDelete} className="w-full whitespace-nowrap text-red-600 outline-none">
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleteLabel}
+          </Button>
+        ) : (
+          <p className="text-xs text-[var(--pb-muted)]">The template needs this part, so it cannot be deleted.</p>
+        )}
       </div>
     </div>
   );

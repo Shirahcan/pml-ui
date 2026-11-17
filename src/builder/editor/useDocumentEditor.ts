@@ -463,6 +463,8 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     compiled: preview.compiled,
     natives: preview.natives,
     previewError: preview.previewError,
+    /** Compile the canvas again: a document field the design reads was saved (a post's title, its category). */
+    refreshPreview: preview.refresh,
     loading,
     /** Why the document could not be opened; while set nothing is saved (show it with a Retry calling `reload`). */
     loadError,

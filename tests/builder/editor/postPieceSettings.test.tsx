@@ -9,7 +9,7 @@ const PIECES = [
   ['post_breadcrumbs', 'Breadcrumbs'],
   ['post_category', 'Category'],
   ['post_title', 'Title'],
-  ['post_dek', 'Summary'],
+  ['post_dek', 'Line under the title'],
   ['post_meta', 'Byline'],
   ['post_author', 'Author'],
   ['post_date', 'Date'],
@@ -30,11 +30,11 @@ describe('a post header piece selected on its own', () => {
     expect(elementLabel(name)).toBe(label);
   });
 
-  it('opens its own panel, saying what it is and where its words are set', () => {
+  it('opens its own panel, saying what it is', () => {
     render(<PmlSettings node={{ primitive: 'post_title', props: {} } as PmlNode} onChange={() => undefined} onDelete={() => undefined} />);
 
     expect(screen.getByRole('heading', { name: 'Title' })).toBeTruthy();
-    expect(screen.getByText(/It is the post’s Title in Details/)).toBeTruthy();
+    expect(screen.getByText('The post’s title, as its main heading.')).toBeTruthy();
     expect(screen.queryByText('This section cannot be edited here.')).toBeNull();
   });
 

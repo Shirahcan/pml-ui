@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
-import { MessageSquare, Sparkles } from 'lucide-react';
+import { AlertTriangle, MessageSquare, Sparkles } from 'lucide-react';
 
 import type { pageOutline, PmlNativesPayload, PmlNode } from '../../language';
 import { PmlRenderer, type PmlSite } from '../../renderer/PmlRenderer';
@@ -68,12 +68,44 @@ export function SectionSkeleton({ label }: { label: string | null }): React.JSX.
   );
 }
 
+/** A note that asks the author to check something before publishing (growth-service prepare writes one per check). */
+const VERIFY = /^\s*VERIFY:\s*/i;
+
 /**
  * A first-class comment shown as an inert note strip. It never renders on the public page (the compiler drops it),
  * but here it stays visible and selectable so an author can see, move, or delete a note written in the Code view
  * without losing it (the stored tree keeps it, so it round-trips).
+ *
+ * A "VERIFY: ..." note is a check the author still owes (owner 2026-11-17: "visible PML comments ... Same as the
+ * Purpose lines"): amber, with a warning mark and "Checked, remove note", which deletes that note as one change.
  */
-export function CommentStrip({ text }: { text: string }): React.JSX.Element {
+export function CommentStrip({ text, onRemove }: { text: string; onRemove?: () => void }): React.JSX.Element {
+  if (VERIFY.test(text)) {
+    return (
+      <div role="note" aria-label="Check before publishing" className="mx-4 my-2 flex items-start gap-2 rounded-lg px-3 py-2 text-sm" style={{ background: '#FEF3E2', color: '#A15C07' }}>
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <strong className="font-semibold">Check: </strong>
+          {text.replace(VERIFY, '').trim() || 'this part before publishing.'}
+        </span>
+        {onRemove ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              // The strip sits in its section's frame: removing the note must not also select it.
+              event.stopPropagation();
+              onRemove();
+            }}
+            className="shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold outline-none hover:bg-white/60"
+            style={{ borderColor: '#A15C07' }}
+          >
+            Checked, remove note
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 px-6 py-3 text-sm italic opacity-55">
       <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />

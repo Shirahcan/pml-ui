@@ -18,6 +18,7 @@ export function FieldGroupPanel({
   open,
   onOpen,
   aside,
+  onSaved,
 }: {
   id: string;
   fields: DocumentFieldsPort | undefined;
@@ -26,6 +27,8 @@ export function FieldGroupPanel({
   open: DocumentFieldGroup;
   onOpen: (key: string) => void;
   aside?: ReactNode;
+  /** A field was saved (the canvas compiles again). */
+  onSaved?: (name: string) => void;
 }): React.JSX.Element {
   return (
     <div className="space-y-4">
@@ -47,7 +50,7 @@ export function FieldGroupPanel({
         </nav>
       ) : null}
       {open.key === groups[0]?.key ? aside : null}
-      {fields ? <DocumentFieldsPanel key={open.key} id={id} fields={fields} session={session} group={open.key} label={open.label} /> : null}
+      {fields ? <DocumentFieldsPanel key={open.key} id={id} fields={fields} session={session} group={open.key} label={open.label} onSaved={onSaved} /> : null}
     </div>
   );
 }

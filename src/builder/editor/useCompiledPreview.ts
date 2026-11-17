@@ -26,6 +26,8 @@ export function useCompiledPreview(
   const [previewError, setPreviewError] = useState<{ message: string; path: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(0);
+  // Bumped to compile the same design again (see `refresh`).
+  const [nonce, setNonce] = useState(0);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
@@ -54,7 +56,7 @@ export function useCompiledPreview(
           if (mine === latest.current) onErrorRef.current(err);
         });
     }, 500);
-  }, [adapter, id, nodes, active]);
+  }, [adapter, id, nodes, active, nonce]);
 
   // Leaving: no compile is asked for, and none still on its way may land.
   useEffect(
@@ -75,5 +77,11 @@ export function useCompiledPreview(
     setPreviewError(null);
   }, []);
 
-  return { compiled, natives, previewError, reset };
+  /**
+   * Compile again with the same design: something the design READS changed outside it (a post's title or category saved
+   * from a panel). Without it the canvas kept drawing the old title until the design itself changed (2026-11-17).
+   */
+  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+
+  return { compiled, natives, previewError, reset, refresh };
 }
