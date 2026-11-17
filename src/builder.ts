@@ -54,3 +54,4 @@ export * from './builder/editor/emailInbox';
 export * from './builder/editor/EmailAsSent';
 export * from './builder/editor/EmailEditor';
 export * from './builder/editor/surface';
+export * from './builder/editor/PageEditor';

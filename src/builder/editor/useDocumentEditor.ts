@@ -39,6 +39,8 @@ export interface DocumentEditorOptions<H> {
   publishedMessage?: string;
   /** What a publish that went through with a warning says (the change may take a while to show everywhere). */
   publishedWarning?: string;
+  /** What a rollback says once it lands (a post's is "The draft was thrown away."); defaults to the page's words. */
+  rolledBackMessage?: string;
 }
 
 /**
@@ -424,7 +426,7 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     try {
       await adapter.rollback(id);
       await refresh();
-      say.success('The previous version is live again.');
+      say.success(options.rolledBackMessage ?? 'The previous version is live again.');
     } catch (err) {
       say.error(err);
     }
