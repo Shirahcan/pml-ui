@@ -85,6 +85,29 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
     expect(adapter.saveDraft).not.toHaveBeenCalled();
   });
 
+  it('lets the host compile the canvas again after it changed a field itself, keeping the undo history', async () => {
+    const adapter = fakeAdapter();
+    let controls = null as import('../../../src/builder/editor/PageEditor').PageEditorControls | null;
+    render(
+      <PageEditor
+        adapter={adapter}
+        id="p1"
+        labels={{ noun: 'post' }}
+        layout={layout}
+        renderControls={(c) => {
+          controls = c;
+          return null;
+        }}
+      />,
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 });
+    await waitFor(() => expect(adapter.preview).toHaveBeenCalled());
+    const compiles = adapter.preview.mock.calls.length;
+
+    controls?.refreshPreview();
+    await waitFor(() => expect(adapter.preview.mock.calls.length).toBeGreaterThan(compiles), { timeout: 3000 });
+  });
+
   it("a post's designer draws the canvas in the blog reading look", async () => {
     const adapter = fakeAdapter();
     const withAnswer = [...design, { primitive: 'callout', props: { title: 'Short answer' }, children: [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most can.' } }] }] }];

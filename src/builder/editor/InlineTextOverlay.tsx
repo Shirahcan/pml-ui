@@ -1,5 +1,6 @@
 'use client';
 
+import { isBracketedExample } from '../../pml/examples';
 import React, { useEffect, useRef, useState } from 'react';
 
 import type { PmlNode } from '../../language';
@@ -85,7 +86,10 @@ export function InlineTextOverlay({
   onCancel: () => void;
 }): React.JSX.Element {
   const box = useRef<HTMLTextAreaElement>(null);
-  const [value, setValue] = useState(edit.value);
+  // A template's example words are a placeholder (owner 2026-11-17): the box opens empty with them shown, so what is
+  // typed replaces them in one go and never mixes with them; left empty, they stay (the slot is still unfilled).
+  const example = isBracketedExample(edit.value);
+  const [value, setValue] = useState(example ? '' : edit.value);
   const finished = useRef(false);
 
   // One ending only: Enter must not depend on a blur, which never fires in an unfocused window.
@@ -94,7 +98,7 @@ export function InlineTextOverlay({
 
     finished.current = true;
 
-    if (keep) onCommit(value);
+    if (keep && !(example && value.trim() === '')) onCommit(value);
     else onCancel();
   };
 
@@ -119,6 +123,7 @@ export function InlineTextOverlay({
       // One row, so the height measured below starts at one line (a textarea's default of two left an empty line).
       rows={1}
       value={value}
+      placeholder={example ? edit.value.trim() : undefined}
       onChange={(event) => setValue(event.target.value)}
       onClick={(event) => event.stopPropagation()}
       onBlur={() => finish(true)}

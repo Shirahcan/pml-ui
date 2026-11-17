@@ -10,6 +10,7 @@ import { MediaField } from './MediaField';
 import { paramDefaultText, type StudioParam } from '../components';
 import { bindingName, useStudioAuthoring } from './authoring';
 import { type PmlFieldDef } from '../../language';
+import { isBracketedExample } from '../../pml/examples';
 import { isExpr, pathExpr } from '../../language';
 import { type PmlNode } from '../../language';
 import { tokenLabel } from '../../language';
@@ -116,6 +117,9 @@ export function FieldControl({
   // screen reader reads an unlabelled one as just "edit text").
   const id = `pml-field-${useId()}`;
   const surface = useEditorSurface();
+  // The template's example this field opened with: emptying the field puts it back (see `words` below). The panel is
+  // keyed by the selected element, so it is always this element's.
+  const [original] = useState(() => (isBracketedExample(value) ? String(value).trim() : null));
   const label = (
     <label htmlFor={id} className="mb-1 block text-sm font-medium">
       {field.label}
@@ -146,6 +150,10 @@ export function FieldControl({
 
   // Unquoted PML numbers arrive as numbers (`level=3`), so a select must still show them.
   const str = typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
+  // A template's example words are the field's placeholder, never text to delete by hand (owner 2026-11-17). What is
+  // typed replaces them; emptying the field puts the example back, so the slot stays visibly unfilled.
+  const example = isBracketedExample(str) ? str.trim() : null;
+  const words = (next: string) => onChange(next === '' && original ? original : next);
 
   if (field.kind === 'boolean') {
     return (
@@ -198,7 +206,7 @@ export function FieldControl({
     return (
       <div>
         {label}
-        <Textarea id={id} name={field.key} rows={3} value={str} onChange={(e) => onChange(e.target.value)} className="px-3 py-2 outline-none" />
+        <Textarea id={id} name={field.key} rows={3} value={example ? '' : str} placeholder={example ?? undefined} onChange={(e) => words(e.target.value)} className="px-3 py-2 outline-none" />
       </div>
     );
   }
@@ -235,9 +243,9 @@ export function FieldControl({
         type="text"
         autoComplete="off"
         inputMode={field.kind === 'url' ? 'url' : undefined}
-        placeholder={field.kind === 'url' ? 'https://' : undefined}
-        value={str}
-        onChange={(e) => onChange(e.target.value)}
+        placeholder={example ?? (field.kind === 'url' ? 'https://' : undefined)}
+        value={example ? '' : str}
+        onChange={(e) => words(e.target.value)}
         className="px-3 py-2 outline-none"
       />
     </div>

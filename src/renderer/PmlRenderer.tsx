@@ -71,6 +71,7 @@ import { isPmlEvent, type PmlNode, type ReactiveEvent } from '../pml/primitives'
 import { fromPslValue, isExpr, valueText, type PmlNativesPayload } from '../pml/expressions';
 import { COMPONENT_PROSE, ELEMENTS } from '../pml/elements.generated';
 import { isCommentNode } from '../pml/nodeTree';
+import { isBracketedExample } from '../pml/examples';
 import { ACCENT_BUTTON, bodyScale, gapClass, headingScale, panelGutterClass, resolvePrimitiveStyle, themeCornerClass, withResponsive } from '../pml/primitiveStyle';
 import { anchorId, pageOutline, withDerivedAnchors, type OutlineEntry } from '../pml/anchors';
 import { PmlCarousel, PmlMarquee } from './PmlCarousel';
@@ -234,9 +235,9 @@ const POST_PIECES = {
 /** The reference's placeholder grey for an empty field on the canvas. */
 const EXAMPLE_WORDS = '#A0A8B8';
 
-/** Words that are WHOLLY a template's bracketed example, e.g. "[The direct answer, in under 50 words.]" or "[Column]". */
-function isBracketedExample(value: unknown): boolean {
-  return typeof value === 'string' && /^\s*\[[^[\]]+\]\s*$/.test(value);
+/** On the canvas, a template's example words read as a placeholder; a live page never draws them differently. */
+function exampleLook(inCanvas: boolean, value: unknown): React.CSSProperties | undefined {
+  return inCanvas && isBracketedExample(value) ? { color: EXAMPLE_WORDS } : undefined;
 }
 
 /** In the builder: the element being drawn as written, before its `{...}` values were read. */
@@ -1079,7 +1080,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
         return (
           <div id={anchorId(p.anchor)} className={s.className} style={{ ...POST_TABLE_CARD, ...s.style }}>
             <table style={POST_TABLE}>
-              {caption ? <caption style={POST_CAPTION}>{caption}</caption> : null}
+              {caption ? <caption style={{ ...POST_CAPTION, ...exampleLook(inCanvas, caption) }}>{caption}</caption> : null}
               <tbody>{children(node, site, ctx)}</tbody>
             </table>
           </div>
@@ -1090,7 +1091,11 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
         // Wrapped in an x-scroller so a wide table scrolls itself instead of breaking the page.
         <div id={anchorId(p.anchor)} className={`w-full overflow-x-auto ${s.className}`.trim()} style={s.style}>
           <table className="w-full border-collapse text-left text-sm">
-            {caption ? <caption className="mb-2 text-left text-sm opacity-70">{caption}</caption> : null}
+            {caption ? (
+              <caption className="mb-2 text-left text-sm opacity-70" style={exampleLook(inCanvas, caption)}>
+                {caption}
+              </caption>
+            ) : null}
             <tbody>{children(node, site, ctx)}</tbody>
           </table>
         </div>
@@ -1148,7 +1153,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
         <Tag
           id={anchorId(p.anchor)}
           className={`scroll-mt-24 ${weight} tracking-tight ${withResponsive(headingScale(size.heading_size, level), size, ['heading_size'])} ${s.className}`.replace(/\s+/g, ' ').trim()}
-          style={postLook ? { ...postLook, ...s.style } : s.style}
+          style={postLook || exampleLook(inCanvas, text) ? { ...postLook, ...s.style, ...exampleLook(inCanvas, text) } : s.style}
         >
           {text}
         </Tag>
@@ -1426,7 +1431,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       // `.faq`: in a post, the reference's question and answer; open on the canvas so the answer can be edited.
       if (postFlavor) {
         return (
-          <PostFaqItem question={question} inCanvas={inCanvas}>
+          <PostFaqItem question={question} inCanvas={inCanvas} questionStyle={exampleLook(inCanvas, question)}>
             <div className="space-y-2">{children(node, site, ctx)}</div>
           </PostFaqItem>
         );
@@ -1435,7 +1440,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       return (
         <details className="group py-4">
           <summary className="flex cursor-pointer list-none items-start justify-between gap-4 font-medium outline-none [&::-webkit-details-marker]:hidden">
-            <span>{question}</span>
+            <span style={exampleLook(inCanvas, question)}>{question}</span>
             <span aria-hidden className="mt-0.5 shrink-0 text-lg leading-none opacity-60 transition group-open:rotate-45">+</span>
           </summary>
           <div className="mt-3 space-y-2 opacity-90">{children(node, site, ctx)}</div>
@@ -1899,7 +1904,7 @@ function PmlToc({
       <ol className="space-y-1.5 text-sm">
         {entries.map((e) => (
           <li key={e.anchor} className={e.level === 3 ? 'pl-4' : undefined} {...mark(e.index)}>
-            <a href={`#${e.anchor}`} className="underline-offset-4 opacity-80 hover:underline hover:opacity-100">
+            <a href={`#${e.anchor}`} className="underline-offset-4 opacity-80 hover:underline hover:opacity-100" style={exampleLook(hints, e.text)}>
               {e.text}
             </a>
           </li>

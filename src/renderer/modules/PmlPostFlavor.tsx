@@ -65,9 +65,20 @@ export function PostAnswer({
  * `.faq`: one question and its answer under a rule. On the canvas it is always open, as the reference draws it, so the
  * answer can be read and selected; a reader gets the same look as a native <details> that opens with JS off.
  */
-export function PostFaqItem({ question, inCanvas, children }: { question: string; inCanvas: boolean; children: React.ReactNode }): React.JSX.Element {
+export function PostFaqItem({
+  question,
+  inCanvas,
+  questionStyle,
+  children,
+}: {
+  question: string;
+  inCanvas: boolean;
+  /** The question's own look on top of the reference's (a template's example reads grey on the canvas). */
+  questionStyle?: React.CSSProperties;
+  children: React.ReactNode;
+}): React.JSX.Element {
   const box: React.CSSProperties = { borderBottom: `1px solid ${POST.line}`, padding: '10px 0' };
-  const q: React.CSSProperties = { fontWeight: 700, fontSize: 17 };
+  const q: React.CSSProperties = { fontWeight: 700, fontSize: 17, ...questionStyle };
   const a: React.CSSProperties = { color: POST.ink, marginTop: 4 };
 
   if (inCanvas) {

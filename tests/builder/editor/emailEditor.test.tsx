@@ -282,7 +282,7 @@ describe('panels over the email (designer sole surface: the newsletter)', () => 
 
   it('draws only the inbox fields above the email, and opens a field group and a host panel from the controls', async () => {
     const adapter = newsletterAdapter();
-    let controls: import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null = null;
+    let controls = null as import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null;
     const send = vi.fn();
     render(
       <BuilderHostProvider>
@@ -329,7 +329,7 @@ describe('panels over the email (designer sole surface: the newsletter)', () => 
   });
 
   it('locked, the email takes no edits and offers nothing to add, while its panels still open', async () => {
-    let controls: import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null = null;
+    let controls = null as import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null;
     render(
       <EmailEditor
         adapter={newsletterAdapter()}

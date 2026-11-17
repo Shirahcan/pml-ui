@@ -7,6 +7,18 @@ import { elementLabel, getNodeAtPath, removeNodeAtPath, type PmlNode } from '../
 import type { DocumentLayout } from '../document';
 import { canDelete, instancePaths, neighbourInstance, partOf, swapSiblings } from './layoutParts';
 
+/**
+ * A post piece, or a block made only of them (the opening): its words are the post's FIELDS, so the assistant's asks,
+ * which rewrite design, are not offered (the server refuses exactly this set: GrowthPostConsoleController::onlyPostPieces).
+ */
+function onlyPostPieces(node: PmlNode): boolean {
+  if ((node.primitive ?? '').startsWith('post_')) return true;
+
+  const kids = (node.children ?? []).filter((child) => child.comment === undefined);
+
+  return kids.length > 0 && kids.every(onlyPostPieces);
+}
+
 /** What the selection bar hands the host when the person asks the assistant about the selected element. */
 export interface AssistantAsk {
   /** `write`: rewrite this element; `suggest`: suggest better words for it. */
@@ -53,6 +65,7 @@ export function SelectionBar({
   const up = repeat ? neighbourInstance(nodes, path, -1) : null;
   const down = repeat ? neighbourInstance(nodes, path, 1) : null;
   const parent = path.slice(0, -1);
+  const fieldPiece = onlyPostPieces(node);
 
   const move = (to: number) => {
     change(swapSiblings(nodes, path, to));
@@ -76,7 +89,7 @@ export function SelectionBar({
         {String(path[0] + 1).padStart(2, '0')} · {label}
         {repeat && instances.length > 1 ? ` · ${nth} of ${instances.length}` : ''}
       </span>
-      {onAsk ? (
+      {onAsk && !fieldPiece ? (
         <>
           <button type="button" className={button} onClick={() => onAsk({ kind: 'write', path, node, label })}>
             <Wand2 className="h-3 w-3" aria-hidden />

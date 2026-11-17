@@ -7,6 +7,7 @@ import type { PmlNode } from '../../language';
 import { componentTextField, fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
 import { InlineWordsOverlay, type InlineWordsEdit } from './InlineWordsOverlay';
 import { PIECE_TEXT_FIELD } from './PieceFields';
+import { isBracketedExample } from '../../pml/examples';
 import { canEditVisually } from './ParagraphEditor';
 import { pathElement } from './pathElement';
 
@@ -151,6 +152,22 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
     const all = paragraphNode?.children ?? [];
     const held = all.filter((child) => child.primitive !== 'list');
     const tail = all.filter((child) => child.primitive === 'list');
+
+    // A paragraph that is wholly a template's example: the plain box, empty with the example as its placeholder, so the
+    // words typed replace it in one go and never mix with it (the rich editor would open with the brackets as text).
+    const lone = held.length === 1 && held[0].primitive === 'text' && isBracketedExample(held[0].props?.value) ? held[0] : null;
+
+    if (paragraph && lone && onEditText) {
+      const element = wordsElement(canvas.current, nodes, paragraph);
+
+      if (element) {
+        setText({ path: [...paragraph, all.indexOf(lone)], field: 'value', value: String(lone.props?.value), rect: rectOf(element), font: fontOf(element) });
+        cover(element);
+        onQuickEdit?.(true);
+
+        return;
+      }
+    }
 
     if (paragraph && held.length > 0 && canEditVisually(held)) {
       const element = wordsElement(canvas.current, nodes, paragraph);

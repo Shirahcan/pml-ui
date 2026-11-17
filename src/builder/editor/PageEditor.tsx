@@ -55,6 +55,11 @@ export interface PageEditorControls {
   publish: () => void;
   /** Throw away the draft (the adapter's rollback); absent when the document has none. Confirm before calling it. */
   rollback?: () => void;
+  /**
+   * Compile the canvas again with the same design: the host changed something the design READS outside the editor (a
+   * post's title applied from an assistant's proposal through the fields port). Keeps the undo history, unlike a remount.
+   */
+  refreshPreview: () => void;
   /** Copy a shareable preview link; absent when the document has none. */
   copyPreviewLink?: () => void;
   /** Which view shows: the design or its code; `toggleCode` is absent when the document has no code port. */
@@ -303,6 +308,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     },
     publish: () => void editor.publish(),
     rollback: editor.canRollback ? () => setConfirmRollback(true) : undefined,
+    refreshPreview: editor.refreshPreview,
     copyPreviewLink: editor.canPreviewLink ? () => void editor.copyPreviewLink() : undefined,
     view,
     toggleCode: code
@@ -433,6 +439,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
               {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings
+                key={selectedPath.join('.')}
                 node={selected}
                 pageNodes={nodes}
                 onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
