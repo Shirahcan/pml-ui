@@ -11,6 +11,7 @@ import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './ca
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
 import { pathElement } from './pathElement';
+import { useEditorSurface } from './surface';
 import { useQuickEdit } from './useQuickEdit';
 
 /** The site's look around the canvas, from the host: its font classes and its theme's CSS variables (`--site-*`). */
@@ -214,6 +215,7 @@ export function PmlCanvas({
   const studioCatalog = useCatalog();
   const { assistantName } = useBuilderHost();
   const assistant = assistantName?.trim();
+  const surface = useEditorSurface();
   const width = viewport === 'mobile' ? 'max-w-sm' : 'max-w-5xl';
   // The WHOLE page's headings (S1-06): each section renders alone here, so a table of contents
   // would otherwise list only its own section.
@@ -241,12 +243,19 @@ export function PmlCanvas({
       ) : null}
       {quick.overlay}
       {nodes.length === 0 && !building ? (
-        <div className="px-6 py-20 text-center">
-          <p className="text-sm font-medium">This page is empty</p>
-          <p className="mt-1 text-sm opacity-60">
-            {assistant ? `Use Add a section in the Actions menu, or ask ${assistant}, to start building.` : 'Use Add a section in the Actions menu to start building.'}
-          </p>
-        </div>
+        surface === 'email' ? (
+          <div className="px-6 py-20 text-center">
+            <p className="text-sm font-medium">This email has no blocks yet</p>
+            <p className="mt-1 text-sm opacity-60">Use Add a block below the email to start it.</p>
+          </div>
+        ) : (
+          <div className="px-6 py-20 text-center">
+            <p className="text-sm font-medium">This page is empty</p>
+            <p className="mt-1 text-sm opacity-60">
+              {assistant ? `Use Add a section in the Actions menu, or ask ${assistant}, to start building.` : 'Use Add a section in the Actions menu to start building.'}
+            </p>
+          </div>
+        )
       ) : (
         nodes.map((node, index) => {
           // A studio comment (D1) is drawn as a pin by the overlay, never as a strip in the page.

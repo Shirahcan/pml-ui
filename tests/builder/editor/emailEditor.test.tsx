@@ -177,3 +177,14 @@ describe('the email surface', () => {
     expect(screen.queryByText(/Link name/)).toBeNull();
   });
 });
+
+describe('an email with no blocks', () => {
+  it('says so in an email\'s words, not a page\'s', async () => {
+    const adapter = fakeAdapter();
+    (adapter.load as ReturnType<typeof vi.fn>).mockResolvedValue({ document: { nodes: [] }, revision: 'd0', meta: {} });
+    render(<EmailEditor adapter={adapter} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} />);
+
+    expect(await screen.findByText('This email has no blocks yet')).toBeTruthy();
+    expect(screen.queryByText('This page is empty')).toBeNull();
+  });
+});
