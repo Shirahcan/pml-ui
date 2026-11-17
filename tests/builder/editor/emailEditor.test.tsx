@@ -384,3 +384,58 @@ describe('the checks in the host\'s words', () => {
     expect(screen.queryByText(/go public/)).toBeNull();
   });
 });
+
+/** The page editor's studio comments, in the email designer (a template's Purpose notes ride into a newsletter). */
+describe('studio comments in the email', () => {
+  const withNotes = [
+    { comment: 'Purpose: the week\'s one big change.', note: { for: 'eone01', placement: 'top-right', color: 'blue', author: 'Template' } },
+    { primitive: 'heading', uid: 'eone01', props: { text: 'This week', level: 1 } },
+  ] as unknown as PmlNode[];
+
+  function notedAdapter() {
+    const adapter = fakeAdapter();
+    (adapter.load as ReturnType<typeof vi.fn>).mockResolvedValue({ document: { nodes: withNotes }, revision: 'd1', meta: {} });
+    // The real compile drops comments.
+    (adapter.preview as ReturnType<typeof vi.fn>).mockImplementation(async (_id: string, nodes: PmlNode[]) => ({ tree: nodes.filter((n) => !('comment' in n)), natives: null, error: null }));
+
+    return adapter;
+  }
+
+  it('draws a pinned note on its block and offers the host its Show / Hide menu', async () => {
+    let controls = null as import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null;
+    render(
+      <EmailEditor
+        adapter={notedAdapter()}
+        id="c1"
+        allowedElements={ALLOWED}
+        renderAsSent={vi.fn()}
+        renderControls={(c) => {
+          controls = c;
+          return null;
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: /Comment by Template: Purpose/ }, { timeout: 3000 })).toBeTruthy();
+    expect(controls?.commentMenu.map((item) => item.label)).toEqual(['Hide comments (1)']);
+  });
+
+  it('with an author, a selected block\'s panel pins a new comment to it; without one it offers none', async () => {
+    const adapter = notedAdapter();
+    render(<EmailEditor adapter={adapter} id="c1" allowedElements={ALLOWED} renderAsSent={vi.fn()} commentAuthor="Ada Okafor" />);
+
+    fireEvent.click(await screen.findByRole('heading', { name: 'This week' }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Comment on this block' }, { timeout: 3000 }));
+    const text = (await screen.findByPlaceholderText('Write a note for whoever works on this next')) as HTMLTextAreaElement;
+    fireEvent.change(text, { target: { value: 'Swap in this week\'s draw.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(
+      () => {
+        const saved = (adapter.saveDraft as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1]?.nodes as Array<{ comment?: string; note?: { for?: string; author?: string } }> | undefined;
+        expect(saved?.some((n) => n.comment === 'Swap in this week\'s draw.' && n.note?.for === 'eone01' && n.note?.author === 'Ada Okafor')).toBe(true);
+      },
+      { timeout: 5000 },
+    );
+  });
+});

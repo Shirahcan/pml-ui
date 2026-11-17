@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
-import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
+import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode, type StudioComment } from '../../language';
 import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
@@ -14,6 +14,7 @@ import { DraftConflictDialog } from './DraftConflictDialog';
 import { EmailAsSent, type RenderedEmail } from './EmailAsSent';
 import { EmailInbox } from './emailInbox';
 import { FieldGroupPanel } from './FieldGroupPanel';
+import { useBuilderHost } from './host';
 import { FindingsPanel, type FindingsWords } from './FindingsPanel';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
@@ -22,6 +23,7 @@ import { SlidePanel } from './SlidePanel';
 import { EditorSurfaceProvider } from './surface';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
+import { useStudioComments, type CommentMenuItem } from './useStudioComments';
 
 /** What the host may place in its own chrome (a top bar) instead of the editor's header. */
 export interface EmailEditorControls {
@@ -53,6 +55,8 @@ export interface EmailEditorControls {
    * email, such as sending a test, calls it first and stops on false).
    */
   flush: () => Promise<boolean>;
+  /** "Hide comments (3)", "Show resolved (2)": for the host's menu; empty while the email has no comments. */
+  commentMenu: CommentMenuItem[];
 }
 
 /** A panel the host adds (sending, help from the assistant): it slides in over the email like every other. */
@@ -106,6 +110,15 @@ export interface EmailEditorProps {
    * can be sent" and "Ready to send" instead.
    */
   checkWords?: Partial<FindingsWords>;
+  /**
+   * Who writes new studio comments (the signed-in person's name), as in the page editor: with it, a selected block's
+   * panel offers "Comment on this block"; without it, comments already in the email (a template's Purpose and VERIFY
+   * notes among them) are still drawn, read, resolved and deleted. A comment never reaches a reader: the email's
+   * compiler leaves notes out, and the host strips them before its email checks.
+   */
+  commentAuthor?: string;
+  /** Send a comment to the host's assistant as an ask about its block; absent where it cannot act. */
+  onAddressComment?: (comment: StudioComment) => void;
 }
 
 /** What the checks say for an email whose next step is "Save for everyone" (a template). */
@@ -139,6 +152,8 @@ export function EmailEditor({
   locked = false,
   onFieldSaved,
   checkWords,
+  commentAuthor,
+  onAddressComment,
 }: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, {
     noun: 'email',
@@ -151,7 +166,10 @@ export function EmailEditor({
   const [sentVersion, setSentVersion] = useState(0);
   const [sentStale, setSentStale] = useState(false);
   const fieldWrites = useRef(new Set<Promise<unknown>>());
+  const host = useBuilderHost();
   const { nodes, change } = editor;
+  // Studio comments pinned to blocks, the page editor's own hook (one shape for every designer).
+  const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
   // `header` and `footer` are the standard chrome's roots (added to every email at send time), never body blocks.
   const unavailable = useMemo(
@@ -254,6 +272,7 @@ export function EmailEditor({
     fieldGroups,
     hostPanels: panels.map(({ key, title }) => ({ key, title })),
     flush: () => Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => saved),
+    commentMenu: comments.menuItems,
   };
 
   if (editor.loading) {
@@ -293,9 +312,11 @@ export function EmailEditor({
               frame={frame}
               selectedIndex={selectedPath ? selectedPath[0] : null}
               selectedPath={selectedPath}
-              onSelectPath={selectPath}
+              // Moving a comment: the next block clicked becomes its block, instead of being selected.
+              onSelectPath={comments.pickOr(selectPath)}
+              overlay={comments.layer}
               viewport="desktop"
-              onSelect={(index) => selectPath(index === null ? null : [index])}
+              onSelect={(index) => comments.pickOr(selectPath)(index === null ? null : [index])}
               onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
               onDelete={(index) => {
                 change(removeNodeAtPath(nodes, [index]));
@@ -334,6 +355,19 @@ export function EmailEditor({
           title={panel === 'selected' ? 'Block settings' : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : 'Email checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
+            <div className="space-y-4">
+              {comments.canAdd ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    comments.add(selectedPath);
+                    selectPath(null);
+                  }}
+                >
+                  Comment on this block
+                </Button>
+              ) : null}
             <PmlSettings
               node={selected}
               deleteLabel="Delete block"
@@ -343,6 +377,7 @@ export function EmailEditor({
                 selectPath(null);
               }}
             />
+            </div>
           ) : openHost ? (
             openHost.render(controls)
           ) : openGroup ? (
