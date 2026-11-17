@@ -146,3 +146,126 @@ describe('PageEditor words', () => {
     expect(screen.queryByText(/This page is empty/)).toBeNull();
   });
 });
+
+describe('PageEditor panels for every option (owner 2026-11-17: the designer is the sole surface)', () => {
+  const grouped = [
+    { name: 'title', label: 'Title', kind: 'text', max: 80, group: { key: 'post', label: 'Post' } },
+    {
+      name: 'facts',
+      label: 'Facts this post quotes',
+      kind: 'rows',
+      max: 2,
+      group: { key: 'facts', label: 'Facts' },
+      columns: [
+        { name: 'text', label: 'Fact', kind: 'text', max: 300 },
+        { name: 'review_by', label: 'Check again by', kind: 'date' },
+      ],
+    },
+    { name: 'published_at', label: 'Published', kind: 'date', readOnly: true, group: { key: 'publishing', label: 'Publishing' } },
+    { name: 'public_url', label: 'Where readers find it', kind: 'record', readOnly: true, group: { key: 'publishing', label: 'Publishing' } },
+  ];
+
+  function fieldsPort() {
+    let n = 1;
+
+    return {
+      describe: vi.fn(async () => grouped),
+      read: vi.fn(async () => ({
+        values: { title: 'Work permits', facts: [{ text: 'The fee is $155', review_by: '2027-01-01' }], published_at: '2026-11-17T10:00:00Z', public_url: 'https://example.test/blog/work-permits' },
+        revision: '1',
+      })),
+      write: vi.fn(async () => ({ revision: String(++n) })),
+    };
+  }
+
+  it('opens one panel per group, each with only its own fields', async () => {
+    const fields = fieldsPort();
+    render(<PageEditor adapter={fakeAdapter({ fields } as unknown as Partial<EditableDocumentAdapter>)} id="p1" labels={{ noun: 'post' }} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Publishing/ }));
+    const panel = await screen.findByRole('complementary', { name: 'Publishing' });
+    expect(await screen.findByText('Where readers find it')).toBeTruthy();
+    expect(screen.queryByLabelText('Title')).toBeNull();
+    // Facts the product sets read as words: a date, and an address that opens in a new tab.
+    expect(panel.querySelector('input[name="published_at"]')).toBeNull();
+    expect(screen.getByRole('link', { name: 'https://example.test/blog/work-permits' }).getAttribute('target')).toBe('_blank');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Post$/ }));
+    expect(await screen.findByLabelText('Title')).toBeTruthy();
+  });
+
+  it('edits rows as a whole list: a changed cell, a new row, a removal that asks first', async () => {
+    const fields = fieldsPort();
+    render(<PageEditor adapter={fakeAdapter({ fields } as unknown as Partial<EditableDocumentAdapter>)} id="p1" labels={{ noun: 'post' }} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Facts/ }));
+    const fact = (await screen.findByLabelText('Fact')) as HTMLTextAreaElement;
+    expect(fact.tagName).toBe('TEXTAREA');
+    fireEvent.change(fact, { target: { value: 'The fee is $255' } });
+    fireEvent.blur(fact);
+    await waitFor(() => expect(fields.write).toHaveBeenCalledWith('p1', 'facts', [{ text: 'The fee is $255', review_by: '2027-01-01' }], '1', expect.any(String)));
+
+    // A new row shows at once and saves only once something is written in it.
+    fireEvent.click(screen.getByRole('button', { name: 'Add one' }));
+    expect(screen.getAllByLabelText('Fact')).toHaveLength(2);
+    expect(fields.write).toHaveBeenCalledTimes(1);
+    // Two is the limit.
+    expect((screen.getByRole('button', { name: 'Up to 2' }) as HTMLButtonElement).disabled).toBe(true);
+
+    // Removing the saved row writes the list without it; the blank new row is never written.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
+    expect(await screen.findByRole('alertdialog', { name: 'Remove this one?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'facts', [], '2', expect.any(String)));
+    expect(fields.write).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers Unpublish only while the document is live, and asks first', async () => {
+    const unpublish = vi.fn(async () => undefined);
+    const onUnpublished = vi.fn();
+    const { unmount } = render(<PageEditor adapter={fakeAdapter({ unpublish } as unknown as Partial<EditableDocumentAdapter>)} id="p1" labels={{ noun: 'post' }} />);
+    await screen.findByRole('button', { name: /Publish/ });
+    expect(screen.queryByRole('button', { name: 'Unpublish' })).toBeNull();
+    unmount();
+
+    render(
+      <BuilderHostProvider>
+        <PageEditor adapter={fakeAdapter({ unpublish } as unknown as Partial<EditableDocumentAdapter>)} id="p1" live onUnpublished={onUnpublished} labels={{ noun: 'post' }} />
+      </BuilderHostProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Unpublish' }));
+    expect(await screen.findByRole('alertdialog', { name: 'Take this post off the site?' })).toBeTruthy();
+    expect(unpublish).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Unpublish' }).at(-1)!);
+    await waitFor(() => expect(unpublish).toHaveBeenCalledWith('p1'));
+    await waitFor(() => expect(onUnpublished).toHaveBeenCalled());
+  });
+});
+
+describe('PageEditor host panels', () => {
+  it("draws a host's own panel over the canvas and hands it the editor's save", async () => {
+    const seen: { flush?: () => Promise<boolean> } = {};
+    render(
+      <PageEditor
+        adapter={fakeAdapter()}
+        id="p1"
+        panels={[
+          {
+            key: 'help',
+            title: 'Help from Porter',
+            render: (controls) => {
+              seen.flush = controls.flush;
+              return <p>Prepare a LinkedIn version</p>;
+            },
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Help from Porter' }));
+    expect(await screen.findByRole('complementary', { name: 'Help from Porter' })).toBeTruthy();
+    expect(screen.getByText('Prepare a LinkedIn version')).toBeTruthy();
+    await expect(seen.flush?.()).resolves.toBe(true);
+  });
+});

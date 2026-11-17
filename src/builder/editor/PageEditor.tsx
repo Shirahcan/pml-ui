@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, type ReactNode } from 'react';
-import { Code2, FileText, Layers3, Link2, Plus, Redo2, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import { Plus } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
-import type { EditableDocumentAdapter } from '../document';
+import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import {
@@ -20,9 +20,11 @@ import {
 import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
+import { useBuilderHost } from './host';
 import { EditorNounProvider } from './surface';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel } from './FindingsPanel';
+import { PageEditorHeader } from './PageEditorHeader';
 import { PageLayers } from './PageLayers';
 import { PlaceholdersLeftNotice } from './PlaceholdersLeftNotice';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
@@ -55,10 +57,34 @@ export interface PageEditorControls {
   openPanel: (panel: PageEditorPanel) => void;
   /** Whether the document has details to show (a fields port, or the host's `aside`). */
   hasDetails: boolean;
+  /**
+   * The document's field groups, in order (designer sole surface P2a): one slide-in panel each, opened with
+   * `openPanel(\`group:${key}\`)`. Empty when its fields have no groups (then `'details'` shows them all).
+   */
+  fieldGroups: DocumentFieldGroup[];
+  /** Take the document off the public site (the adapter's unpublish); absent unless it is live. Confirms first. */
+  unpublish?: () => void;
+  /**
+   * Send a waiting save now; true once the document is saved (a host panel that reads the SAVED document, such as a
+   * writing check, calls it first and stops on false).
+   */
+  flush: () => Promise<boolean>;
+  /** The host's own panels (`panels` prop), opened with `openPanel(\`host:${key}\`)`. */
+  hostPanels: { key: string; title: string }[];
 }
 
-/** The panels a host can open; the selected section's settings open on their own when a section is selected. */
-export type PageEditorPanel = 'details' | 'layers' | 'checks';
+/** A panel the host adds (help from the assistant, a share card): it slides in over the canvas like every other. */
+export interface PageEditorHostPanel {
+  key: string;
+  title: string;
+  render: (controls: PageEditorControls) => ReactNode;
+}
+
+/**
+ * The panels a host can open; the selected section's settings open on their own when a section is selected.
+ * `group:{key}` is one field group's panel; `'details'` opens the first group when there are groups.
+ */
+export type PageEditorPanel = 'details' | 'layers' | 'checks' | `group:${string}` | `host:${string}`;
 
 /** The words a host gives the editor, so it never calls a post a "page". */
 export interface PageEditorLabels {
@@ -71,6 +97,10 @@ export interface PageEditorLabels {
   /** The confirm for a rollback. */
   rollbackTitle?: string;
   rollbackDescription?: string;
+  /** The confirm for an unpublish, and what shows once it is done. */
+  unpublishTitle?: string;
+  unpublishDescription?: string;
+  unpublishedMessage?: string;
 }
 
 export interface PageEditorProps {
@@ -87,6 +117,12 @@ export interface PageEditorProps {
   labels?: PageEditorLabels;
   /** After a publish lands. */
   onPublished?: () => void;
+  /** Whether readers see the document now (the host knows from its load); with the adapter's `unpublish`, offers it. */
+  live?: boolean;
+  /** After an unpublish lands (reload the host's view of the document). */
+  onUnpublished?: () => void;
+  /** The host's own slide-in panels, after the editor's (owner 2026-11-17: every option in a panel over the design). */
+  panels?: PageEditorHostPanel[];
   /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
@@ -112,7 +148,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -127,7 +163,25 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const [view, setView] = useState<'design' | 'code'>('design');
   const code = adapter.code;
   const [confirmRollback, setConfirmRollback] = useState(false);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const host = useBuilderHost();
   const { nodes, change } = editor;
+
+  // The field groups, one slide-in panel each (owner 2026-11-17: every option in a panel over the design).
+  const [fieldGroups, setFieldGroups] = useState<DocumentFieldGroup[]>([]);
+  useEffect(() => {
+    let alive = true;
+
+    adapter.fields
+      ?.describe(id)
+      .then((list) => alive && setFieldGroups(fieldGroupsOf(list)))
+      // The Details panel reports its own load failure when opened; here it only means no group menu yet.
+      .catch(() => undefined);
+
+    return () => {
+      alive = false;
+    };
+  }, [adapter.fields, id]);
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
   const addLabel = labels.add ?? 'Add a section';
 
@@ -139,7 +193,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const refused = editor.scan && !editor.scan.mayPublish && editor.scan !== dismissedScan ? 'checks' : null;
   const panel: 'selected' | PageEditorPanel | null = selected && selectedPath && settingsShown ? 'selected' : (asked ?? refused);
   const openPanel = (next: PageEditorPanel) => {
-    setAsked(next);
+    setAsked(next === 'details' && fieldGroups.length > 0 ? `group:${fieldGroups[0].key}` : next);
     setOpenKey((k) => k + 1);
     selectPath(null);
   };
@@ -175,7 +229,13 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       : undefined,
     openPanel,
     hasDetails,
+    fieldGroups,
+    unpublish: adapter.unpublish && live ? () => setConfirmUnpublish(true) : undefined,
+    flush: () => editor.flush(),
+    hostPanels: panels.map(({ key, title }) => ({ key, title })),
   };
+  const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
+  const openGroup = panel?.startsWith('group:') ? fieldGroups.find((group) => `group:${group.key}` === panel) ?? null : null;
 
   if (editor.loading) {
     return <p className="py-16 text-center text-sm text-[var(--pb-muted)]" style={vars}>Opening the {noun}...</p>;
@@ -256,7 +316,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? 'Section settings' : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
+          title={panel === 'selected' ? 'Section settings' : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <PmlSettings
@@ -267,6 +327,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 selectPath(null);
               }}
             />
+          ) : openHost ? (
+            openHost.render(controls)
+          ) : openGroup ? (
+            <div className="space-y-4">
+              {/* The host's own panel heads the first group, as it heads Details. */}
+              {openGroup.key === fieldGroups[0]?.key ? aside : null}
+              {adapter.fields ? <DocumentFieldsPanel key={openGroup.key} id={id} fields={adapter.fields} session={editor.session} group={openGroup.key} label={openGroup.label} /> : null}
+            </div>
           ) : panel === 'details' ? (
             <div className="space-y-4">
               {aside}
@@ -300,6 +368,33 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         />
         {consoleSlot}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
+        <AlertDialog open={confirmUnpublish} onOpenChange={setConfirmUnpublish}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{labels.unpublishTitle ?? `Take this ${noun} off the site?`}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {labels.unpublishDescription ?? `Readers can no longer open it. Its design and details stay here, and you can publish it again at any time.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it live</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmUnpublish(false);
+                  adapter
+                    .unpublish?.(id)
+                    .then(() => {
+                      host.onSuccess(labels.unpublishedMessage ?? `The ${noun} is off the site.`);
+                      onUnpublished?.();
+                    })
+                    .catch((error) => host.onError(error));
+                }}
+              >
+                Unpublish
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <AlertDialog open={confirmRollback} onOpenChange={setConfirmRollback}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -325,60 +420,5 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       </div>
     </CatalogProvider>
     </EditorNounProvider>
-  );
-}
-
-/** The editor's own header when the host does not draw the controls in its chrome. */
-function PageEditorHeader({ controls }: { controls: PageEditorControls }): React.JSX.Element {
-  const status = controls.publishing ? 'Publishing' : controls.saving ? 'Saving draft' : controls.dirty ? 'Unsaved changes' : 'Draft up to date';
-
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      <span className="text-xs text-[var(--pb-muted)]" aria-live="polite">
-        {status}
-      </span>
-      <Button size="icon" variant="ghost" aria-label="Undo" disabled={!controls.canUndo} onClick={controls.undo}>
-        <Undo2 />
-      </Button>
-      <Button size="icon" variant="ghost" aria-label="Redo" disabled={!controls.canRedo} onClick={controls.redo}>
-        <Redo2 />
-      </Button>
-      {controls.hasDetails ? (
-        <Button size="sm" variant="outline" onClick={() => controls.openPanel('details')}>
-          <FileText />
-          Details
-        </Button>
-      ) : null}
-      <Button size="sm" variant="outline" onClick={() => controls.openPanel('layers')}>
-        <Layers3 />
-        Layers
-      </Button>
-      {controls.toggleCode ? (
-        <Button size="sm" variant="outline" aria-pressed={controls.view === 'code'} onClick={controls.toggleCode}>
-          <Code2 />
-          {controls.view === 'code' ? 'Back to the design' : 'Code'}
-        </Button>
-      ) : null}
-      <Button size="sm" variant="outline" onClick={controls.check}>
-        <ShieldCheck />
-        Run the checks
-      </Button>
-      {controls.copyPreviewLink ? (
-        <Button size="sm" variant="outline" onClick={controls.copyPreviewLink}>
-          <Link2 />
-          Copy preview link
-        </Button>
-      ) : null}
-      {controls.rollback ? (
-        <Button size="sm" variant="outline" onClick={controls.rollback}>
-          <RotateCcw />
-          Throw away the draft
-        </Button>
-      ) : null}
-      <Button size="sm" onClick={controls.publish} disabled={controls.publishing}>
-        <Send />
-        Publish
-      </Button>
-    </div>
   );
 }

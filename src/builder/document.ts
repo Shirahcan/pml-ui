@@ -164,15 +164,40 @@ export interface DocumentField {
   /**
    * `toggle` (pml-email C1a): an on/off setting, such as an email's standard header and footer. `choice` (blog on
    * growth-service S3): one of `options`, such as a post's category or how it ends. A `text` field longer than
-   * LONG_TEXT characters is drawn as a box of several lines (a summary), a shorter one as a single line.
+   * LONG_TEXT characters is drawn as a box of several lines (a summary), a shorter one as a single line. `rows`
+   * (designer sole surface P2b): a list of small records, each drawn with `columns` (a post's facts, its reader
+   * questions); its value is the whole array and a write sends the whole array.
    */
-  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record' | 'toggle' | 'choice';
+  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record' | 'toggle' | 'choice' | 'rows';
   /** Computed by the product (a read time): shown, never edited. */
   readOnly?: boolean;
   /** The limit the builder counts against: characters for text, items for a list. */
   max?: number;
   /** A `choice` field's options; the value written is the option's `value` (`''` is the product's "none"). */
   options?: DocumentFieldOption[];
+  /** A `rows` field's columns: text, long text, date or choice. `max` on the field is the number of rows allowed. */
+  columns?: DocumentField[];
+  /**
+   * The panel it is shown in (owner 2026-11-17, "the designer is the sole surface": every option in a slide-in panel).
+   * Fields without one are the document's "Details".
+   */
+  group?: DocumentFieldGroup;
+}
+
+export interface DocumentFieldGroup {
+  key: string;
+  label: string;
+}
+
+/** A document's field groups, in the order their fields come (the port lists fields group by group). */
+export function fieldGroupsOf(fields: DocumentField[]): DocumentFieldGroup[] {
+  const seen = new Map<string, DocumentFieldGroup>();
+
+  for (const field of fields) {
+    if (field.group && !seen.has(field.group.key)) seen.set(field.group.key, field.group);
+  }
+
+  return [...seen.values()];
 }
 
 export interface DocumentFieldOption {
@@ -197,7 +222,7 @@ export interface DocumentFieldsPort {
  * saved design IS the email, so its host leaves them out rather than faking them. Every `DocumentAdapter` is one.
  */
 export type EditableDocumentAdapter = Pick<DocumentAdapter, 'load' | 'saveDraft' | 'preflight' | 'preview' | 'components' | 'fields'> &
-  Partial<Pick<DocumentAdapter, 'publish' | 'rollback' | 'previewUrl' | 'code' | 'assistant'>>;
+  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant'>>;
 
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
