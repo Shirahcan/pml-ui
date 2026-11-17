@@ -33,8 +33,22 @@ import { isBlockElement, renderBlock, SELF_MARKED_PARTS, WORD_PARTS } from './Pm
 import { NOT_SENT_IN_PREVIEW, PREVIEW_NOT_SENT_NOTE, useSiteInteractions } from './SiteInteractionContext';
 import { PmlPackages } from './modules/PmlPackages';
 import { PmlTestimonials } from './modules/PmlTestimonials';
-import { PmlPostCover, PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
-import { PmlPostAuthor, PmlPostBreadcrumbs, PmlPostDate, PmlPostDek, PmlPostReadTime, PmlPostReviewer, PmlPostTags, PmlPostTitle } from './modules/PmlPostPieces';
+import { PmlPostDisclaimer, PmlPostHeader, PmlPostRelated } from './modules/PmlPostParts';
+import {
+  PmlPostAuthor,
+  PmlPostBadges,
+  PmlPostBreadcrumbs,
+  PmlPostCategory,
+  PmlPostCoverPiece,
+  PmlPostDate,
+  PmlPostDek,
+  PmlPostReadTime,
+  PmlPostReviewer,
+  PmlPostReviewerBadge,
+  PmlPostSourcesBadge,
+  PmlPostTags,
+  PmlPostTitle,
+} from './modules/PmlPostPieces';
 import { PmlPostCta } from './modules/PmlPostCta';
 import { PmlPostStory } from './modules/PmlPostStory';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
@@ -188,6 +202,29 @@ const OutlineContext = React.createContext<OutlineEntry[]>([]);
 
 /** True in the builder canvas: an element that would render nothing yet shows a hint instead. */
 const BuilderHintsContext = React.createContext<boolean>(false);
+
+/** The post pieces the renderer draws itself (a host may draw any of them instead). */
+const POST_PIECES = {
+  post_breadcrumbs: PmlPostBreadcrumbs,
+  post_category: PmlPostCategory,
+  post_title: PmlPostTitle,
+  post_dek: PmlPostDek,
+  post_author: PmlPostAuthor,
+  post_date: PmlPostDate,
+  post_read_time: PmlPostReadTime,
+  post_reviewer: PmlPostReviewer,
+  post_reviewer_badge: PmlPostReviewerBadge,
+  post_sources_badge: PmlPostSourcesBadge,
+  post_tags: PmlPostTags,
+} as const;
+
+/** The reference's placeholder grey for an empty field on the canvas. */
+const EXAMPLE_WORDS = '#A0A8B8';
+
+/** Words that are WHOLLY a template's bracketed example, e.g. "[The direct answer, in under 50 words.]" or "[Column]". */
+function isBracketedExample(value: unknown): boolean {
+  return typeof value === 'string' && /^\s*\[[^[\]]+\]\s*$/.test(value);
+}
 
 /** In the builder: the element being drawn as written, before its `{...}` values were read. */
 const AuthoredNodeContext = React.createContext<PmlNode | null>(null);
@@ -1058,15 +1095,21 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     }
 
     case 'text': {
+      // A run that is WHOLLY a template's bracketed example ("[The direct answer, in under 50 words.]", "[Column]") is
+      // an empty field waiting for words: on the canvas it reads as the reference's grey placeholder; a live page
+      // never shows it differently (publish refuses a part still holding its example words, pml-kit layout.unfilled).
+      const example = inCanvas && isBracketedExample(p.value);
+      const look = example ? { className: s.className, style: { ...s.style, color: EXAMPLE_WORDS } } : s;
+
       // A word run inside a paragraph is just its words (PML v3 L4).
-      if (inWords) return renderRun(p.value, s);
+      if (inWords) return renderRun(p.value, look);
 
       const body = withResponsive(bodyScale(size.body_size), size, ['body_size']);
       const value = str(p.value);
       if (!value) return null;
 
       return (
-        <p className={`opacity-80 ${body} ${s.className}`.trim()} style={s.style}>
+        <p className={`${example ? '' : 'opacity-80'} ${body} ${s.className}`.trim()} style={look.style}>
           {value}
         </p>
       );
@@ -1422,50 +1465,62 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       return <PmlTestimonials props={p} className={s.className} style={s.style} />;
 
     case 'post_breadcrumbs':
+    case 'post_category':
     case 'post_title':
     case 'post_dek':
     case 'post_author':
     case 'post_date':
     case 'post_read_time':
     case 'post_reviewer':
+    case 'post_reviewer_badge':
+    case 'post_sources_badge':
     case 'post_tags': {
-      // The Classic template's post pieces (owner 2026-11-17, T1): one element each, so a template places them one by
-      // one. The host's drawing when it has one, else the package's, from the post's own baked details.
-      const piece = node.primitive as 'post_breadcrumbs' | 'post_title' | 'post_dek' | 'post_author' | 'post_date' | 'post_read_time' | 'post_reviewer' | 'post_tags';
+      // The Classic template's post pieces (owner 2026-11-17, T1; the reference header, pml-kit 0.27): one element
+      // each, so a template places them one by one. The host's drawing when it has one, else the package's, from the
+      // post's own baked details.
+      const piece = node.primitive as keyof typeof POST_PIECES;
 
       if (host.elements?.[piece]) return hostElement(host, piece, { props: p, site, className: s.className, style: s.style });
-      const Piece = {
-        post_breadcrumbs: PmlPostBreadcrumbs,
-        post_title: PmlPostTitle,
-        post_dek: PmlPostDek,
-        post_author: PmlPostAuthor,
-        post_date: PmlPostDate,
-        post_read_time: PmlPostReadTime,
-        post_reviewer: PmlPostReviewer,
-        post_tags: PmlPostTags,
-      }[piece];
+      const Piece = POST_PIECES[piece];
 
       return <Piece props={p} className={s.className} style={s.style} inCanvas={inCanvas} />;
     }
 
     case 'post_meta':
-      // The byline row: its pieces (author, date, read time, reviewer) side by side, each its own element to move or drop.
+      // The byline row (the reference's .by): its pieces side by side, each its own element to move or drop; 13px slate,
+      // the values bold ink (each piece draws its own value).
       return (
-        <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm opacity-75 ${s.className}`.trim()} style={s.style}>
+        <div className={s.className} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, fontSize: 13, color: 'var(--post-slate, #475569)', marginBottom: 10, ...s.style }}>
           {children(node, site, ctx)}
         </div>
       );
 
-    case 'post_header':
+    case 'post_badges':
+      // The trust row (the reference's .trust): the reviewer and sources badges, each its own element.
+      if (host.elements?.post_badges) return hostElement(host, 'post_badges', { props: p, site, className: s.className, style: s.style });
+
+      return (
+        <PmlPostBadges className={s.className} style={s.style}>
+          {children(node, site, ctx)}
+        </PmlPostBadges>
+      );
+
     case 'post_cover':
+      // The cover: on the canvas an empty one is the reference's gradient panel and "Add a caption"; a live page
+      // draws nothing for a post without a cover (never "the cover shows here" to a reader).
+      if (host.elements?.post_cover) return hostElement(host, 'post_cover', { props: p, site, className: s.className, style: s.style });
+
+      return <PmlPostCoverPiece props={p} className={s.className} style={s.style} inCanvas={inCanvas} />;
+
+    case 'post_header':
     case 'post_related':
     case 'post_disclaimer': {
       // A post's own fields (post layouts C2b), baked at publish and preview: the host's drawing when it has one,
       // else the package's, so every product gets a post header without writing one.
-      const part = node.primitive as 'post_header' | 'post_cover' | 'post_related' | 'post_disclaimer';
+      const part = node.primitive as 'post_header' | 'post_related' | 'post_disclaimer';
 
       if (host.elements?.[part]) return hostElement(host, part, { props: p, site, className: s.className, style: s.style });
-      const Part = { post_header: PmlPostHeader, post_cover: PmlPostCover, post_related: PmlPostRelated, post_disclaimer: PmlPostDisclaimer }[part];
+      const Part = { post_header: PmlPostHeader, post_related: PmlPostRelated, post_disclaimer: PmlPostDisclaimer }[part];
 
       return <Part props={p} className={s.className} style={s.style} />;
     }
@@ -1712,10 +1767,12 @@ function FormNode({ node, site }: { node: PmlNode; site: PublicSite }): React.JS
  * Renders nothing when the page has no headings to list.
  */
 /** A toc's own items, in order: `{label, target}` each; an item without a label or a target is left out. */
-function tocItems(node: PmlNode): { text: string; anchor: string; level: number }[] {
+/** A toc's own items, each with its index among the toc's children (its path, which the canvas selects it by). */
+function tocItems(node: PmlNode): { text: string; anchor: string; level: number; index: number }[] {
   return (node.children ?? [])
-    .filter((child) => child.primitive === 'toc_item')
-    .map((child) => ({ text: str(child.props?.label), anchor: str(child.props?.target).replace(/^#/, ''), level: 2 }))
+    .map((child, index) => ({ child, index }))
+    .filter(({ child }) => child.primitive === 'toc_item')
+    .map(({ child, index }) => ({ text: str(child.props?.label), anchor: str(child.props?.target).replace(/^#/, ''), level: 2, index }))
     .filter((item) => item.text !== '' && item.anchor !== '');
 }
 
@@ -1728,13 +1785,17 @@ function PmlToc({
 }: {
   title: string;
   depth: 2 | 3;
-  items: { text: string; anchor: string; level: number }[];
+  items: { text: string; anchor: string; level: number; index?: number }[];
   className: string;
   style: React.CSSProperties;
 }): React.JSX.Element | null {
   const outline = React.useContext(OutlineContext).filter((e) => e.level >= 2 && e.level <= depth);
-  const entries = items.length > 0 ? items : outline;
+  const entries: { text: string; anchor: string; level: number; index?: number }[] = items.length > 0 ? items : outline;
   const hints = React.useContext(BuilderHintsContext);
+  // The toc's own path in the builder: each item it holds marks its <li> with its own, so a click selects that link,
+  // not the whole list (owner 2026-11-17). A list built from the headings has no items of its own to select.
+  const own = React.useContext(PathContext);
+  const mark = (index: number | undefined): Record<string, string> => (hints && own.length > 0 && index !== undefined ? selfPathProps([...own, index].join('.')) : {});
   const label = title || 'On this page';
 
   if (entries.length === 0) {
@@ -1751,7 +1812,7 @@ function PmlToc({
       <p className="mb-2 text-sm font-semibold">{label}</p>
       <ol className="space-y-1.5 text-sm">
         {entries.map((e) => (
-          <li key={e.anchor} className={e.level === 3 ? 'pl-4' : undefined}>
+          <li key={e.anchor} className={e.level === 3 ? 'pl-4' : undefined} {...mark(e.index)}>
             <a href={`#${e.anchor}`} className="underline-offset-4 opacity-80 hover:underline hover:opacity-100">
               {e.text}
             </a>

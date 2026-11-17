@@ -50,7 +50,9 @@ describe('PmlRenderer post parts', () => {
     );
 
     expect(getByText(/breadcrumb, title, byline, read time, badges and tags show here/)).toBeTruthy();
-    expect(getByText(/cover photo and its caption show here/)).toBeTruthy();
+    // An empty cover draws nothing for a reader (2026-11-17: readers saw "the cover shows here"); the canvas shows the
+    // reference's panel instead (PmlPostReferenceHeader.test).
+    expect(container.querySelector('figure')).toBeNull();
     expect(getByText(/three related published guides show here/)).toBeTruthy();
     expect(container.querySelectorAll('h1')).toHaveLength(0);
   });

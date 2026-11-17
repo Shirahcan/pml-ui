@@ -3,7 +3,7 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
-import { getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
+import { elementLabel, getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
 import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
@@ -197,6 +197,10 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     };
   }, [adapter.fields, id]);
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
+  // An element inside a section is named for what it is ("Title", "Author"), never "Section settings": the owner read
+  // that title as the whole header being selected (2026-11-17).
+  const selectedTitle =
+    selected && selectedPath && selectedPath.length > 1 ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents) : 'Section settings';
   const addLabel = labels.add ?? 'Add a section';
 
   // The panel shows the selected section's settings once they are due (useQuickEditSelection), otherwise what the host
@@ -336,7 +340,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? 'Section settings' : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
+          title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <PmlSettings

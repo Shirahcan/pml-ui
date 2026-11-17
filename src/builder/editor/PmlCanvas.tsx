@@ -7,7 +7,7 @@ import { elementLabel, isCommentNode, isStudioComment, pageOutline, PML_CATALOG_
 import type { PmlNativesPayload, PmlNode } from '../../language';
 import { selectionCornerClass } from '../../pml/primitiveStyle';
 import type { PmlSite } from '../../renderer/PmlRenderer';
-import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
+import { FrameButton, SectionPreview, SectionSkeleton } from './canvasParts';
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
 import { pathElement } from './pathElement';
@@ -20,14 +20,18 @@ export interface CanvasFrame {
   style?: React.CSSProperties;
 }
 
-const SELECTED = 'z-10 outline outline-2 outline-offset-2 outline-[var(--site-accent)]';
+/**
+ * The selection outline is the EDITOR's colour, not the site's (owner 2026-11-17, the reference studio: 2px #625FFB):
+ * a site whose accent is black drew black outlines that read as part of the design. --pml-select overrides it.
+ */
+const SELECTED = 'z-10 outline outline-2 outline-offset-2 outline-[var(--pml-select,#625FFB)]';
 const IDLE =
-  'hover:outline hover:outline-1 hover:outline-offset-2 hover:outline-[color-mix(in_srgb,var(--site-accent)_45%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--site-accent)]';
+  'hover:outline hover:outline-1 hover:outline-offset-2 hover:outline-[color-mix(in_srgb,var(--pml-select,#625FFB)_45%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pml-select,#625FFB)]';
 
 /** The same outline for an element inside a section, set on the element itself so it keeps its corners. */
 const ELEMENT_STYLES = `
-[data-pml-selected] { outline: 2px solid var(--site-accent); outline-offset: 2px; }
-[data-pml-hover]:not([data-pml-selected]) { outline: 1px solid color-mix(in srgb, var(--site-accent) 45%, transparent); outline-offset: 2px; }
+[data-pml-selected] { outline: 2px solid var(--pml-select, #625FFB); outline-offset: 2px; }
+[data-pml-hover]:not([data-pml-selected]) { outline: 1px solid color-mix(in srgb, var(--pml-select, #625FFB) 45%, transparent); outline-offset: 2px; }
 `;
 
 const HOVER = 'data-pml-hover';
@@ -265,18 +269,19 @@ export function PmlCanvas({
         )
       ) : (
         nodes.map((node, index) => {
-          // A studio comment (D1) is drawn as a pin by the overlay, never as a strip in the page.
-          if (isStudioComment(node)) return index === skeletonAt ? <SectionSkeleton key={index} label={building?.label ?? null} /> : null;
+          // A studio comment (D1) is drawn as a pin by the overlay, never as a strip in the page. A template's note (the
+          // "Purpose: ..." lines written for the assistant) is not drawn on the design either (owner 2026-11-17: the
+          // reference shows none); it stays in the code view, in Layers and in the PML.
+          if (isStudioComment(node) || isCommentNode(node)) return index === skeletonAt ? <SectionSkeleton key={index} label={building?.label ?? null} /> : null;
 
-          const comment = isCommentNode(node);
           const name = node.component ?? node.primitive ?? 'section';
-          const label = comment ? 'Comment' : (PML_CATALOG_BY_NAME[name]?.label ?? studioCatalog.find((c) => c.key === name)?.name ?? 'Section');
+          const label = PML_CATALOG_BY_NAME[name]?.label ?? studioCatalog.find((c) => c.key === name)?.name ?? 'Section';
           // The compiled preview DROPS comments (they never render), so a non-comment node's preview
           // sits at its position AMONG non-comment nodes, not at its raw index. Mapping by that count
           // keeps every block's preview aligned even when comments are interleaved (a top-level comment
           // would otherwise shift every later preview by one - the desync this fixes).
-          const compiledIndex = comment ? -1 : nodes.slice(0, index).filter((n) => !isCommentNode(n)).length;
-          const preview = comment ? null : (compiled?.[compiledIndex] ?? null);
+          const compiledIndex = nodes.slice(0, index).filter((n) => !isCommentNode(n)).length;
+          const preview = compiled?.[compiledIndex] ?? null;
           const selected = deep ? selectedPath?.length === 1 && selectedPath[0] === index : selectedIndex === index;
 
           return (
@@ -300,9 +305,7 @@ export function PmlCanvas({
               }}
               className={`group relative cursor-pointer ${selectionCornerClass(node.style)} ${selected ? SELECTED : IDLE}`}
             >
-              {comment ? (
-                <CommentStrip text={typeof node.comment === 'string' ? node.comment : ''} />
-              ) : preview ? (
+              {preview ? (
                 <SectionPreview preview={preview} natives={natives} site={site} mobile={viewport === 'mobile'} outline={outline} index={deep ? index : null} />
               ) : (
                 <div className="px-6 py-10 text-center text-sm opacity-40">{label}…</div>

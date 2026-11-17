@@ -622,6 +622,47 @@ export const PML_CATALOG: PmlComponentDef[] = [
     fields: [],
     defaults: { primitive: 'post_header', props: {} },
   },
+  // The Classic template's header, piece by piece (owner 2026-11-17: "the breadcrumbs, category, title, summary,
+  // author, etc should be separate individual elements"). Each is its OWN element: selected on its own, named here,
+  // moved, restyled or removed on its own. Their words come from the post's details, so the panel says where those
+  // are set. Kept inside the header (isItem), not offered in the top-level Add menu.
+  ...(
+    [
+      ['post_breadcrumbs', 'Breadcrumbs', 'Home, Blog and the post’s category, linked. The category comes from the post’s Details.', 'Navigation'],
+      ['post_category', 'Category', 'The post’s category, as a small label above the title. Choose it in Details.', 'Tag'],
+      ['post_title', 'Title', 'The post’s title, as its main heading. It is the post’s Title in Details.', 'Heading'],
+      ['post_dek', 'Summary', 'The one line under the title. It is the post’s summary (dek) in Details.', 'AlignLeft'],
+      ['post_meta', 'Byline', 'The row under the summary: author and date, side by side. Each is its own element.', 'Rows3'],
+      ['post_author', 'Author', 'Who wrote the post, from its Details.', 'User'],
+      ['post_read_time', 'Read time', 'How long the post takes to read, worked out from its words.', 'Clock'],
+      ['post_reviewer', 'Reviewer', 'The licensed reviewer, shown only once they have confirmed this version.', 'BadgeCheck'],
+      ['post_badges', 'Trust badges', 'The row of trust badges: the reviewer and the official sources. Each is its own element.', 'ShieldCheck'],
+      ['post_reviewer_badge', 'Reviewer badge', '“Reviewed by” and the licensed reviewer, shown only once they have confirmed this version.', 'BadgeCheck'],
+      ['post_sources_badge', 'Sources badge', 'The official sites the post cites, from its sources.', 'Link'],
+      ['post_tags', 'Tags', 'The post’s tags, from its Details.', 'Tags'],
+    ] as const
+  ).map(
+    ([name, label, description, icon]): PmlComponentDef => ({
+      name,
+      label,
+      description,
+      icon,
+      isItem: true,
+      hasSlot: false,
+      fields: [],
+      defaults: { primitive: name, props: {} },
+    }),
+  ),
+  {
+    name: 'post_date',
+    label: 'Date',
+    description: 'A date from the post: when it was published, last updated, or last verified against the official sources.',
+    icon: 'Calendar',
+    isItem: true,
+    hasSlot: false,
+    fields: [{ key: 'kind', label: 'Which date', kind: 'select', options: [...PML_ENUMS.date_kind] }],
+    defaults: { primitive: 'post_date', props: { kind: 'published' } },
+  },
   {
     name: 'post_cover',
     label: 'Post cover',
@@ -864,6 +905,20 @@ export const PML_CATALOG: PmlComponentDef[] = [
       { key: 'depth', label: 'Headings to list', kind: 'select', options: ['2', '3'] },
     ],
     defaults: { primitive: 'toc', props: { title: 'On this page', depth: '2' } },
+  },
+  {
+    // One link in a table of contents that holds its own items (T1): selected, edited or removed on its own.
+    name: 'toc_item',
+    label: 'Contents link',
+    description: 'One link in the table of contents: the words readers see and the section it jumps to.',
+    icon: 'Link',
+    isItem: true,
+    hasSlot: false,
+    fields: [
+      { key: 'label', label: 'Words', kind: 'text' },
+      { key: 'target', label: 'Goes to (the section’s link name)', kind: 'text' },
+    ],
+    defaults: { primitive: 'toc_item', props: { label: 'A section', target: 'a-section' } },
   },
   {
     // S1-07: numbered citations for the official pages and laws a page relies on.
