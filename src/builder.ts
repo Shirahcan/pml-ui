@@ -57,3 +57,4 @@ export * from './builder/editor/surface';
 export * from './builder/editor/PageEditor';
 export * from './builder/editor/useQuickEditSelection';
 export * from './builder/editor/DocumentFieldsPanel';
+export * from './builder/editor/SlidePanel';

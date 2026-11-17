@@ -11,7 +11,7 @@ import { CommentStrip, FrameButton, SectionPreview, SectionSkeleton } from './ca
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
 import { pathElement } from './pathElement';
-import { useEditorSurface } from './surface';
+import { useEditorNoun, useEditorSurface } from './surface';
 import { useQuickEdit } from './useQuickEdit';
 
 /** The site's look around the canvas, from the host: its font classes and its theme's CSS variables (`--site-*`). */
@@ -216,6 +216,7 @@ export function PmlCanvas({
   const { assistantName } = useBuilderHost();
   const assistant = assistantName?.trim();
   const surface = useEditorSurface();
+  const noun = useEditorNoun();
   const width = viewport === 'mobile' ? 'max-w-sm' : 'max-w-5xl';
   // The WHOLE page's headings (S1-06): each section renders alone here, so a table of contents
   // would otherwise list only its own section.
@@ -247,6 +248,12 @@ export function PmlCanvas({
           <div className="px-6 py-20 text-center">
             <p className="text-sm font-medium">This email has no blocks yet</p>
             <p className="mt-1 text-sm opacity-60">Use Add a block below the email to start it.</p>
+          </div>
+        ) : noun ? (
+          // The shared PageEditor names its document and has its Add button under the canvas, not in a menu.
+          <div className="px-6 py-20 text-center">
+            <p className="text-sm font-medium">This {noun} is empty</p>
+            <p className="mt-1 text-sm opacity-60">Use Add a section below to start it.</p>
           </div>
         ) : (
           <div className="px-6 py-20 text-center">

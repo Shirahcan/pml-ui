@@ -10,6 +10,7 @@ import type { PmlNode } from '../../language';
 import { useOwnVars } from '../ui/theme';
 import { useCatalog } from './catalog';
 import { useBuilderHost } from './host';
+import { useEditorNoun } from './surface';
 
 type Zone = 'before' | 'after' | 'inside';
 
@@ -42,6 +43,7 @@ export function PageLayers({
   const catalog = useCatalog();
   const host = useBuilderHost();
   const vars = useOwnVars();
+  const noun = useEditorNoun();
   const [dragging, setDragging] = useState<number[] | null>(null);
   const [target, setTarget] = useState<{ path: number[]; zone: Zone } | null>(null);
 
@@ -134,7 +136,7 @@ export function PageLayers({
   return (
     <section aria-label="Layers" className="space-y-2" style={vars}>
       <h3 className="text-sm font-semibold text-slate-900">Layers</h3>
-      {nodes.length === 0 ? <p className="text-sm text-slate-500">This page is empty.</p> : <ul className="-mx-1">{nodes.map((node, i) => row(node, [i]))}</ul>}
+      {nodes.length === 0 ? <p className="text-sm text-slate-500">This {noun ?? 'page'} is empty.</p> : <ul className="-mx-1">{nodes.map((node, i) => row(node, [i]))}</ul>}
       <p className="text-xs text-slate-500">Drag a row to move it, or onto a section to put it inside.</p>
     </section>
   );

@@ -228,7 +228,8 @@ describe('quick edits in the email (post layouts E1/E2, owner: newsletters adopt
 
     expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
     expect((paragraph.closest('p') as HTMLElement).style.visibility).toBe('hidden');
-    expect(screen.getByRole('complementary', { name: 'Email checks' })).toBeTruthy();
+    // The block settings panel stays closed (it slides in over the canvas only when due).
+    expect(screen.queryByRole('complementary', { name: 'Block settings' })).toBeNull();
 
     // Closed before waiting: jsdom cannot measure the rich editor's caret, which it scrolls to once focused.
     fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Format these words' }), { key: 'Escape' });
@@ -236,7 +237,8 @@ describe('quick edits in the email (post layouts E1/E2, owner: newsletters adopt
 
     // The first click's settings were waiting out the double-click window; the quick edit cancelled them for good.
     await wait(350);
-    expect(screen.getByRole('complementary', { name: 'Email checks' })).toBeTruthy();
+    // The block settings panel stays closed (it slides in over the canvas only when due).
+    expect(screen.queryByRole('complementary', { name: 'Block settings' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Delete block/ })).toBeNull();
   });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
-import { Code2, Link2, Plus, Redo2, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react';
+import { Code2, FileText, Layers3, Link2, Plus, Redo2, RotateCcw, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
 import type { EditableDocumentAdapter } from '../document';
@@ -20,6 +20,7 @@ import {
 import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
+import { EditorNounProvider } from './surface';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel } from './FindingsPanel';
 import { PageLayers } from './PageLayers';
@@ -28,6 +29,7 @@ import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
 import { PmlSettings } from './PmlSettings';
+import { SlidePanel } from './SlidePanel';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
 
@@ -49,7 +51,14 @@ export interface PageEditorControls {
   /** Which view shows: the design or its code; `toggleCode` is absent when the document has no code port. */
   view: 'design' | 'code';
   toggleCode?: () => void;
+  /** Slide a panel in over the canvas (the design never narrows): the document's details, its layers, its checks. */
+  openPanel: (panel: PageEditorPanel) => void;
+  /** Whether the document has details to show (a fields port, or the host's `aside`). */
+  hasDetails: boolean;
 }
+
+/** The panels a host can open; the selected section's settings open on their own when a section is selected. */
+export type PageEditorPanel = 'details' | 'layers' | 'checks';
 
 /** The words a host gives the editor, so it never calls a post a "page". */
 export interface PageEditorLabels {
@@ -89,7 +98,7 @@ export interface PageEditorProps {
    * itself (it overlays, it never shrinks the page), so pml-ui never imports ai-ui.
    */
   console?: ReactNode;
-  /** The host's own panel in the rail when nothing is selected (above the document's details and layers). */
+  /** The host's own panel, shown at the top of the Details panel (above the document's fields). */
   aside?: ReactNode;
 }
 
@@ -97,9 +106,10 @@ const NO_SITE: PmlSite = {};
 
 /**
  * The page editor (shared program E4a4i, blog-on-growth-service S7a): the shared builder composed for a page or a post
- * on any `EditableDocumentAdapter`. A canvas, the settings rail for the selected section and the page's layers when
- * nothing is selected, Add a section, undo and redo, the checks, Publish, and, where the document has them, Throw away
- * the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
+ * on any `EditableDocumentAdapter`. The canvas keeps its full width; everything else slides in over it from the right
+ * (owner 2026-11-17: "the design area shouldn't be shrunken"): the selected section's settings (after the double-click
+ * window), the document's details, its layers, its checks. Add a section, undo and redo, Publish, and, where the
+ * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
 export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
@@ -121,6 +131,25 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
   const addLabel = labels.add ?? 'Add a section';
 
+  // The panel shows the selected section's settings once they are due (useQuickEditSelection), otherwise what the host
+  // asked for, otherwise a refused publish's findings until they are dismissed. Derived, so nothing syncs in an effect.
+  const [asked, setAsked] = useState<PageEditorPanel | null>(null);
+  const [openKey, setOpenKey] = useState(0);
+  const [dismissedScan, setDismissedScan] = useState<unknown>(null);
+  const refused = editor.scan && !editor.scan.mayPublish && editor.scan !== dismissedScan ? 'checks' : null;
+  const panel: 'selected' | PageEditorPanel | null = selected && selectedPath && settingsShown ? 'selected' : (asked ?? refused);
+  const openPanel = (next: PageEditorPanel) => {
+    setAsked(next);
+    setOpenKey((k) => k + 1);
+    selectPath(null);
+  };
+  const closePanel = () => {
+    if (panel === 'selected') selectPath(null);
+    if (panel === 'checks') setDismissedScan(editor.scan);
+    setAsked(null);
+  };
+  const hasDetails = Boolean(adapter.fields || aside);
+
   const controls: PageEditorControls = {
     saving: editor.saving,
     dirty: editor.dirty,
@@ -129,7 +158,10 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     canRedo: editor.canRedo,
     undo: editor.undoEdit,
     redo: editor.redoEdit,
-    check: () => void editor.check(),
+    check: () => {
+      void editor.check();
+      openPanel('checks');
+    },
     publish: () => void editor.publish(),
     rollback: editor.canRollback ? () => setConfirmRollback(true) : undefined,
     copyPreviewLink: editor.canPreviewLink ? () => void editor.copyPreviewLink() : undefined,
@@ -141,6 +173,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           else setView('design');
         }
       : undefined,
+    openPanel,
+    hasDetails,
   };
 
   if (editor.loading) {
@@ -159,6 +193,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   }
 
   return (
+    <EditorNounProvider noun={noun}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {renderControls ? renderControls(controls) : <PageEditorHeader controls={controls} />}
@@ -176,77 +211,85 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             onCancel={() => setView('design')}
           />
         ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="min-w-0">
-            <PmlCanvas
-              nodes={nodes}
-              compiled={editor.compiled}
-              natives={editor.natives}
-              site={site}
-              frame={frame}
-              selectedIndex={selectedPath ? selectedPath[0] : null}
-              selectedPath={selectedPath}
-              onSelectPath={selectPath}
-              viewport="desktop"
-              onSelect={(index) => selectPath(index === null ? null : [index])}
-              onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
-              onDelete={(index) => {
-                change(removeNodeAtPath(nodes, [index]));
-                selectPath(null);
-              }}
-              onEditText={(path, field, value) => {
-                const node = getNodeAtPath(nodes, path);
-                if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
-              }}
-              quickEditAll={quickEdit}
-              onQuickEdit={quickEdit ? onQuickEdit : undefined}
-              // Rich words edited in place: the paragraph keeps its own shape, only its words change.
-              onEditWords={(path, children) => {
-                const node = getNodeAtPath(nodes, path);
-                if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
-              }}
-            />
-            {editor.previewError ? (
-              <p role="status" className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                {editor.previewError.message} The canvas shows the last version that worked.
-              </p>
-            ) : null}
-            <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
-              <Plus className="h-4 w-4" />
-              {addLabel}
-            </Button>
-          </div>
-
-          <aside aria-label={selected && settingsShown ? 'Selected section' : 'Layers and checks'} className="space-y-3">
-            {selected && selectedPath && settingsShown ? (
-              <PmlSettings
-                node={selected}
-                onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
-                onDelete={() => {
-                  change(removeNodeAtPath(nodes, selectedPath));
-                  selectPath(null);
-                }}
-              />
-            ) : (
-              <>
-                {aside}
-                {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} /> : null}
-                {editor.scan ? <FindingsPanel preflight={editor.scan} words={{ clean: `Nothing here needs to change. Ready to publish.` }} /> : null}
-                <PageLayers
-                  nodes={nodes}
-                  selectedPath={selectedPath}
-                  onSelect={selectPath}
-                  onMoved={(moved) => {
-                    change(moved.nodes);
-                    selectPath(moved.path);
-                  }}
-                />
-              </>
-            )}
-          </aside>
+        <div className="min-w-0">
+          <PmlCanvas
+            nodes={nodes}
+            compiled={editor.compiled}
+            natives={editor.natives}
+            site={site}
+            frame={frame}
+            selectedIndex={selectedPath ? selectedPath[0] : null}
+            selectedPath={selectedPath}
+            onSelectPath={selectPath}
+            viewport="desktop"
+            onSelect={(index) => selectPath(index === null ? null : [index])}
+            onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
+            onDelete={(index) => {
+              change(removeNodeAtPath(nodes, [index]));
+              selectPath(null);
+            }}
+            onEditText={(path, field, value) => {
+              const node = getNodeAtPath(nodes, path);
+              if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
+            }}
+            quickEditAll={quickEdit}
+            onQuickEdit={quickEdit ? onQuickEdit : undefined}
+            // Rich words edited in place: the paragraph keeps its own shape, only its words change.
+            onEditWords={(path, children) => {
+              const node = getNodeAtPath(nodes, path);
+              if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
+            }}
+          />
+          {editor.previewError ? (
+            <p role="status" className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {editor.previewError.message} The canvas shows the last version that worked.
+            </p>
+          ) : null}
+          <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4" />
+            {addLabel}
+          </Button>
         </div>
         )}
 
+        <SlidePanel
+          open={panel !== null}
+          openKey={openKey}
+          onClose={closePanel}
+          title={panel === 'selected' ? 'Section settings' : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
+        >
+          {panel === 'selected' && selected && selectedPath ? (
+            <PmlSettings
+              node={selected}
+              onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
+              onDelete={() => {
+                change(removeNodeAtPath(nodes, selectedPath));
+                selectPath(null);
+              }}
+            />
+          ) : panel === 'details' ? (
+            <div className="space-y-4">
+              {aside}
+              {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} /> : null}
+            </div>
+          ) : panel === 'layers' ? (
+            <PageLayers
+              nodes={nodes}
+              selectedPath={selectedPath}
+              onSelect={selectPath}
+              onMoved={(moved) => {
+                change(moved.nodes);
+                selectPath(moved.path);
+              }}
+            />
+          ) : panel === 'checks' ? (
+            editor.scan ? (
+              <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to publish.' }} />
+            ) : (
+              <p className="text-sm text-[var(--pb-muted)]">Running the checks...</p>
+            )
+          ) : null}
+        </SlidePanel>
         <PmlAddSectionDialog
           open={adding}
           onOpenChange={setAdding}
@@ -281,6 +324,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         </AlertDialog>
       </div>
     </CatalogProvider>
+    </EditorNounProvider>
   );
 }
 
@@ -298,6 +342,16 @@ function PageEditorHeader({ controls }: { controls: PageEditorControls }): React
       </Button>
       <Button size="icon" variant="ghost" aria-label="Redo" disabled={!controls.canRedo} onClick={controls.redo}>
         <Redo2 />
+      </Button>
+      {controls.hasDetails ? (
+        <Button size="sm" variant="outline" onClick={() => controls.openPanel('details')}>
+          <FileText />
+          Details
+        </Button>
+      ) : null}
+      <Button size="sm" variant="outline" onClick={() => controls.openPanel('layers')}>
+        <Layers3 />
+        Layers
       </Button>
       {controls.toggleCode ? (
         <Button size="sm" variant="outline" aria-pressed={controls.view === 'code'} onClick={controls.toggleCode}>

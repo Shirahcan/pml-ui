@@ -28,8 +28,12 @@ describe('PageEditor', () => {
     render(<PageEditor adapter={fakeAdapter()} id="p1" labels={{ noun: 'post' }} />);
 
     expect(await screen.findByRole('heading', { name: 'Who can apply' }, { timeout: 3000 })).toBeTruthy();
-    expect(screen.getByRole('complementary', { name: 'Layers and checks' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Add a section/ })).toBeTruthy();
+
+    // Nothing slides in until asked (the design keeps its width); Layers slides in over the canvas.
+    expect(screen.queryByRole('complementary', { name: 'Layers' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Layers/ }));
+    expect(await screen.findByRole('complementary', { name: 'Layers' })).toBeTruthy();
   });
 
   it('shows what a refused publish found', async () => {
@@ -109,7 +113,7 @@ describe('PageEditor quick edits and code', () => {
     fireEvent.doubleClick(paragraph);
 
     expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
-    expect(screen.getByRole('complementary', { name: 'Layers and checks' })).toBeTruthy();
+    expect(screen.queryByRole('complementary', { name: 'Section settings' })).toBeNull();
     fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Format these words' }), { key: 'Escape' });
     await act(() => new Promise((resolve) => setTimeout(resolve, 350)));
     expect(screen.queryByRole('button', { name: /Delete section/ })).toBeNull();
@@ -127,5 +131,18 @@ describe('PageEditor quick edits and code', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Code' }));
     await waitFor(() => expect(code.source).toHaveBeenCalledWith('p1'));
     expect(await screen.findByRole('button', { name: /Back to the design/ })).toBeTruthy();
+  });
+});
+
+describe('PageEditor words', () => {
+  it("an empty document says so in the host's noun and points at the Add button", async () => {
+    const adapter = fakeAdapter({ load: vi.fn(async () => ({ document: { nodes: [] }, revision: 'd1', meta: {} })) } as unknown as Partial<EditableDocumentAdapter>);
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} />);
+
+    expect(await screen.findByText('This post is empty')).toBeTruthy();
+    expect(screen.getByText('Use Add a section below to start it.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Layers/ }));
+    expect(await screen.findByText('This post is empty.')).toBeTruthy();
+    expect(screen.queryByText(/This page is empty/)).toBeNull();
   });
 });

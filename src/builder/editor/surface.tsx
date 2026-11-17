@@ -20,3 +20,18 @@ export function EditorSurfaceProvider({ surface, children }: { surface: EditorSu
 export function useEditorSurface(): EditorSurface {
   return useContext(SurfaceContext);
 }
+
+const NounContext = createContext<string | null>(null);
+
+/**
+ * What the document is called ("post"), so shared parts speak of it in the host's words: an empty canvas says "This
+ * post is empty", never "This page is empty". Absent, the parts keep their page wording.
+ */
+export function EditorNounProvider({ noun, children }: { noun: string; children: ReactNode }): React.JSX.Element {
+  return <NounContext.Provider value={noun}>{children}</NounContext.Provider>;
+}
+
+/** The document's noun, or null when no editor above named it. */
+export function useEditorNoun(): string | null {
+  return useContext(NounContext);
+}

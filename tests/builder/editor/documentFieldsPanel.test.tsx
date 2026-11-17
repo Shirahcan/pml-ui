@@ -96,6 +96,8 @@ describe('PageEditor slots', () => {
 
     render(<PageEditor adapter={adapter} id="p1" aside={<p>Layout: Full guide</p>} console={<div role="region" aria-label="Console" />} />);
 
+    // The details slide in over the canvas when asked, the host's aside on top of them.
+    fireEvent.click(await screen.findByRole('button', { name: /Details/ }));
     expect(await screen.findByText('Layout: Full guide')).toBeTruthy();
     expect(await screen.findByRole('region', { name: 'Details' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Console' })).toBeTruthy();

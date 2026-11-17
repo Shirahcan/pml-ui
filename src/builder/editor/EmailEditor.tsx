@@ -16,6 +16,7 @@ import { FindingsPanel } from './FindingsPanel';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlSettings } from './PmlSettings';
+import { SlidePanel } from './SlidePanel';
 import { EditorSurfaceProvider } from './surface';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
@@ -95,6 +96,22 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
   const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit);
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
 
+  // Block settings and the checks slide in over the canvas (owner 2026-11-17: "the design area shouldn't be
+  // shrunken"): the selected block's settings once they are due, otherwise the checks when asked or after a refused
+  // "Save for everyone", until dismissed. Derived, so nothing syncs in an effect.
+  const [checksAsked, setChecksAsked] = useState(false);
+  const [openKey, setOpenKey] = useState(0);
+  const [dismissedScan, setDismissedScan] = useState<unknown>(null);
+  const refused = Boolean(editor.scan && !editor.scan.mayPublish && editor.scan !== dismissedScan);
+  const panel: 'selected' | 'checks' | null = selected && selectedPath && settingsShown ? 'selected' : checksAsked || refused ? 'checks' : null;
+  const closePanel = () => {
+    if (panel === 'selected') selectPath(null);
+    if (panel === 'checks') {
+      setChecksAsked(false);
+      setDismissedScan(editor.scan);
+    }
+  };
+
   const track = useCallback((write: Promise<unknown>) => {
     fieldWrites.current.add(write);
     void write.finally(() => fieldWrites.current.delete(write));
@@ -125,7 +142,12 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     canRedo: editor.canRedo,
     undo: editor.undoEdit,
     redo: editor.redoEdit,
-    check: () => void editor.check(),
+    check: () => {
+      void editor.check();
+      selectPath(null);
+      setChecksAsked(true);
+      setOpenKey((k) => k + 1);
+    },
     publish: editor.canPublish
       ? () => {
           // Field writes are part of what is saved for everyone: let them land first.
@@ -160,70 +182,72 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
         {tab === 'sent' ? (
           <EmailAsSent render={render} version={sentVersion} stale={sentStale} />
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="mx-auto w-full max-w-[600px]">
-              {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} /> : null}
-              <PmlCanvas
-                nodes={nodes}
-                compiled={editor.compiled}
-                natives={editor.natives}
-                site={site}
-                frame={frame}
-                selectedIndex={selectedPath ? selectedPath[0] : null}
-                selectedPath={selectedPath}
-                onSelectPath={selectPath}
-                viewport="desktop"
-                onSelect={(index) => selectPath(index === null ? null : [index])}
-                onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
-                onDelete={(index) => {
-                  change(removeNodeAtPath(nodes, [index]));
-                  selectPath(null);
-                }}
-                onEditText={(path, field, value) => {
-                  const node = getNodeAtPath(nodes, path);
-                  if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
-                }}
-                quickEditAll={quickEdit}
-                onQuickEdit={quickEdit ? onQuickEdit : undefined}
-                // Rich words edited in place: the paragraph keeps its own shape, only its words change.
-                onEditWords={(path, children) => {
-                  const node = getNodeAtPath(nodes, path);
-                  if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
-                }}
-              />
-              {editor.previewError ? (
-                <p role="status" className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  {editor.previewError.message} The canvas shows the last version that worked.
-                </p>
-              ) : null}
-              <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
-                <Plus className="h-4 w-4" />
-                Add a block
-              </Button>
-            </div>
-
-            <aside aria-label={selected && settingsShown ? 'Selected block' : 'Email checks'} className="space-y-3">
-              {selected && selectedPath && settingsShown ? (
-                <PmlSettings
-                  node={selected}
-                  deleteLabel="Delete block"
-                  onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
-                  onDelete={() => {
-                    change(removeNodeAtPath(nodes, selectedPath));
-                    selectPath(null);
-                  }}
-                />
-              ) : editor.scan ? (
-                <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to save for everyone.' }} />
-              ) : (
-                <p className="text-sm text-[var(--pb-muted)]">
-                  Select a block to change it. Your changes are kept as a draft; nobody receives them until you save them for everyone.
-                </p>
-              )}
-            </aside>
+          <div className="mx-auto w-full max-w-[600px]">
+            {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} /> : null}
+            <PmlCanvas
+              nodes={nodes}
+              compiled={editor.compiled}
+              natives={editor.natives}
+              site={site}
+              frame={frame}
+              selectedIndex={selectedPath ? selectedPath[0] : null}
+              selectedPath={selectedPath}
+              onSelectPath={selectPath}
+              viewport="desktop"
+              onSelect={(index) => selectPath(index === null ? null : [index])}
+              onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
+              onDelete={(index) => {
+                change(removeNodeAtPath(nodes, [index]));
+                selectPath(null);
+              }}
+              onEditText={(path, field, value) => {
+                const node = getNodeAtPath(nodes, path);
+                if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
+              }}
+              quickEditAll={quickEdit}
+              onQuickEdit={quickEdit ? onQuickEdit : undefined}
+              // Rich words edited in place: the paragraph keeps its own shape, only its words change.
+              onEditWords={(path, children) => {
+                const node = getNodeAtPath(nodes, path);
+                if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
+              }}
+            />
+            {editor.previewError ? (
+              <p role="status" className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {editor.previewError.message} The canvas shows the last version that worked.
+              </p>
+            ) : null}
+            <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Add a block
+            </Button>
           </div>
         )}
 
+        <SlidePanel
+          open={panel !== null}
+          openKey={openKey}
+          onClose={closePanel}
+          title={panel === 'selected' ? 'Block settings' : 'Email checks'}
+        >
+          {panel === 'selected' && selected && selectedPath ? (
+            <PmlSettings
+              node={selected}
+              deleteLabel="Delete block"
+              onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
+              onDelete={() => {
+                change(removeNodeAtPath(nodes, selectedPath));
+                selectPath(null);
+              }}
+            />
+          ) : panel === 'checks' ? (
+            editor.scan ? (
+              <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to save for everyone.' }} />
+            ) : (
+              <p className="text-sm text-[var(--pb-muted)]">Running the checks...</p>
+            )
+          ) : null}
+        </SlidePanel>
         <PmlAddSectionDialog
           open={adding}
           onOpenChange={setAdding}
