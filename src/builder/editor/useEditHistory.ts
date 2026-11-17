@@ -70,5 +70,16 @@ export function useEditHistory() {
     [sync],
   );
 
-  return { record, undo, redo, canUndo: depth.past > 0, canRedo: depth.future > 0 };
+  /**
+   * Forget every step. For when the tree on screen is replaced by one from elsewhere ("Load the latest", a reload,
+   * another document): undo would otherwise bring back trees the author chose to throw away, and save them.
+   */
+  const clear = useCallback(() => {
+    past.current = [];
+    future.current = [];
+    lastChange.current = 0;
+    sync();
+  }, [sync]);
+
+  return { record, undo, redo, clear, canUndo: depth.past > 0, canRedo: depth.future > 0 };
 }

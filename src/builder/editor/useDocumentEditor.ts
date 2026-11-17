@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ensureUids, type PmlNativesPayload, type PmlNode } from '../../language';
+import { ensureUids, type PmlNode } from '../../language';
 import type { DocumentLibraryComponent, DocumentPartial } from '../components';
 import { isConflict, isPlaceholders, isRefused, type EditableDocumentAdapter, type DocumentPlaceholders, type DocumentPreflight } from '../document';
 import { useBuilderHost } from './host';
+import { useCompiledPreview } from './useCompiledPreview';
 import { useEditHistory } from './useEditHistory';
 
 /** The assistant's PENDING proposal: in memory only until the author accepts it. */
@@ -27,6 +28,7 @@ export interface DocumentEditorOptions<H> {
   load?: (id: string) => Promise<LoadedDocument<H>>;
   /** The host's object as the host now holds it, after a publish or a rollback (status, dates). */
   refreshHost?: (id: string) => Promise<H>;
+  /** Called after a publish with the host's object as refreshed by `refreshHost` (the one now live). */
   onPublished?: (host: H | null) => void;
   /** Override the host context's messages (a hook used outside the editor's BuilderHostProvider). */
   onSuccess?: (message: string) => void;
@@ -35,6 +37,8 @@ export interface DocumentEditorOptions<H> {
   /** What the document is called in messages ("page", "email"), and what a successful publish says. */
   noun?: string;
   publishedMessage?: string;
+  /** What a publish that went through with a warning says (the change may take a while to show everywhere). */
+  publishedWarning?: string;
 }
 
 /**
@@ -43,6 +47,10 @@ export interface DocumentEditorOptions<H> {
  * COMPILED preview and keeps the last good one while an edit is transiently invalid; publishing is a separate act and
  * the only moment a check can refuse. No silent overwrite: a save from a revision someone else replaced is a conflict
  * the author decides. Pass a STABLE adapter (memoised): a new one each render reloads the document each render.
+ *
+ * Saves run one after another, each from the revision the last one returned, and a save only counts as "nothing
+ * waiting" when what it stored is still what is on screen. A document that could not be loaded is never saved: with
+ * no revision there is nothing to protect a newer version with. Switching `id` starts the next document clean.
  */
 export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter, id: string, options: DocumentEditorOptions<H> = {}) {
   const ctx = useBuilderHost();
@@ -57,11 +65,8 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
   const [nodes, setNodes] = useState<PmlNode[]>([]);
   const [partials, setPartials] = useState<DocumentPartial[]>([]);
   const [studioComponents, setStudioComponents] = useState<DocumentLibraryComponent[]>([]);
-  // The COMPILED tree from the host; compiled[i] is the rendered form of nodes[i].
-  const [compiled, setCompiled] = useState<PmlNode[] | null>(null);
-  const [natives, setNatives] = useState<PmlNativesPayload | null>(null);
-  const [previewError, setPreviewError] = useState<{ message: string; path: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -69,14 +74,35 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
   const [placeholdersLeft, setPlaceholdersLeft] = useState<{ message: string; left: Omit<DocumentPlaceholders, 'message'> } | null>(null);
   const [pending, setPending] = useState<PendingProposal | null>(null);
   const [pendingCompiled, setPendingCompiled] = useState<{ for: PendingProposal; tree: PmlNode[] } | null>(null);
+  const [conflict, setConflict] = useState<{ revision: string } | null>(null);
 
   const history = useEditHistory();
+  const clearHistory = history.clear;
   const latestNodes = useRef<PmlNode[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorSession] = useState(() => crypto.randomUUID());
-  const revision = useRef<string | undefined>(undefined);
-  const [conflict, setConflict] = useState<{ revision: string } | null>(null);
+  // The revision this editor last saw, PER DOCUMENT, so a save answered after the editor moved on still records its own.
+  const revisions = useRef(new Map<string, string>());
+  // Bumped whenever the tree on screen is replaced from elsewhere (a load, Load the latest, another document): a save
+  // begun before it no longer describes the screen, so it must not mark the screen saved or raise a conflict on it.
+  const generation = useRef(0);
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  const dirtyRef = useRef(false);
+  const loadedId = useRef<string | null>(null);
+
+  const preview = useCompiledPreview(adapter, id, nodes, !loading && loadError === null, (err) => sayRef.current.error(err));
+  const resetPreview = preview.reset;
+
+  const markDirty = useCallback((value: boolean) => {
+    dirtyRef.current = value;
+    setDirty(value);
+  }, []);
+
+  /** Stop a save that has not been sent: the tree it would send is no longer the one the author wants. */
+  const cancelWaitingSave = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+  }, []);
 
   const loadDocument = useCallback(async (): Promise<LoadedDocument<H>> => {
     if (loadRef.current) return loadRef.current(id);
@@ -85,20 +111,46 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     return { nodes: loaded.document.nodes, revision: loaded.revision, host: null };
   }, [adapter, id]);
 
-  const take = useCallback((loaded: LoadedDocument<H>) => {
-    setHost(loaded.host);
-    revision.current = loaded.revision;
-    // Every element gets its permanent id on first load; autosave then keeps them.
-    latestNodes.current = ensureUids(loaded.nodes ?? []);
-    setNodes(latestNodes.current);
-  }, []);
+  const take = useCallback(
+    (loaded: LoadedDocument<H>) => {
+      setHost(loaded.host);
+      revisions.current.set(id, loaded.revision);
+      // Every element gets its permanent id on first load; autosave then keeps them.
+      latestNodes.current = ensureUids(loaded.nodes ?? []);
+      setNodes(latestNodes.current);
+      setLoadError(null);
+    },
+    [id],
+  );
 
   useEffect(() => {
     let alive = true;
+    const gen = ++generation.current;
+
+    // Another document in the same editor: nothing of the last one carries over (its tree, undo steps, verdicts).
+    if (loadedId.current !== null && loadedId.current !== id) {
+      latestNodes.current = [];
+      setNodes([]);
+      setHost(null);
+      setLoading(true);
+      setLoadError(null);
+      markDirty(false);
+      setConflict(null);
+      setScan(null);
+      setPlaceholdersLeft(null);
+      setPending(null);
+      clearHistory();
+      resetPreview();
+    }
+    loadedId.current = id;
 
     loadDocument()
-      .then((loaded) => alive && take(loaded))
-      .catch((err) => sayRef.current.error(err))
+      .then((loaded) => alive && gen === generation.current && take(loaded))
+      .catch((err) => {
+        if (!alive) return;
+        setLoadError(err);
+        sayRef.current.error(err);
+      })
       .finally(() => alive && setLoading(false));
     // The components menu loads independently: the editor works whether or not the host has any.
     adapter.components?.partials().then((p) => alive && setPartials(p)).catch((err) => sayRef.current.error(err));
@@ -107,58 +159,107 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     return () => {
       alive = false;
     };
-  }, [adapter, loadDocument, take]);
+  }, [adapter, id, loadDocument, take, markDirty, clearHistory, resetPreview]);
 
   const persist = useCallback(
-    async (next: PmlNode[]): Promise<boolean> => {
-      setSaving(true);
+    (forId: string, next: PmlNode[]): Promise<boolean> => {
+      const gen = generation.current;
+      const run = saveChain.current.then(async () => {
+        const revision = revisions.current.get(forId);
 
-      try {
-        const saved = await adapter.saveDraft(id, { nodes: next }, revision.current ?? '', editorSession);
+        // Never save a document this editor could not load, nor a tree the author has since replaced.
+        if (revision === undefined || gen !== generation.current) return false;
+        setSaving(true);
 
-        // Someone else saved since: ask, never overwrite silently. `dirty` stays true: the work is still here, unsaved.
-        if (isConflict(saved)) {
-          setConflict({ revision: saved.conflict.revision ?? revision.current ?? '' });
+        try {
+          const saved = await adapter.saveDraft(forId, { nodes: next }, revision, editorSession);
+          const current = gen === generation.current;
+
+          // Someone else saved since: ask, never overwrite silently. The work is still here, unsaved.
+          if (isConflict(saved)) {
+            if (current) {
+              setConflict({ revision: saved.conflict.revision ?? revision });
+              markDirty(true);
+            }
+
+            return false;
+          }
+
+          revisions.current.set(forId, saved.revision || revision);
+
+          if (current) {
+            setConflict(null);
+            // Nothing is waiting only when what was stored is still what is on screen.
+            markDirty(latestNodes.current !== next);
+            // A publish verdict is about words that no longer exist once the draft changes.
+            setScan(null);
+            setPlaceholdersLeft(null);
+          }
+
+          return true;
+        } catch (err) {
+          if (gen === generation.current) markDirty(true);
+          sayRef.current.error(err);
 
           return false;
+        } finally {
+          setSaving(false);
         }
+      });
 
-        revision.current = saved.revision || revision.current;
-        setConflict(null);
-        setDirty(false);
-        // A publish verdict is about words that no longer exist once the draft changes.
-        setScan(null);
-        setPlaceholdersLeft(null);
+      saveChain.current = run.catch(() => undefined);
 
-        return true;
-      } catch (err) {
-        sayRef.current.error(err);
-
-        return false;
-      } finally {
-        setSaving(false);
-      }
+      return run;
     },
-    [adapter, id, editorSession],
+    [adapter, editorSession, markDirty],
   );
 
   /** "Keep mine": save this editor's draft over the newer one, now that the author has chosen to. */
   const keepMine = useCallback(() => {
     if (!conflict) return;
-    revision.current = conflict.revision;
-    void persist(latestNodes.current);
-  }, [conflict, persist]);
+    revisions.current.set(id, conflict.revision);
+    void persist(id, latestNodes.current);
+  }, [conflict, persist, id]);
+
+  /** Replace the tree on screen with the saved one: nothing waiting is sent, and undo cannot bring the old one back. */
+  const replaceFromSaved = useCallback(
+    async (gen: number): Promise<void> => {
+      const loaded = await loadDocument();
+      if (gen !== generation.current) return;
+      take(loaded);
+      clearHistory();
+      setConflict(null);
+      markDirty(false);
+    },
+    [loadDocument, take, clearHistory, markDirty],
+  );
 
   /** "Load the latest": drop this editor's unsaved draft and show what was saved elsewhere. */
   const loadLatest = useCallback(async () => {
+    cancelWaitingSave();
+
     try {
-      take(await loadDocument());
-      setConflict(null);
-      setDirty(false);
+      await replaceFromSaved(++generation.current);
     } catch (err) {
       sayRef.current.error(err);
     }
-  }, [loadDocument, take]);
+  }, [cancelWaitingSave, replaceFromSaved]);
+
+  /** Try the load again after it failed (the host shows `loadError` with a Retry). */
+  const reload = useCallback(() => {
+    cancelWaitingSave();
+    const gen = ++generation.current;
+    setLoading(true);
+    setLoadError(null);
+
+    replaceFromSaved(gen)
+      .catch((err) => {
+        if (gen !== generation.current) return;
+        setLoadError(err);
+        sayRef.current.error(err);
+      })
+      .finally(() => gen === generation.current && setLoading(false));
+  }, [cancelWaitingSave, replaceFromSaved]);
 
   /** Show a tree and save it shortly after: the one way every change, undo and redo lands. */
   const show = useCallback(
@@ -167,15 +268,15 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
 
       latestNodes.current = next;
       setNodes(next);
-      setDirty(true);
+      markDirty(true);
 
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         saveTimer.current = null;
-        void persist(next);
+        void persist(id, next);
       }, 900);
     },
-    [persist],
+    [persist, id, markDirty],
   );
 
   const change = useCallback(
@@ -198,45 +299,44 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
 
   useEffect(() => {
     return () => {
-      if (previewTimer.current) clearTimeout(previewTimer.current);
+      // Leaving (or switching documents) with a save still waiting SENDS it, after any save already on its way, from
+      // the revision that one returns. The editor is gone, so a conflict cannot be offered: say what happened instead.
+      if (!saveTimer.current) return;
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      const leaving = latestNodes.current;
 
-      // Leaving with a save still waiting SENDS it (with its revision and session, so it never silently replaces a
-      // newer draft). The editor is gone, so a conflict cannot be offered: say what happened instead.
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-        void adapter
-          .saveDraft(id, { nodes: latestNodes.current }, revision.current ?? '', editorSession)
-          .then((saved) => {
-            if (isConflict(saved)) {
-              sayRef.current.error(`Your last change to this ${noun} was not saved: it was changed somewhere else just before you left. Open it again to see the newer version and redo the change.`);
-            }
-          })
-          .catch((err) => sayRef.current.error(err));
-      }
+      saveChain.current = saveChain.current.then(async () => {
+        const revision = revisions.current.get(id);
+        if (revision === undefined) return;
+
+        try {
+          const saved = await adapter.saveDraft(id, { nodes: leaving }, revision, editorSession);
+
+          if (isConflict(saved)) {
+            sayRef.current.error(`Your last change to this ${noun} was not saved: it was changed somewhere else just before you left. Open it again to see the newer version and redo the change.`);
+          } else {
+            revisions.current.set(id, saved.revision || revision);
+          }
+        } catch (err) {
+          sayRef.current.error(err);
+        }
+      });
     };
   }, [adapter, id, editorSession, noun]);
 
-  // The live compiled preview, debounced. A transiently invalid edit KEEPS the last good compile and shows the banner.
+  // Closing or reloading the tab runs no React cleanup, so a change not yet stored would vanish: the browser asks first.
   useEffect(() => {
-    if (loading) return;
-    if (previewTimer.current) clearTimeout(previewTimer.current);
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
 
-    previewTimer.current = setTimeout(() => {
-      adapter
-        .preview(id, nodes)
-        .then((result) => {
-          if (result.error) {
-            setPreviewError(result.error);
-          } else {
-            setCompiled(result.tree);
-            setNatives(result.natives);
-            setPreviewError(null);
-          }
-        })
-        .catch((err) => sayRef.current.error(err));
-    }, 500);
-  }, [adapter, nodes, loading, id]);
+    window.addEventListener('beforeunload', warn);
+
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   // The pending proposal's own compile, stored WITH the proposal so a discarded one never shows a stale render.
   useEffect(() => {
@@ -255,20 +355,22 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     };
   }, [adapter, pending, id]);
 
-  /** Send a waiting save now. False when it was refused (a conflict, the host's gate): the work is not stored. */
-  // Reads the refs `show()` sets synchronously, not this render's state: a caller that changed the design a moment ago
-  // holds a flush from the render before it.
+  /** Send a waiting save now. False when it was refused (a conflict, the host's gate, no loaded revision): not stored. */
+  // Reads refs, not this render's state: a caller that changed the design a moment ago holds a flush from before it.
   const flush = async (): Promise<boolean> => {
     const waiting = saveTimer.current !== null;
+    cancelWaitingSave();
 
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = null;
-
-    return waiting || dirty ? persist(latestNodes.current) : true;
+    return waiting || dirtyRef.current ? persist(id, latestNodes.current) : true;
   };
 
-  const refresh = async () => {
-    if (options.refreshHost) setHost(await options.refreshHost(id));
+  /** The host's object as it now is; without `refreshHost`, the one already held. */
+  const refresh = async (): Promise<H | null> => {
+    if (!options.refreshHost) return host;
+    const next = await options.refreshHost(id);
+    setHost(next);
+
+    return next;
   };
 
   const check = async () => {
@@ -282,29 +384,31 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
   };
 
   const publish = async () => {
-    // A document with no publish step (an email) has nothing to do here; its editor never offers the action.
+    // A document with no publish step has nothing to do here; its editor never offers the action.
     if (!adapter.publish) return;
     // Never publish past a refused save, and send the revision on screen so a newer draft is refused, not published.
     if (!(await flush())) return;
+    const revision = revisions.current.get(id);
+    if (revision === undefined) return;
     setPublishing(true);
 
     try {
-      const result = await adapter.publish(id, revision.current ?? '', { session: editorSession });
+      const result = await adapter.publish(id, revision, { session: editorSession });
 
       if (isConflict(result)) {
-        setConflict({ revision: result.conflict.revision ?? revision.current ?? '' });
+        setConflict({ revision: result.conflict.revision ?? revision });
       } else if (isRefused(result)) {
         setScan(result.refused);
       } else if (isPlaceholders(result)) {
         const { message, ...left } = result.placeholders;
         setPlaceholdersLeft({ message, left });
       } else if ('published' in result) {
-        await refresh();
+        const published = await refresh();
         setScan(null);
         setPlaceholdersLeft(null);
-        options.onPublished?.(host);
+        options.onPublished?.(published);
 
-        if (result.warning) say.warning(`Published. Your changes are saved but may take up to an hour to appear for visitors while the live site refreshes.`);
+        if (result.warning) say.warning(options.publishedWarning ?? 'Published. Your changes are saved, but they may take up to an hour to show everywhere.');
         else say.success(options.publishedMessage ?? `Your ${noun} is live.`);
       }
     } catch (err) {
@@ -343,15 +447,24 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
   return {
     host,
     setHost,
-    /** Whether this document has a publish step (and so a rollback and a preview link). An email does not. */
+    /** This editor's name on every save and publish, so its own earlier saves never count as someone else's. */
+    session: editorSession,
+    /** Whether this document has a publish step. An email's design may not. */
     canPublish: Boolean(adapter.publish),
+    /** Whether the live version can be rolled back to the previous one. */
+    canRollback: Boolean(adapter.rollback),
+    /** Whether a shareable preview link can be made. */
+    canPreviewLink: Boolean(adapter.previewUrl),
     nodes,
     partials,
     studioComponents,
-    compiled,
-    natives,
-    previewError,
+    compiled: preview.compiled,
+    natives: preview.natives,
+    previewError: preview.previewError,
     loading,
+    /** Why the document could not be opened; while set nothing is saved (show it with a Retry calling `reload`). */
+    loadError,
+    reload,
     saving,
     dirty,
     publishing,
