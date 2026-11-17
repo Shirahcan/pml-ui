@@ -188,3 +188,77 @@ describe('an email with no blocks', () => {
     expect(screen.queryByText('This page is empty')).toBeNull();
   });
 });
+
+describe('quick edits in the email (post layouts E1/E2, owner: newsletters adopt the page builder\'s)', () => {
+  const words = [
+    { primitive: 'heading', props: { text: 'Your appointment moved', level: 1 } },
+    { primitive: 'p', children: [{ primitive: 'text', props: { value: 'Hi Ada, your new time is confirmed.' } }] },
+  ] as unknown as PmlNode[];
+
+  function wordsAdapter() {
+    const adapter = fakeAdapter();
+    (adapter.load as ReturnType<typeof vi.fn>).mockResolvedValue({ document: { nodes: words }, revision: 'd1', meta: {} });
+
+    return adapter;
+  }
+
+  const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
+
+  // jsdom draws nothing, so a Range has no geometry; the rich editor scrolls to its caret once it focuses itself,
+  // which can land after the test closed it (TipTap destroys its view a tick later). Browsers always have these.
+  const rangeProto = Range.prototype as unknown as Record<string, unknown>;
+  const had = { rects: rangeProto.getClientRects, box: rangeProto.getBoundingClientRect };
+  beforeAll(() => {
+    rangeProto.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] });
+    rangeProto.getBoundingClientRect = () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) });
+  });
+  afterAll(() => {
+    rangeProto.getClientRects = had.rects;
+    rangeProto.getBoundingClientRect = had.box;
+  });
+
+  it('a double-click edits a rich paragraph in place, and the block settings never open meanwhile', async () => {
+    render(<EmailEditor adapter={wordsAdapter()} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} quickEdit />);
+    const paragraph = await screen.findByText('Hi Ada, your new time is confirmed.', undefined, { timeout: 3000 });
+
+    // A real double-click: two clicks, then the dblclick.
+    fireEvent.click(paragraph);
+    fireEvent.click(paragraph);
+    fireEvent.doubleClick(paragraph);
+
+    expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
+    expect((paragraph.closest('p') as HTMLElement).style.visibility).toBe('hidden');
+    expect(screen.getByRole('complementary', { name: 'Email checks' })).toBeTruthy();
+
+    // Closed before waiting: jsdom cannot measure the rich editor's caret, which it scrolls to once focused.
+    fireEvent.keyDown(screen.getByRole('toolbar', { name: 'Format these words' }), { key: 'Escape' });
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+
+    // The first click's settings were waiting out the double-click window; the quick edit cancelled them for good.
+    await wait(350);
+    expect(screen.getByRole('complementary', { name: 'Email checks' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Delete block/ })).toBeNull();
+  });
+
+  it('a single click still shows the block settings, once the double-click window has passed', async () => {
+    render(<EmailEditor adapter={wordsAdapter()} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} quickEdit />);
+    const heading = await screen.findByRole('heading', { name: 'Your appointment moved' }, { timeout: 3000 });
+
+    fireEvent.click(heading.closest('[data-pml-section]') as HTMLElement);
+    expect(screen.queryByRole('button', { name: /Delete block/ })).toBeNull();
+
+    expect(await screen.findByRole('button', { name: /Delete block/ })).toBeTruthy();
+  });
+
+  it('off, a click opens the settings at once and a double-click leaves rich words to them', async () => {
+    render(<EmailEditor adapter={wordsAdapter()} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} />);
+    const paragraph = await screen.findByText('Hi Ada, your new time is confirmed.', undefined, { timeout: 3000 });
+
+    fireEvent.click(paragraph.closest('[data-pml-section]') as HTMLElement);
+    expect(screen.getByRole('button', { name: /Delete block/ })).toBeTruthy();
+
+    fireEvent.doubleClick(paragraph);
+    await wait(50);
+    expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
+  });
+});

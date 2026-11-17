@@ -20,6 +20,38 @@ export interface QuickEditOptions {
   onQuickEdit?: (editing: boolean) => void;
 }
 
+/** Run-level tags: a paragraph's own words, never a wrapper around it. */
+const RUN_TAGS = new Set(['SPAN', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'A', 'CODE', 'MARK', 'SMALL', 'BR', 'SUB', 'SUP']);
+
+/**
+ * The element a block of words renders as. A nested block is marked by its `data-pml-path` holder; a TOP-LEVEL one has
+ * no mark (its section is the mark, as PmlCanvas finds a section's tools), so it is the first element its section
+ * draws, past any wrapper around it. Without this a paragraph straight on the page, which is most of an email, could
+ * never be quick-edited (found in the email designer's tests, 2026-11-17).
+ */
+function wordsElement(root: HTMLElement, nodes: PmlNode[], path: number[]): HTMLElement | null {
+  if (path.length > 1) return pathElement(root.querySelector(`[data-pml-path="${renderedPathFor(nodes, path).join('.')}"]`));
+
+  const section = root.querySelector(`[data-pml-section="${path[0]}"]`);
+  let element: HTMLElement | null = section ? (drawn(section)[0] ?? null) : null;
+
+  while (element && element.tagName !== 'P') {
+    const inside = drawn(element);
+
+    if (inside.length !== 1 || RUN_TAGS.has(inside[0].tagName)) break;
+    element = inside[0];
+  }
+
+  return element;
+}
+
+/** Tags that draw nothing (a section's own `<style>` comes first): never the element a reader sees. */
+const NOT_DRAWN = new Set(['STYLE', 'SCRIPT', 'TEMPLATE', 'LINK', 'META', 'NOSCRIPT']);
+
+function drawn(parent: Element): HTMLElement[] {
+  return [...parent.children].filter((child) => !NOT_DRAWN.has(child.tagName)) as HTMLElement[];
+}
+
 /**
  * The outermost element holding the words at `path`. A click lands on a run (`text`) or a bold or a link inside a
  * paragraph, so climb past those to the paragraph, and stop at the first container above it.
@@ -87,7 +119,7 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
     const held = paragraphNode?.children ?? [];
 
     if (paragraph && held.length > 0 && canEditVisually(held)) {
-      const element = pathElement(canvas.current.querySelector(`[data-pml-path="${renderedPathFor(nodes, paragraph).join('.')}"]`));
+      const element = wordsElement(canvas.current, nodes, paragraph);
 
       if (element) {
         setWords({ path: paragraph, words: held, rect: rectOf(element), font: fontOf(element) });

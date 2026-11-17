@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
@@ -50,7 +50,19 @@ export interface EmailEditorProps {
   notice?: ReactNode;
   /** After "Save for everyone" lands. */
   onPublished?: () => void;
+  /**
+   * Double-click any words to edit them in place, rich paragraphs included, with the block's settings kept out of the
+   * way (post layouts E1/E2, owner 2026-11-16: newsletters adopt the page builder's quick edits). The host decides,
+   * from its own gate. Off, the editor behaves exactly as before.
+   */
+  quickEdit?: boolean;
 }
+
+/**
+ * How long a click waits before the side column shows the block's settings, so the double-click that starts a quick
+ * edit never flashes them (the page builder's QUICK_EDIT_WINDOW_MS).
+ */
+const QUICK_EDIT_WINDOW_MS = 250;
 
 const NO_SITE: PmlSite = {};
 
@@ -64,7 +76,7 @@ const CHROME_ROOTS = ['header', 'footer'];
  * DRAFT; "Save for everyone" (the adapter's publish) is the one act that changes what sends. Mount it with
  * `key={id}`, so switching emails starts a fresh editor.
  */
-export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice, onPublished }: EmailEditorProps): React.JSX.Element {
+export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice, onPublished, quickEdit = false }: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, {
     noun: 'email',
     publishedMessage: 'Saved for everyone. The next email sent uses this version.',
@@ -85,6 +97,43 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     [allowedElements],
   );
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
+
+  // "The right panel shouldn't be open when quick editing" (owner 2026-11-16). With quick edits on, a click selects
+  // the block at once but its settings wait out the double-click window; a quick edit puts the column back on the
+  // email's checks, and it stays there after the edit until the next click.
+  const [settingsShown, setSettingsShown] = useState(false);
+  const pendingSettings = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingSettings = useCallback(() => {
+    if (pendingSettings.current) clearTimeout(pendingSettings.current);
+    pendingSettings.current = null;
+  }, []);
+  useEffect(() => cancelPendingSettings, [cancelPendingSettings]);
+
+  const selectPath = useCallback(
+    (path: number[] | null) => {
+      setSelectedPath(path);
+      cancelPendingSettings();
+      if (path === null) {
+        setSettingsShown(false);
+      } else if (!quickEdit) {
+        setSettingsShown(true);
+      } else if (!settingsShown) {
+        pendingSettings.current = setTimeout(() => {
+          pendingSettings.current = null;
+          setSettingsShown(true);
+        }, QUICK_EDIT_WINDOW_MS);
+      }
+    },
+    [cancelPendingSettings, quickEdit, settingsShown],
+  );
+  const onQuickEdit = useCallback(
+    (editing: boolean) => {
+      if (!editing) return;
+      cancelPendingSettings();
+      setSettingsShown(false);
+    },
+    [cancelPendingSettings],
+  );
 
   const track = useCallback((write: Promise<unknown>) => {
     fieldWrites.current.add(write);
@@ -162,17 +211,24 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
                 frame={frame}
                 selectedIndex={selectedPath ? selectedPath[0] : null}
                 selectedPath={selectedPath}
-                onSelectPath={setSelectedPath}
+                onSelectPath={selectPath}
                 viewport="desktop"
-                onSelect={(index) => setSelectedPath(index === null ? null : [index])}
+                onSelect={(index) => selectPath(index === null ? null : [index])}
                 onMove={(from, to) => change(moveTopLevel(nodes, from, to))}
                 onDelete={(index) => {
                   change(removeNodeAtPath(nodes, [index]));
-                  setSelectedPath(null);
+                  selectPath(null);
                 }}
                 onEditText={(path, field, value) => {
                   const node = getNodeAtPath(nodes, path);
                   if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
+                }}
+                quickEditAll={quickEdit}
+                onQuickEdit={quickEdit ? onQuickEdit : undefined}
+                // Rich words edited in place: the paragraph keeps its own shape, only its words change.
+                onEditWords={(path, children) => {
+                  const node = getNodeAtPath(nodes, path);
+                  if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
                 }}
               />
               {editor.previewError ? (
@@ -186,15 +242,15 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
               </Button>
             </div>
 
-            <aside aria-label={selected ? 'Selected block' : 'Email checks'} className="space-y-3">
-              {selected && selectedPath ? (
+            <aside aria-label={selected && settingsShown ? 'Selected block' : 'Email checks'} className="space-y-3">
+              {selected && selectedPath && settingsShown ? (
                 <PmlSettings
                   node={selected}
                   deleteLabel="Delete block"
                   onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
                   onDelete={() => {
                     change(removeNodeAtPath(nodes, selectedPath));
-                    setSelectedPath(null);
+                    selectPath(null);
                   }}
                 />
               ) : editor.scan ? (

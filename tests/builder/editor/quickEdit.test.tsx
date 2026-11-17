@@ -135,6 +135,19 @@ describe('rich quick edits', () => {
     expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
   });
 
+  it('edits a paragraph that sits straight on the page (no section around it), as most of an email does', async () => {
+    const top = [{ primitive: 'p', props: {}, children: [{ primitive: 'text', props: { value: 'Hi Ada, ' } }, { primitive: 'strong', props: {}, children: [{ primitive: 'text', props: { value: 'your new time' } }] }] }] as unknown as PmlNode[];
+    const onQuickEdit = vi.fn();
+    const { container } = render(<PmlCanvas {...base} nodes={top} compiled={top} onSelectPath={vi.fn()} onEditText={vi.fn()} onEditWords={vi.fn()} quickEditAll onQuickEdit={onQuickEdit} />);
+
+    fireEvent.doubleClick(screen.getByText('your new time'));
+
+    expect(await screen.findByRole('toolbar', { name: 'Format these words' })).toBeTruthy();
+    expect(onQuickEdit).toHaveBeenLastCalledWith(true);
+    const hidden = [...container.querySelectorAll<HTMLElement>('*')].filter((el) => el.style.visibility === 'hidden');
+    expect(hidden.map((el) => el.tagName)).toEqual(['P']);
+  });
+
   it('leaves rich words to the panel while the host has not turned quick edits on', () => {
     render(<PmlCanvas {...base} nodes={rich} compiled={rich} onSelectPath={vi.fn()} onEditText={vi.fn()} onEditWords={vi.fn()} />);
 
