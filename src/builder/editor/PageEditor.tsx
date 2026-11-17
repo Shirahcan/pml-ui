@@ -20,6 +20,7 @@ import {
 import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
+import { FieldGroupPanel } from './FieldGroupPanel';
 import { useBuilderHost } from './host';
 import { EditorNounProvider } from './surface';
 import { DraftConflictDialog } from './DraftConflictDialog';
@@ -32,6 +33,7 @@ import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
+import { UnpublishDialog } from './UnpublishDialog';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
 
@@ -330,11 +332,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           ) : openHost ? (
             openHost.render(controls)
           ) : openGroup ? (
-            <div className="space-y-4">
-              {/* The host's own panel heads the first group, as it heads Details. */}
-              {openGroup.key === fieldGroups[0]?.key ? aside : null}
-              {adapter.fields ? <DocumentFieldsPanel key={openGroup.key} id={id} fields={adapter.fields} session={editor.session} group={openGroup.key} label={openGroup.label} /> : null}
-            </div>
+            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} aside={aside} />
           ) : panel === 'details' ? (
             <div className="space-y-4">
               {aside}
@@ -368,33 +366,22 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         />
         {consoleSlot}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
-        <AlertDialog open={confirmUnpublish} onOpenChange={setConfirmUnpublish}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{labels.unpublishTitle ?? `Take this ${noun} off the site?`}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {labels.unpublishDescription ?? `Readers can no longer open it. Its design and details stay here, and you can publish it again at any time.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep it live</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirmUnpublish(false);
-                  adapter
-                    .unpublish?.(id)
-                    .then(() => {
-                      host.onSuccess(labels.unpublishedMessage ?? `The ${noun} is off the site.`);
-                      onUnpublished?.();
-                    })
-                    .catch((error) => host.onError(error));
-                }}
-              >
-                Unpublish
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <UnpublishDialog
+          open={confirmUnpublish}
+          onOpenChange={setConfirmUnpublish}
+          noun={noun}
+          title={labels.unpublishTitle}
+          description={labels.unpublishDescription}
+          onConfirm={() =>
+            adapter
+              .unpublish?.(id)
+              .then(() => {
+                host.onSuccess(labels.unpublishedMessage ?? `The ${noun} is off the site.`);
+                onUnpublished?.();
+              })
+              .catch((error) => host.onError(error))
+          }
+        />
         <AlertDialog open={confirmRollback} onOpenChange={setConfirmRollback}>
           <AlertDialogContent>
             <AlertDialogHeader>

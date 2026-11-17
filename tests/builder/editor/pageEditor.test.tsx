@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import type { EditableDocumentAdapter } from '../../../src/builder/document';
 import { BuilderHostProvider } from '../../../src/builder/editor/host';
@@ -190,8 +190,10 @@ describe('PageEditor panels for every option (owner 2026-11-17: the designer is 
     expect(panel.querySelector('input[name="published_at"]')).toBeNull();
     expect(screen.getByRole('link', { name: 'https://example.test/blog/work-permits' }).getAttribute('target')).toBe('_blank');
 
-    fireEvent.click(screen.getByRole('button', { name: /^Post$/ }));
+    // The panel's own pills switch groups without going back to the menu.
+    fireEvent.click(within(panel).getByRole('button', { name: 'Post' }));
     expect(await screen.findByLabelText('Title')).toBeTruthy();
+    expect(within(screen.getByRole('complementary', { name: 'Post' })).getByRole('button', { name: 'Post' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('edits rows as a whole list: a changed cell, a new row, a removal that asks first', async () => {
