@@ -1,8 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import type { DocumentLayout, EditableDocumentAdapter } from '../../../src/builder/document';
-import { canDelete, canReorder } from '../../../src/builder/editor/layoutParts';
+import { canDelete, canReorder, reorder } from '../../../src/builder/editor/layoutParts';
 import { PageEditor } from '../../../src/builder/editor/PageEditor';
 import { SelectionBar } from '../../../src/builder/editor/SelectionBar';
 import type { PmlNode } from '../../../src/language';
@@ -135,9 +135,9 @@ describe('what may be deleted, by the layout', () => {
   });
 });
 
-describe("a template part keeps its place on the canvas (ab's Loop 2: the cover offered Move up / Move down)", () => {
-  it('a part offers no frame moves; an element the author added freely still moves', async () => {
-    const withFree = [...design, { primitive: 'heading', props: { text: 'An extra note', level: 2 } }] as unknown as PmlNode[];
+describe("reordering lives in the bar and the panel, never under the slide-in (owner 2026-11-17)", () => {
+  const withFree = [...design, { primitive: 'heading', props: { text: 'An extra note', level: 2 } }] as unknown as PmlNode[];
+  const open = () => {
     const adapter = {
       load: vi.fn(async () => ({ document: { nodes: withFree }, revision: 'd1', meta: { title: 'Work permits', slug: 'work-permits', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } })),
       saveDraft: vi.fn(async () => ({ revision: 'd2' })),
@@ -145,14 +145,98 @@ describe("a template part keeps its place on the canvas (ab's Loop 2: the cover 
       preflight: vi.fn(async () => ({ mayPublish: true, findings: [] })),
     } as unknown as EditableDocumentAdapter;
     render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+  };
 
+  it("draws no move or delete buttons in a section's top-right corner (the panel covered them)", async () => {
+    open();
     fireEvent.click(await screen.findByRole('heading', { name: 'Who can apply?' }, { timeout: 3000 }));
     await screen.findByRole('toolbar', { name: 'Question section tools' }, { timeout: 3000 });
-    expect(screen.queryByRole('button', { name: 'Move up' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Move down' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('heading', { name: 'An extra note' }));
-    expect(await screen.findByRole('button', { name: 'Move up' }, { timeout: 3000 })).toBeTruthy();
+    for (const section of document.querySelectorAll('[data-pml-section]')) {
+      expect(within(section as HTMLElement).queryByRole('button', { name: /^(Move up|Move down|Delete section)$/ })).toBeNull();
+    }
+  });
+
+  it('the panel offers Move up / Move down by the same rule as the bar, and a move is made from it', async () => {
+    open();
+    fireEvent.click(await screen.findByRole('heading', { name: 'Who can apply?' }, { timeout: 3000 }));
+    const position = await screen.findByRole('group', { name: 'Position' }, { timeout: 3000 });
+
+    // The first question section cannot go above itself among its kind.
+    expect((within(position).getByRole('button', { name: /Move up/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(position).getByRole('button', { name: /Move down/ }));
+
+    await waitFor(() => {
+      const order = [...document.querySelectorAll('[data-pml-section] h2')].map((h) => h.textContent);
+      expect(order.indexOf('What does it cost?')).toBeLessThan(order.indexOf('Who can apply?'));
+    });
+  });
+
+  it('a template part that keeps its place offers no Position at all; an element the author added moves', async () => {
+    open();
+    fireEvent.click(await screen.findByRole('heading', { name: 'An extra note' }, { timeout: 3000 }));
+    const bar = await screen.findByRole('toolbar', { name: 'Heading tools' }, { timeout: 3000 });
+    expect((within(bar).getByRole('button', { name: 'Move this heading up' }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('heading', { level: 1, name: 'Work permits' }));
+    await screen.findByRole('toolbar', { name: 'Title tools' }, { timeout: 3000 });
+    expect(screen.queryByRole('group', { name: 'Position' })).toBeNull();
+  });
+
+  it('shows the bar for the element under the pointer, not only the selected one', async () => {
+    open();
+    fireEvent.mouseMove(await screen.findByRole('heading', { name: 'An extra note' }, { timeout: 3000 }));
+
+    expect(await screen.findByRole('toolbar', { name: 'Heading tools' }, { timeout: 3000 })).toBeTruthy();
+  });
+});
+
+describe('moving a block within its range (moves_within)', () => {
+  const c = (n: number) => ({ comment: `Purpose: note ${n}.` });
+  const q = (text: string) => ({ primitive: 'heading', part: 'section', props: { text, level: 2 } });
+  // header, note, Q1, note, DATA, note, Q2, note, Q3, faq
+  const page = [
+    { primitive: 'box', part: 'header', children: [] },
+    c(1),
+    q('Q1'),
+    c(2),
+    { primitive: 'table', part: 'data', props: {} },
+    c(3),
+    q('Q2'),
+    c(4),
+    q('Q3'),
+    { primitive: 'faq', part: 'faq', children: [] },
+  ] as unknown as PmlNode[];
+  const ranges: DocumentLayout = {
+    parts: [
+      { key: 'header', label: 'Opening', kind: 'header', required: true },
+      { key: 'section', label: 'Question section', kind: 'repeat', min: 1 },
+      { key: 'data', label: 'Data table', kind: 'fill', moves_within: 'section' },
+      { key: 'faq', label: 'FAQ', kind: 'faq' },
+    ],
+  };
+  const words = (nodes: PmlNode[]) => nodes.map((n) => n.comment ?? n.props?.text ?? n.part);
+
+  it('never goes above the first instance of its range', () => {
+    expect(reorder(page, ranges, [4], -1)).toBeNull();
+  });
+
+  it('hops past the next section with its own note, never splitting a note from its section', () => {
+    const once = reorder(page, ranges, [4], 1)!;
+    expect(words(once.nodes)).toEqual(['header', 'Purpose: note 1.', 'Q1', 'Purpose: note 3.', 'Q2', 'Purpose: note 2.', 'data', 'Purpose: note 4.', 'Q3', 'faq']);
+    expect(once.path).toEqual([6]);
+
+    const twice = reorder(once.nodes, ranges, once.path, 1)!;
+    expect(words(twice.nodes).slice(-3)).toEqual(['Purpose: note 2.', 'data', 'faq']);
+    // Below the last section it goes no further.
+    expect(reorder(twice.nodes, ranges, twice.path, 1)).toBeNull();
+    // And it comes back the way it went.
+    expect(words(reorder(once.nodes, ranges, once.path, -1)!.nodes)).toEqual(words(page));
+  });
+
+  it('a template part without a range keeps its place', () => {
+    expect(reorder(page, ranges, [0], 1)).toBeNull();
+    expect(reorder(page, ranges, [9], -1)).toBeNull();
   });
 });
 

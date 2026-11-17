@@ -678,6 +678,9 @@ export const PML_CATALOG: PmlComponentDef[] = [
     label: 'Related guides',
     description: 'Up to three related published guides.',
     icon: 'BookOpen',
+    // Retired from the Add menu (owner 2026-11-17: related guides "will be determined and surface with relevant
+    // logic"): a live post draws its own list. A page that still holds one keeps editing.
+    hidden: true,
     singleton: true,
     hasSlot: false,
     fields: [heading()],

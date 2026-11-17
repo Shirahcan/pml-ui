@@ -206,6 +206,12 @@ export interface DocumentLayoutPart {
   required?: boolean;
   /** Its shape is fixed by the template: neither it nor anything inside it is deleted on the canvas. */
   locked?: boolean;
+  /**
+   * The repeating part this whole block may move among (growth-service, pml-kit layout.outside_range): anywhere after
+   * the first instance of that part and no further than just after its last, never above or below them. A post's data
+   * table and its mid-post call to action move among the question sections. Absent: a template part keeps its place.
+   */
+  moves_within?: string | null;
 }
 
 export interface DocumentLayout {

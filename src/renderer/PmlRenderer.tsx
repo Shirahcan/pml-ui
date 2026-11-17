@@ -889,8 +889,10 @@ function PmlNodeInner({ node, site }: { node: PmlNode; site: PublicSite }): Reac
   const inCanvas = React.useContext(BuilderHintsContext);
   const inWords = React.useContext(InlineContext);
   const authored = React.useContext(AuthoredNodeContext);
+  const postFlavor = React.useContext(PostFlavorContext);
 
-  if (view !== null || !inCanvas || inWords || node.primitive === 'layer') return view;
+  // A post's related guides are retired from the design: no stand-in either (see 'post_related').
+  if (view !== null || !inCanvas || inWords || node.primitive === 'layer' || (postFlavor && node.primitive === 'post_related')) return view;
 
   // Bound to page data (owner 2026-11-11: such an element is not "empty", it reads something that has
   // no value here): it shows what it reads, as the paragraph editor's data chips do.
@@ -1603,6 +1605,10 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     case 'post_header':
     case 'post_related':
     case 'post_disclaimer': {
+      // In a post, related guides come from the live post's own logic, never from the design (owner 2026-11-17): a
+      // node an older draft still holds draws nothing, on the canvas or for readers.
+      if (postFlavor && node.primitive === 'post_related') return null;
+
       // A post's own fields (post layouts C2b), baked at publish and preview: the host's drawing when it has one,
       // else the package's, so every product gets a post header without writing one.
       const part = node.primitive as 'post_header' | 'post_related' | 'post_disclaimer';

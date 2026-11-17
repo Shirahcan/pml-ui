@@ -5,7 +5,8 @@ import { ArrowDown, ArrowUp, Sparkles, Trash2, Wand2 } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, removeNodeAtPath, type PmlNode } from '../../language';
 import type { DocumentLayout } from '../document';
-import { canDelete, instancePaths, neighbourInstance, partOf, swapSiblings } from './layoutParts';
+import { Button } from '../ui/controls';
+import { canDelete, instancePaths, movable, partOf, reorder } from './layoutParts';
 
 /**
  * The default when the host does not say which elements its assistant can take: a post piece, or a block made only of
@@ -66,14 +67,17 @@ export function SelectionBar({
   const repeat = part?.kind === 'repeat';
   const instances = part ? instancePaths(nodes, part.key) : [];
   const nth = instances.findIndex((at) => at.join('.') === path.join('.')) + 1;
-  const up = repeat ? neighbourInstance(nodes, path, -1) : null;
-  const down = repeat ? neighbourInstance(nodes, path, 1) : null;
-  const parent = path.slice(0, -1);
   const askable = canAsk ? canAsk(node, path) : !onlyPostPieces(node);
-
-  const move = (to: number) => {
-    change(swapSiblings(nodes, path, to));
-    select([...parent, to]);
+  // Moves and removal by the layout's one rule (owner 2026-11-17: the reorder buttons live here, at the top-left, where
+  // the slide-in panel never covers them, and show on hover as well as for the selection).
+  const up = reorder(nodes, layout, path, -1);
+  const down = reorder(nodes, layout, path, 1);
+  const moves = movable(nodes, layout, path);
+  const removable = canDelete(nodes, layout, path);
+  const go = (step: { nodes: PmlNode[]; path: number[] } | null) => {
+    if (!step) return;
+    change(step.nodes);
+    select(step.path);
   };
 
   const button = 'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold outline-none hover:bg-white/15 disabled:opacity-40';
@@ -105,32 +109,76 @@ export function SelectionBar({
           </button>
         </>
       ) : null}
-      {repeat ? (
+      {moves ? (
         <>
-          <button type="button" className={button} disabled={up === null} onClick={() => up !== null && move(up)} aria-label={`Move this ${label.toLowerCase()} up`}>
+          <button type="button" className={button} disabled={!up} onClick={() => go(up)} aria-label={`Move this ${label.toLowerCase()} up`}>
             <ArrowUp className="h-3 w-3" aria-hidden />
             Up
           </button>
-          <button type="button" className={button} disabled={down === null} onClick={() => down !== null && move(down)} aria-label={`Move this ${label.toLowerCase()} down`}>
+          <button type="button" className={button} disabled={!down} onClick={() => go(down)} aria-label={`Move this ${label.toLowerCase()} down`}>
             <ArrowDown className="h-3 w-3" aria-hidden />
             Down
           </button>
-          <button
-            type="button"
-            className={button}
-            disabled={!canDelete(nodes, layout, path)}
-            onClick={() => {
-              change(removeNodeAtPath(nodes, path));
-              select(null);
-            }}
-            aria-label={`Remove this ${label.toLowerCase()}`}
-            title={canDelete(nodes, layout, path) ? undefined : `The template needs at least ${Math.max(part?.min ?? 0, 1)}.`}
-          >
-            <Trash2 className="h-3 w-3" aria-hidden />
-            Remove
-          </button>
         </>
       ) : null}
+      {repeat || removable ? (
+        <button
+          type="button"
+          className={button}
+          disabled={!removable}
+          onClick={() => {
+            change(removeNodeAtPath(nodes, path));
+            select(null);
+          }}
+          aria-label={`Remove this ${label.toLowerCase()}`}
+          title={removable ? undefined : `The template needs at least ${Math.max(part?.min ?? 0, 1)}.`}
+        >
+          <Trash2 className="h-3 w-3" aria-hidden />
+          Remove
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The selected element's position in its settings panel (owner 2026-11-17: "there should be reorder options on the side
+ * panel config"), by the same rule as its bar: nothing for a template part that keeps its place.
+ */
+export function PositionControls({
+  nodes,
+  path,
+  layout,
+  change,
+  select,
+}: {
+  nodes: PmlNode[];
+  path: number[];
+  layout?: DocumentLayout | null;
+  change: (next: PmlNode[]) => void;
+  select: (path: number[] | null) => void;
+}): React.JSX.Element | null {
+  if (!movable(nodes, layout, path)) return null;
+
+  const up = reorder(nodes, layout, path, -1);
+  const down = reorder(nodes, layout, path, 1);
+  const go = (step: { nodes: PmlNode[]; path: number[] } | null) => {
+    if (!step) return;
+    change(step.nodes);
+    select(step.path);
+  };
+
+  return (
+    <div role="group" aria-label="Position" className="flex flex-wrap items-center gap-2">
+      <span className="mr-auto text-sm font-medium">Position</span>
+      <Button type="button" variant="outline" size="sm" disabled={!up} onClick={() => go(up)} className="whitespace-nowrap outline-none">
+        <ArrowUp className="mr-1 h-4 w-4" aria-hidden />
+        Move up
+      </Button>
+      <Button type="button" variant="outline" size="sm" disabled={!down} onClick={() => go(down)} className="whitespace-nowrap outline-none">
+        <ArrowDown className="mr-1 h-4 w-4" aria-hidden />
+        Move down
+      </Button>
     </div>
   );
 }

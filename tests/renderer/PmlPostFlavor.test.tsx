@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 
 import type { PmlNode } from '../../src/pml/primitives';
+import { PML_SECTIONS } from '../../src/language';
 import { PmlRenderer } from '../../src/renderer/PmlRenderer';
 import type { PmlSite as PublicSite } from '../../src/renderer/PmlRenderer';
 
@@ -117,5 +118,23 @@ describe('the one empty marker on the canvas', () => {
     const h1 = container.querySelector('h1') as HTMLElement;
 
     expect([h1.textContent, h1.style.borderRadius, h1.style.background]).toEqual(['Add title', '10px', 'rgb(238, 238, 255)']);
+  });
+});
+
+describe('related guides in a post (owner 2026-11-17: they "will be determined and surface with relevant logic")', () => {
+  const related = { primitive: 'post_related', props: { heading: 'Related guides', resolved: { related: [{ title: 'Fees', url: '/blog/fees' }] } } } as unknown as PmlNode;
+
+  it('draw nothing in a post, on the canvas (no stand-in) or for readers', () => {
+    const canvas = render(<PmlRenderer nodes={[related]} site={site} flavor="post" builderHints />);
+    expect(canvas.queryByText(/Related guides|Fees/)).toBeNull();
+    expect(canvas.container.querySelector('[data-pml-empty]')).toBeNull();
+    canvas.unmount();
+
+    const page = render(<PmlRenderer nodes={[related]} site={site} flavor="post" />);
+    expect(page.queryByText(/Related guides|Fees/)).toBeNull();
+  });
+
+  it('are no longer offered in the Add menu', () => {
+    expect(PML_SECTIONS.some((entry) => entry.name === 'post_related')).toBe(false);
   });
 });

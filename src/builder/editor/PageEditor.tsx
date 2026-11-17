@@ -35,7 +35,7 @@ import { PmlCodePane } from './PmlCodePane';
 import { CanvasFlavorContext } from './canvasFlavor';
 import { canDelete as layoutAllowsDelete, canReorder } from './layoutParts';
 import { PieceFieldsPanel } from './PieceFields';
-import { SelectionBar, type AssistantAsk } from './SelectionBar';
+import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
 import { UnpublishDialog } from './UnpublishDialog';
@@ -442,6 +442,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         >
           {panel === 'selected' && selected && selectedPath ? (
             <div className="space-y-4">
+              <PositionControls nodes={nodes} path={selectedPath} layout={layout} change={change} select={selectPath} />
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
               {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings

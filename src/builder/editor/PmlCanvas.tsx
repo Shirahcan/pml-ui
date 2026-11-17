@@ -148,18 +148,21 @@ export function PmlCanvas({
   const same = (a: number[] | null | undefined, b: number[] | null | undefined) => (a ?? []).join('.') === (b ?? []).join('.') && a != null && b != null;
   const toolsFor = menuFor ?? (hovered && !same(hovered, selectedPath) ? hovered : null);
 
-  // The selection bar sits on the selected element's top-left corner: above it when there is room, inside it otherwise.
+  // The bar shows for the element under the pointer, else the selected one (owner 2026-11-17: on hover, and never under
+  // the slide-in panel, which covers the right side): on that element's top-left corner, above it when there is room.
   // Measured after every render (a compile, a selection, a panel opening all move it); a position is not state.
+  const barFor = hovered ?? selectedPath;
+
   useLayoutEffect(() => {
     const root = canvas.current;
     const element = bar.current;
 
-    if (!root || !element || !selectedPath) return;
+    if (!root || !element || !barFor) return;
 
     const target =
-      selectedPath.length > 1
-        ? pathElement(root.querySelector(`[data-pml-path="${renderedPathFor(nodes, selectedPath).join('.')}"]`))
-        : root.querySelector(`[data-pml-section="${selectedPath[0]}"]`);
+      barFor.length > 1
+        ? pathElement(root.querySelector(`[data-pml-path="${renderedPathFor(nodes, barFor).join('.')}"]`))
+        : root.querySelector(`[data-pml-section="${barFor[0]}"]`);
 
     if (!target) {
       element.style.visibility = 'hidden';
@@ -253,13 +256,13 @@ export function PmlCanvas({
   const hover = (event: React.MouseEvent) => {
     if (!deep) return;
 
-    // Moving onto the menu button keeps its element; it must not vanish on the way to a click.
-    if (tools.current?.contains(event.target as Node)) return;
+    // Moving onto the menu button or the selection bar keeps its element; neither may vanish on the way to a click.
+    if (tools.current?.contains(event.target as Node) || bar.current?.contains(event.target as Node)) return;
 
     canvas.current?.querySelectorAll(`[${HOVER}]`).forEach((element) => element.removeAttribute(HOVER));
     pathElement((event.target as HTMLElement).closest('[data-pml-path]'))?.setAttribute(HOVER, 'true');
 
-    if (renderElementMenu) {
+    if (renderElementMenu || renderSelectionBar) {
       const path = pathAt(event.target);
 
       if (!same(path, hovered) && (path !== null || hovered !== null)) setHovered(path);
@@ -296,9 +299,9 @@ export function PmlCanvas({
           {renderElementMenu(toolsFor, menuFor !== null, (open) => setMenuFor(open ? toolsFor : null))}
         </div>
       ) : null}
-      {renderSelectionBar && deep && selectedPath ? (
+      {renderSelectionBar && deep && barFor ? (
         <div ref={bar} className="absolute z-30" style={{ top: 0, left: 0, visibility: 'hidden' }}>
-          {renderSelectionBar(selectedPath)}
+          {renderSelectionBar(barFor)}
         </div>
       ) : null}
       {quick.overlay}
@@ -369,7 +372,7 @@ export function PmlCanvas({
                 <div className="px-6 py-10 text-center text-sm opacity-40">{label}…</div>
               )}
 
-              {selected && !renderElementMenu ? (
+              {selected && !renderElementMenu && !renderSelectionBar ? (
                 <div className="absolute right-2 top-2 z-10 flex gap-1">
                   {canMove?.(index) === false ? null : (
                     <>
