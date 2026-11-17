@@ -57,6 +57,13 @@ export interface EmailEditorControls {
   flush: () => Promise<boolean>;
   /** "Hide comments (3)", "Show resolved (2)": for the host's menu; empty while the email has no comments. */
   commentMenu: CommentMenuItem[];
+  /**
+   * Replace the whole design in ONE undoable change, saved by the editor's own autosave (as a draft, with the
+   * revision): how an assistant's answer lands from the host's console, as in the page editor.
+   */
+  replaceNodes: (nodes: PmlNode[]) => void;
+  /** The email's design as it stands (the console's "@" targets and labels read it). */
+  nodes: PmlNode[];
 }
 
 /** A panel the host adds (sending, help from the assistant): it slides in over the email like every other. */
@@ -119,6 +126,11 @@ export interface EmailEditorProps {
   commentAuthor?: string;
   /** Send a comment to the host's assistant as an ask about its block; absent where it cannot act. */
   onAddressComment?: (comment: StudioComment) => void;
+  /**
+   * The host's console, drawn FIRST (its dock is sticky; drawn after the email it would sink below the fold), as in the
+   * page editor: the host mounts ai-ui's `ConsoleHost` here, which overlays and never shrinks the email.
+   */
+  console?: ReactNode | ((controls: EmailEditorControls) => ReactNode);
 }
 
 /** What the checks say for an email whose next step is "Save for everyone" (a template). */
@@ -154,6 +166,7 @@ export function EmailEditor({
   checkWords,
   commentAuthor,
   onAddressComment,
+  console: consoleSlot,
 }: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, {
     noun: 'email',
@@ -273,6 +286,8 @@ export function EmailEditor({
     hostPanels: panels.map(({ key, title }) => ({ key, title })),
     flush: () => Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => saved),
     commentMenu: comments.menuItems,
+    replaceNodes: (next) => change(next),
+    nodes,
   };
 
   if (editor.loading) {
@@ -294,6 +309,7 @@ export function EmailEditor({
     <EditorSurfaceProvider surface="email">
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
+        {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
         {renderControls ? renderControls(controls) : <EmailEditorHeader controls={controls} />}
         {notice}
 

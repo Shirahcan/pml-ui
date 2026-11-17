@@ -439,3 +439,38 @@ describe('studio comments in the email', () => {
     );
   });
 });
+
+/** The host's console on an email (N1h-2), the page editor's shapes: a slot drawn first, and one undoable landing. */
+describe('the console on an email', () => {
+  it('draws the host console first and lands an answer as ONE undoable change saved as the draft', async () => {
+    const adapter = fakeAdapter();
+    let controls = null as import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null;
+    render(
+      <EmailEditor
+        adapter={adapter}
+        id="c1"
+        allowedElements={ALLOWED}
+        renderAsSent={vi.fn()}
+        console={(c) => {
+          controls = c;
+          return <div role="region" aria-label="Porter console" />;
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole('region', { name: 'Porter console' })).toBeTruthy();
+    await waitFor(() => expect(controls?.nodes.length).toBe(1));
+
+    const answer = [{ primitive: 'heading', props: { text: 'Draw 330: 2,500 invitations', level: 1 } }] as unknown as PmlNode[];
+    await act(async () => controls?.replaceNodes(answer));
+    expect(await screen.findByRole('heading', { name: 'Draw 330: 2,500 invitations' }, { timeout: 3000 })).toBeTruthy();
+    // Saved as the draft (each element gets its uid on the way, so the words are what is compared).
+    await waitFor(
+      () => expect(((adapter.saveDraft as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[1]?.nodes as Array<{ props?: { text?: string } }> | undefined)?.map((n) => n.props?.text)).toEqual(['Draw 330: 2,500 invitations']),
+      { timeout: 5000 },
+    );
+
+    await act(async () => controls?.undo());
+    expect(await screen.findByRole('heading', { name: 'Your appointment moved' }, { timeout: 3000 })).toBeTruthy();
+  }, 15000);
+});
