@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { DocumentAdapter } from '../../../src/builder/document';
-import { forceDarkMode } from '../../../src/builder/editor/EmailAsSent';
+import { forceColorScheme } from '../../../src/builder/editor/EmailAsSent';
 import { EmailEditor } from '../../../src/builder/editor/EmailEditor';
 import { BuilderHostProvider } from '../../../src/builder/editor/host';
 import type { PmlNode } from '../../../src/language';
@@ -79,7 +79,9 @@ describe('EmailEditor', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'As sent' }));
     const frame = (await screen.findByTitle('The email as sent')) as HTMLIFrameElement;
     expect(frame.getAttribute('srcdoc')).toContain('<h1>Sent</h1>');
-    expect(frame.getAttribute('sandbox')).toBe('');
+    // No scripts, no same-origin; links open in a new tab, never inside the frame.
+    expect(frame.getAttribute('sandbox')).toBe('allow-popups allow-popups-to-escape-sandbox');
+    expect(frame.getAttribute('srcdoc')).toContain('<base target="_blank">');
     expect(renderAsSent).toHaveBeenCalledWith('t1');
 
     fireEvent.click(screen.getByRole('button', { name: 'Dark' }));
@@ -101,9 +103,47 @@ describe('EmailEditor', () => {
   });
 });
 
-describe('forceDarkMode', () => {
-  it("applies the email's dark rules unconditionally", () => {
-    expect(forceDarkMode('@media (prefers-color-scheme: dark) { .a { color: #fff } }')).toBe('@media all { .a { color: #fff } }');
+describe('forceColorScheme', () => {
+  it("forces the email's scheme rules wherever the feature sits, and declares the scheme", () => {
+    const html = '<html><head></head><body><style>@media screen and (prefers-color-scheme: dark) { .a { color: #fff } }</style></body></html>';
+
+    const dark = forceColorScheme(html, 'dark');
+    expect(dark).toContain('@media screen and (min-width: 0px)');
+    expect(dark).toContain('<meta name="color-scheme" content="dark">');
+
+    // A viewer whose system is dark still sees the LIGHT email on the Light tab.
+    expect(forceColorScheme(html, 'light')).toContain('@media screen and (max-width: 0px)');
+  });
+});
+
+describe('Save for everyone', () => {
+  it('saves the draft for everyone only through the publish step, after the field writes land', async () => {
+    const adapter = fakeAdapter();
+    const publish = vi.fn(async () => ({ published: true as const, url: null }));
+    const onPublished = vi.fn();
+    render(
+      <BuilderHostProvider>
+        <EmailEditor adapter={{ ...adapter, publish }} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} onPublished={onPublished} />
+      </BuilderHostProvider>,
+    );
+
+    const subject = (await screen.findByLabelText('Subject')) as HTMLInputElement;
+    fireEvent.change(subject, { target: { value: 'New time' } });
+    fireEvent.blur(subject);
+    fireEvent.click(screen.getByRole('button', { name: /Save for everyone/ }));
+
+    await waitFor(() => expect(publish).toHaveBeenCalled());
+    expect(adapter.fields.write.mock.invocationCallOrder[0]).toBeLessThan(publish.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(onPublished).toHaveBeenCalled());
+  });
+
+  it('writes a field only when it changed', async () => {
+    const adapter = fakeAdapter();
+    render(<EmailEditor adapter={adapter} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} />);
+
+    fireEvent.blur(await screen.findByLabelText('Subject'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(adapter.fields.write).not.toHaveBeenCalled();
   });
 });
 
@@ -117,5 +157,6 @@ describe('an email adapter has no publish step', () => {
 
     expect(await screen.findByText('No design yet.')).toBeTruthy();
     expect(await screen.findByLabelText('Subject')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Save for everyone/ })).toBeNull();
   });
 });

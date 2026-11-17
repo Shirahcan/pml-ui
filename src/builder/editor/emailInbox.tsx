@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { isConflict, type DocumentField, type DocumentFieldsPort } from '../document';
 import { Input, Switch } from '../ui/controls';
@@ -10,15 +10,35 @@ import { useBuilderHost } from './host';
 /**
  * The inbox frame around an email being designed (pml-email C1a): the fields a reader meets before the body (the
  * subject line, the preview text after it) and the email's own settings (the standard header and footer), read and
- * written through the host's `fields` port, each saved when the author leaves it. The fields keep their own revision,
- * so editing a subject never collides with the design's autosave.
+ * written through the host's `fields` port. A text field saves when the author leaves it, and only when it changed; a
+ * switch saves at once and goes back if the save fails. The fields keep their own revision (held in a ref, so two quick
+ * writes never send a stale one), separate from the design's autosave. `track` hands each write to the editor, which
+ * waits for them before drawing the email as sent.
  */
-export function EmailInbox({ id, fields, session }: { id: string; fields: DocumentFieldsPort; session: string }): React.JSX.Element {
+export function EmailInbox({
+  id,
+  fields,
+  session,
+  track,
+}: {
+  id: string;
+  fields: DocumentFieldsPort;
+  session: string;
+  track?: (write: Promise<unknown>) => void;
+}): React.JSX.Element {
   const host = useBuilderHost();
+  // The host's callbacks may change identity every render; reading them through a ref keeps the load from re-running
+  // (which would overwrite what the author is typing).
+  const hostRef = useRef(host);
+  useEffect(() => {
+    hostRef.current = host;
+  });
   const vars = useOwnVars();
   const [described, setDescribed] = useState<DocumentField[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
-  const [revision, setRevision] = useState('');
+  const saved = useRef<Record<string, unknown>>({});
+  const revision = useRef('');
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const [conflict, setConflict] = useState(false);
 
   useEffect(() => {
@@ -29,39 +49,52 @@ export function EmailInbox({ id, fields, session }: { id: string; fields: Docume
         if (!alive) return;
         setDescribed(list);
         setValues(read.values);
-        setRevision(read.revision);
+        saved.current = read.values;
+        revision.current = read.revision;
       })
-      .catch((err) => host.onError(err));
+      .catch((err) => hostRef.current.onError(err));
 
     return () => {
       alive = false;
     };
-  }, [fields, id, host]);
+  }, [fields, id]);
 
-  const save = async (name: string, value: unknown) => {
-    try {
-      const saved = await fields.write(id, name, value, revision, session);
+  /** Writes run one after another, each on the revision the last one returned. */
+  const save = (name: string, value: unknown) => {
+    if (Object.is(saved.current[name], value)) return;
 
-      if (isConflict(saved)) {
-        setConflict(true);
+    const write = queue.current.then(async () => {
+      try {
+        const result = await fields.write(id, name, value, revision.current, session);
 
-        return;
+        if (isConflict(result)) {
+          setConflict(true);
+          setValues((v) => ({ ...v, [name]: saved.current[name] }));
+
+          return;
+        }
+
+        revision.current = result.revision || revision.current;
+        saved.current = { ...saved.current, [name]: value };
+      } catch (err) {
+        setValues((v) => ({ ...v, [name]: saved.current[name] }));
+        hostRef.current.onError(err);
       }
+    });
 
-      setRevision(saved.revision || revision);
-    } catch (err) {
-      host.onError(err);
-    }
+    queue.current = write;
+    track?.(write);
   };
 
   const reload = async () => {
     try {
       const read = await fields.read(id);
       setValues(read.values);
-      setRevision(read.revision);
+      saved.current = read.values;
+      revision.current = read.revision;
       setConflict(false);
     } catch (err) {
-      host.onError(err);
+      hostRef.current.onError(err);
     }
   };
 
@@ -85,7 +118,7 @@ export function EmailInbox({ id, fields, session }: { id: string; fields: Docume
               value={value}
               readOnly={field.readOnly}
               onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.value }))}
-              onBlur={(e) => !field.readOnly && void save(field.name, e.target.value)}
+              onBlur={(e) => !field.readOnly && save(field.name, e.target.value)}
               aria-invalid={over || undefined}
             />
             {field.max !== undefined ? (
@@ -106,7 +139,7 @@ export function EmailInbox({ id, fields, session }: { id: string; fields: Docume
             disabled={field.readOnly}
             onCheckedChange={(on) => {
               setValues((v) => ({ ...v, [field.name]: on }));
-              void save(field.name, on);
+              save(field.name, on);
             }}
           />
         </label>

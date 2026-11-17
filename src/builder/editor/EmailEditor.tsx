@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { Plus, Redo2, ShieldCheck, Undo2 } from 'lucide-react';
+import React, { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
 import type { EditableDocumentAdapter } from '../document';
@@ -29,6 +29,9 @@ export interface EmailEditorControls {
   undo: () => void;
   redo: () => void;
   check: () => void;
+  /** "Save for everyone": present when the host has a publish step; refused (with the findings shown) while checks block. */
+  publish?: () => void;
+  publishing: boolean;
 }
 
 export interface EmailEditorProps {
@@ -36,42 +39,58 @@ export interface EmailEditorProps {
   id: string;
   /** The elements an email may hold (the server's email profile: one authority). Everything else is off the menu. */
   allowedElements: readonly string[];
-  /** The SAVED email as the host sends it (its delivery HTML and plain text). */
+  /** The email as the host sends it (its delivery HTML and plain text), for the saved draft. */
   renderAsSent: (id: string) => Promise<RenderedEmail>;
   frame?: CanvasFrame;
   site?: PmlSite;
-  /** Given, the host draws the controls (tabs, undo, check, save state) in its own chrome; otherwise a header does. */
+  /** Given, the host draws the controls (tabs, undo, check, save) in its own chrome; otherwise a header does. */
   renderControls?: (controls: EmailEditorControls) => ReactNode;
   /** A host's note above the email (e.g. "this email has no design yet, so it still sends as written"). */
   notice?: ReactNode;
+  /** After "Save for everyone" lands. */
+  onPublished?: () => void;
 }
 
 const NO_SITE: PmlSite = {};
 
 /**
- * The email editor (pml-email C1a), the shared builder composed for an email: the inbox frame (subject, preview text,
- * the standard header and footer), a 600px canvas holding only email elements, the settings rail for what is
- * selected, the email's checks, and the email exactly as sent (light, dark, plain text). Saving IS the change, so
- * there is no publish here; the host decides what a saved design does.
+ * The email editor (pml-email C1a/C2b), the shared builder composed for an email: the inbox frame (subject, preview
+ * text, the standard header and footer), a 600px canvas holding only email elements, the settings rail for what is
+ * selected, the email's checks, and the email exactly as sent (light, dark, plain text). Edits autosave to the host's
+ * DRAFT; "Save for everyone" (the adapter's publish) is the one act that changes what sends. Mount it with
+ * `key={id}`, so switching emails starts a fresh editor.
  */
-export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice }: EmailEditorProps): React.JSX.Element {
-  const editor = useDocumentEditor(adapter, id, { noun: 'email' });
+export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice, onPublished }: EmailEditorProps): React.JSX.Element {
+  const editor = useDocumentEditor(adapter, id, {
+    noun: 'email',
+    publishedMessage: 'Saved for everyone. The next email sent uses this version.',
+    onPublished: () => onPublished?.(),
+  });
   const vars = useOwnVars();
   const [tab, setTab] = useState<'design' | 'sent'>('design');
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [sentVersion, setSentVersion] = useState(0);
-  const [session] = useState(() => crypto.randomUUID());
+  const [sentStale, setSentStale] = useState(false);
+  const fieldWrites = useRef(new Set<Promise<unknown>>());
   const { nodes, change } = editor;
 
   const unavailable = useMemo(() => Object.keys(PML_CATALOG_BY_NAME).filter((name) => !allowedElements.includes(name)), [allowedElements]);
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
 
+  const track = useCallback((write: Promise<unknown>) => {
+    fieldWrites.current.add(write);
+    void write.finally(() => fieldWrites.current.delete(write));
+  }, []);
+
   const showTab = useCallback(
     (next: 'design' | 'sent') => {
       if (next === 'sent') {
-        // The preview is of the SAVED email: send a waiting save first, then draw.
-        void editor.flush().then(() => setSentVersion((v) => v + 1));
+        // "As sent" draws the SAVED draft: send a waiting design save and every field write first.
+        void Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => {
+          setSentStale(saved === false);
+          setSentVersion((v) => v + 1);
+        });
       }
       setTab(next);
     },
@@ -90,10 +109,28 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     undo: editor.undoEdit,
     redo: editor.redoEdit,
     check: () => void editor.check(),
+    publish: editor.canPublish
+      ? () => {
+          // Field writes are part of what is saved for everyone: let them land first.
+          void Promise.all([...fieldWrites.current]).then(() => editor.publish());
+        }
+      : undefined,
+    publishing: editor.publishing,
   };
 
   if (editor.loading) {
     return <p className="py-16 text-center text-sm text-[var(--pb-muted)]" style={vars}>Opening the email...</p>;
+  }
+
+  if (editor.loadError) {
+    return (
+      <div role="alert" className="mx-auto max-w-md space-y-3 py-16 text-center text-sm text-[var(--pb-text)]" style={vars}>
+        <p>This email could not be opened, so nothing here can be edited yet.</p>
+        <Button variant="outline" onClick={() => editor.reload()}>
+          Try again
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -103,11 +140,11 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
         {notice}
 
         {tab === 'sent' ? (
-          <EmailAsSent render={render} version={sentVersion} />
+          <EmailAsSent render={render} version={sentVersion} stale={sentStale} />
         ) : (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="mx-auto w-full max-w-[600px]">
-              {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={session} /> : null}
+              {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} /> : null}
               <PmlCanvas
                 nodes={nodes}
                 compiled={editor.compiled}
@@ -151,9 +188,11 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
                   }}
                 />
               ) : editor.scan ? (
-                <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to send.' }} />
+                <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to save for everyone.' }} />
               ) : (
-                <p className="text-sm text-[var(--pb-muted)]">Select a block to change it, or run the checks before you save it for everyone.</p>
+                <p className="text-sm text-[var(--pb-muted)]">
+                  Select a block to change it. Your changes are kept as a draft; nobody receives them until you save them for everyone.
+                </p>
               )}
             </aside>
           </div>
@@ -176,7 +215,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
 
 /** The editor's own header when the host does not draw the controls in its chrome. */
 function EmailEditorHeader({ controls }: { controls: EmailEditorControls }): React.JSX.Element {
-  const status = controls.saving ? 'Saving' : controls.dirty ? 'Unsaved changes' : 'Saved';
+  const status = controls.saving ? 'Saving draft' : controls.dirty ? 'Unsaved changes' : 'Draft saved';
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,7 +227,9 @@ function EmailEditorHeader({ controls }: { controls: EmailEditorControls }): Rea
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-xs text-[var(--pb-muted)]">{status}</span>
+        <span className="text-xs text-[var(--pb-muted)]" aria-live="polite">
+          {status}
+        </span>
         <Button size="icon" variant="ghost" aria-label="Undo" disabled={!controls.canUndo} onClick={controls.undo}>
           <Undo2 />
         </Button>
@@ -199,6 +240,12 @@ function EmailEditorHeader({ controls }: { controls: EmailEditorControls }): Rea
           <ShieldCheck />
           Run the checks
         </Button>
+        {controls.publish ? (
+          <Button size="sm" onClick={controls.publish} disabled={controls.publishing}>
+            <Send />
+            {controls.publishing ? 'Saving for everyone' : 'Save for everyone'}
+          </Button>
+        ) : null}
       </div>
     </div>
   );
