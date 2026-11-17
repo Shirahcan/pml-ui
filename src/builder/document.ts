@@ -161,12 +161,23 @@ export interface DocumentField {
   /** The product's name for it, as bound parts read it (`title`, `tags`, `read_minutes`). */
   name: string;
   label: string;
-  /** `toggle` (pml-email C1a): an on/off setting, such as an email's standard header and footer. */
-  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record' | 'toggle';
+  /**
+   * `toggle` (pml-email C1a): an on/off setting, such as an email's standard header and footer. `choice` (blog on
+   * growth-service S3): one of `options`, such as a post's category or how it ends. A `text` field longer than
+   * LONG_TEXT characters is drawn as a box of several lines (a summary), a shorter one as a single line.
+   */
+  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record' | 'toggle' | 'choice';
   /** Computed by the product (a read time): shown, never edited. */
   readOnly?: boolean;
   /** The limit the builder counts against: characters for text, items for a list. */
   max?: number;
+  /** A `choice` field's options; the value written is the option's `value` (`''` is the product's "none"). */
+  options?: DocumentFieldOption[];
+}
+
+export interface DocumentFieldOption {
+  value: string;
+  label: string;
 }
 
 /**

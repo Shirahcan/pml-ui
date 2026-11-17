@@ -5,18 +5,23 @@ import { X } from 'lucide-react';
 
 import type { PmlNode } from '../../language';
 import { isConflict, type DocumentField, type DocumentFieldsPort } from '../document';
-import { Input, Label, Switch } from '../ui/controls';
+import { Input, Label, Switch, Textarea } from '../ui/controls';
 import { useOwnVars } from '../ui/theme';
 import { useBuilderHost } from './host';
 import { MediaField } from './MediaField';
 import { ParagraphEditor } from './ParagraphEditor';
+
+/** A text field allowed more than this many characters is a box of several lines (a summary), not one line. */
+const LONG_TEXT = 200;
+
+const SELECT = 'w-full rounded-md border border-[var(--pb-border)] bg-[var(--pb-surface)] px-3 py-2 text-sm text-[var(--pb-text)] outline-none disabled:opacity-60';
 
 /** A media field's value: an address, or a picture with its description and caption (a post's cover). */
 type MediaValue = string | { url?: string; alt?: string; caption?: string };
 
 /**
  * A document's own fields, every kind, read and written through the host's `fields` port (blog-on-growth-service S7c):
- * a post's title, slug, dek, category, tags, audience, author, cover, meta title and description. The write discipline
+ * a post's title, slug, dek, summary, author, category, audience, ending, tags, cover, meta title and description. The write discipline
  * is EmailInbox's: the revision lives in a ref and writes run one after another, a field writes only when its value
  * changed, a refused or conflicting write puts the old value back, and a conflict offers "Load the latest". Text saves
  * when the author leaves it, rich words after a short pause, everything else at once.
@@ -183,6 +188,27 @@ function FieldRow({
         </div>
       );
     }
+    case 'choice': {
+      // The product may hand back a number (a category id); its options are text, so compare as text.
+      const chosen = value === null || value === undefined ? '' : String(value);
+      const options = field.options ?? [];
+      const known = options.some((option) => option.value === chosen);
+
+      return (
+        <div className="space-y-1">
+          {label}
+          <select id={id} name={field.name} value={chosen} disabled={field.readOnly} onChange={(e) => onCommit(e.target.value)} className={SELECT}>
+            {/* A value the options no longer offer (a retired category) still shows, so nothing changes until chosen. */}
+            {known ? null : <option value={chosen}>{chosen === '' ? 'Choose one' : chosen}</option>}
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
     case 'record':
       return (
         <div className="space-y-1">
@@ -200,7 +226,11 @@ function FieldRow({
             {label}
             {field.max !== undefined ? <span className={`text-xs tabular-nums ${over ? 'text-[var(--pb-danger)]' : 'text-[var(--pb-muted)]'}`}>{text.length}/{field.max}</span> : null}
           </div>
-          <Input id={id} name={field.name} value={text} readOnly={field.readOnly} aria-invalid={over || undefined} onChange={(e) => onDraft(e.target.value)} onBlur={(e) => !field.readOnly && onCommit(e.target.value)} className="px-3 py-2 outline-none" />
+          {field.max !== undefined && field.max > LONG_TEXT ? (
+            <Textarea id={id} name={field.name} rows={4} value={text} readOnly={field.readOnly} aria-invalid={over || undefined} onChange={(e) => onDraft(e.target.value)} onBlur={(e) => !field.readOnly && onCommit(e.target.value)} className="px-3 py-2 outline-none" />
+          ) : (
+            <Input id={id} name={field.name} value={text} readOnly={field.readOnly} aria-invalid={over || undefined} onChange={(e) => onDraft(e.target.value)} onBlur={(e) => !field.readOnly && onCommit(e.target.value)} className="px-3 py-2 outline-none" />
+          )}
         </div>
       );
     }

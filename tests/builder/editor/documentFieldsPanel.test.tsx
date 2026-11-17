@@ -76,6 +76,38 @@ describe('DocumentFieldsPanel', () => {
     expect(screen.getByRole('button', { name: 'Load the latest' })).toBeTruthy();
   });
 
+  it('draws a choice as a select and writes the option value; a long text is a box of several lines', async () => {
+    const choice: DocumentField[] = [
+      { name: 'category_id', label: 'Category', kind: 'choice', options: [{ value: '', label: 'No category' }, { value: '3', label: 'Work permits' }, { value: '7', label: 'Study' }] },
+      { name: 'answer', label: 'Summary', kind: 'text', max: 2000 },
+      { name: 'author_name', label: 'Author', kind: 'text', max: 120 },
+    ];
+    const fields = port();
+    fields.describe = vi.fn(async () => choice);
+    // The product hands a category back as a number; the select still shows it as chosen.
+    fields.read = vi.fn(async () => ({ values: { category_id: 3, answer: '', author_name: '' }, revision: 'r1' }));
+    render(<DocumentFieldsPanel id="p1" fields={fields} session="s" />);
+
+    const category = (await screen.findByLabelText('Category')) as HTMLSelectElement;
+    expect(category.tagName).toBe('SELECT');
+    expect(category.value).toBe('3');
+    fireEvent.change(category, { target: { value: '7' } });
+    await waitFor(() => expect(fields.write).toHaveBeenCalledWith('p1', 'category_id', '7', 'r1', 's'));
+
+    expect((screen.getByLabelText('Summary') as HTMLElement).tagName).toBe('TEXTAREA');
+    expect((screen.getByLabelText('Author') as HTMLElement).tagName).toBe('INPUT');
+  });
+
+  it('keeps a value the options no longer offer until another is chosen', async () => {
+    const fields = port();
+    fields.describe = vi.fn(async () => [{ name: 'audience', label: 'Who it is for', kind: 'choice', options: [{ value: '', label: 'Everyone' }] }] as DocumentField[]);
+    fields.read = vi.fn(async () => ({ values: { audience: 'retired_audience' }, revision: 'r1' }));
+    render(<DocumentFieldsPanel id="p1" fields={fields} session="s" />);
+
+    expect(((await screen.findByLabelText('Who it is for')) as HTMLSelectElement).value).toBe('retired_audience');
+    expect(fields.write).not.toHaveBeenCalled();
+  });
+
   it('caps a list at its maximum', async () => {
     render(<DocumentFieldsPanel id="p1" fields={port({ tags: ['a', 'b', 'c'] })} session="s" />);
 
