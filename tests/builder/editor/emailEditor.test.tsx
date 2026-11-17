@@ -353,3 +353,34 @@ describe('panels over the email (designer sole surface: the newsletter)', () => 
     expect(await screen.findByLabelText('Signed by')).toBeTruthy();
   });
 });
+
+describe('the checks in the host\'s words', () => {
+  it('a newsletter says what stops it being SENT, never "go public" or "save for everyone"', async () => {
+    const adapter = fakeAdapter();
+    (adapter.preflight as ReturnType<typeof vi.fn>).mockResolvedValue({
+      mayPublish: false,
+      findings: [{ source: 'layout', severity: 'block', rule: 'email.unfilled_variable', message: '{{action_url}} has nothing to fill it.', excerpt: null, suggestion: null }],
+    });
+    render(
+      <EmailEditor
+        adapter={adapter}
+        id="c1"
+        allowedElements={ALLOWED}
+        renderAsSent={vi.fn()}
+        checkWords={{ blockersTitle: (n) => `${n} to fix before it can be sent`, clean: 'Ready to send.' }}
+        renderControls={(c) => (
+          <button type="button" onClick={c.check}>
+            Check it
+          </button>
+        )}
+      />,
+    );
+
+    const check = await screen.findByRole('button', { name: 'Check it' });
+    await act(async () => {
+      fireEvent.click(check);
+    });
+    expect(await screen.findByText('1 to fix before it can be sent')).toBeTruthy();
+    expect(screen.queryByText(/go public/)).toBeNull();
+  });
+});

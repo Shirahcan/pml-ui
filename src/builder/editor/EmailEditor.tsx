@@ -14,7 +14,7 @@ import { DraftConflictDialog } from './DraftConflictDialog';
 import { EmailAsSent, type RenderedEmail } from './EmailAsSent';
 import { EmailInbox } from './emailInbox';
 import { FieldGroupPanel } from './FieldGroupPanel';
-import { FindingsPanel } from './FindingsPanel';
+import { FindingsPanel, type FindingsWords } from './FindingsPanel';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlSettings } from './PmlSettings';
@@ -101,7 +101,15 @@ export interface EmailEditorProps {
   locked?: boolean;
   /** A field was saved from a panel or the inbox frame (e.g. the host's bar shows the new subject). */
   onFieldSaved?: (name: string) => void;
+  /**
+   * The checks panel's words, over the email's own ("save for everyone"): a newsletter is SENT, so it says "before it
+   * can be sent" and "Ready to send" instead.
+   */
+  checkWords?: Partial<FindingsWords>;
 }
+
+/** What the checks say for an email whose next step is "Save for everyone" (a template). */
+const SAVE_FOR_EVERYONE_WORDS: Partial<FindingsWords> = { clean: 'Nothing here needs to change. Ready to save for everyone.' };
 
 const NO_SITE: PmlSite = {};
 
@@ -130,6 +138,7 @@ export function EmailEditor({
   inboxFields,
   locked = false,
   onFieldSaved,
+  checkWords,
 }: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, {
     noun: 'email',
@@ -342,7 +351,7 @@ export function EmailEditor({
             adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null
           ) : panel === 'checks' ? (
             editor.scan ? (
-              <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to save for everyone.' }} />
+              <FindingsPanel preflight={editor.scan} words={{ ...SAVE_FOR_EVERYONE_WORDS, ...checkWords }} />
             ) : (
               <p className="text-sm text-[var(--pb-muted)]">Running the checks...</p>
             )
