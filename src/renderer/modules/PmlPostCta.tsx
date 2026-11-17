@@ -3,6 +3,8 @@
 import React from 'react';
 import { MousePointerClick } from 'lucide-react';
 
+import { EMPTY_BLOCK } from './PmlPostFlavor';
+
 /**
  * A call to action from the product's CTA library (post layouts C2d). The words are a library row baked into
  * `props.resolved` by pml-kit for this part's stage and variant, so editing the row once changes every post after
@@ -46,8 +48,9 @@ export function PmlPostCta({
   if (!headline) {
     return inCanvas ? (
       <aside className={className} style={style}>
-        <div className="rounded-[var(--site-radius)] border border-dashed border-current/25 px-6 py-8 text-center text-sm opacity-70">
-          <MousePointerClick className="mx-auto mb-2 h-6 w-6 opacity-50" />
+        {/* The one empty marker every empty piece wears (owner 2026-11-17), so an empty CTA reads as "to fill" like them. */}
+        <div className="text-center text-sm" style={{ ...EMPTY_BLOCK, padding: '20px 16px', color: '#475569' }}>
+          <MousePointerClick className="mx-auto mb-2 h-6 w-6 text-[#625FFB]" aria-hidden />
           No call to action is set for the {stage} stage yet. Add one in Calls to action, and it shows here.
         </div>
       </aside>

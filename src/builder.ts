@@ -55,6 +55,8 @@ export * from './builder/editor/EmailAsSent';
 export * from './builder/editor/EmailEditor';
 export * from './builder/editor/surface';
 export * from './builder/editor/PageEditor';
+// The selected element's bar asks the host's assistant with this (PageEditor `onAskAssistant`).
+export type { AssistantAsk } from './builder/editor/SelectionBar';
 export * from './builder/editor/useQuickEditSelection';
 export * from './builder/editor/DocumentFieldsPanel';
 export * from './builder/editor/SlidePanel';

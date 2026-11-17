@@ -111,7 +111,11 @@ describe('PmlRenderer post parts', () => {
     expect(container.querySelector('aside')).toBeNull();
 
     const builder = render(<PmlRenderer nodes={[node]} site={site} builderHints />);
-    expect(builder.getByText(/No call to action is set for the consideration stage yet/)).toBeTruthy();
+    const empty = builder.getByText(/No call to action is set for the consideration stage yet/);
+    expect(empty).toBeTruthy();
+    // The ONE empty marker every empty piece wears (EMPTY_BLOCK): dashed accent border on the accent tint.
+    expect((empty as HTMLElement).style.border).toContain('dashed');
+    expect((empty as HTMLElement).style.background).toMatch(/#EEEEFF|rgb\(238, 238, 255\)/i);
   });
 
   it('draws a baked client story as the reference card: heading and case type, then its three labelled parts', () => {
