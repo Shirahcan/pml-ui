@@ -46,9 +46,10 @@ function fakeAdapter() {
 }
 
 describe("a post piece's own panel (owner 2026-11-17: each section offers its own options)", () => {
-  it('selecting the title opens its Title field; saving it writes the post and compiles the canvas again', async () => {
+  it('selecting the title opens its Title field; saving it writes the post, compiles the canvas again and tells the host', async () => {
     const adapter = fakeAdapter();
-    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+    const onFieldSaved = vi.fn();
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} onFieldSaved={onFieldSaved} />);
 
     fireEvent.click(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 }));
     const panel = await screen.findByRole('complementary', { name: 'Title' }, { timeout: 3000 });
@@ -62,6 +63,18 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
 
     await waitFor(() => expect(adapter.fields.write).toHaveBeenCalledWith('p1', 'title', 'Work permits in 2026', '1', expect.any(String)));
     await waitFor(() => expect(adapter.preview.mock.calls.length).toBeGreaterThan(compiles), { timeout: 3000 });
+    // The host's own chrome (the top bar's title) reads it again.
+    expect(onFieldSaved).toHaveBeenCalledWith('title');
+  });
+
+  it("a post's designer draws the canvas in the blog reading look", async () => {
+    const adapter = fakeAdapter();
+    const withAnswer = [...design, { primitive: 'callout', props: { title: 'Short answer' }, children: [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most can.' } }] }] }];
+    (adapter.load as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ document: { nodes: withAnswer }, revision: 'd1', meta: { title: 'Work permits', slug: 'work-permits', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } });
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} flavor="post" />);
+
+    const key = await screen.findByText('Short answer', {}, { timeout: 3000 });
+    expect((key as HTMLElement).style.textTransform).toBe('uppercase');
   });
 
   it('a part the post cannot do without offers no Delete, and a repeat at its minimum neither', async () => {

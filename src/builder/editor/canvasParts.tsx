@@ -6,6 +6,7 @@ import { AlertTriangle, MessageSquare, Sparkles } from 'lucide-react';
 import type { pageOutline, PmlNativesPayload, PmlNode } from '../../language';
 import { PmlRenderer, type PmlSite } from '../../renderer/PmlRenderer';
 import { useOwnVars } from '../ui/theme';
+import { CanvasFlavorContext } from './canvasFlavor';
 import { useBuilderHost } from './host';
 
 /**
@@ -30,6 +31,7 @@ export const SectionPreview = memo(function SectionPreview({
   index: number | null;
 }): React.JSX.Element {
   const { renderer } = useBuilderHost();
+  const flavor = React.useContext(CanvasFlavorContext);
 
   return (
     <PmlRenderer
@@ -37,6 +39,7 @@ export const SectionPreview = memo(function SectionPreview({
       natives={natives}
       site={site}
       host={renderer}
+      flavor={flavor}
       forceMobile={mobile}
       outline={outline}
       builderHints

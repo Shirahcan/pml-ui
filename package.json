@@ -1,6 +1,6 @@
 {
   "name": "@shirahcan/pml",
-  "version": "0.7.47",
+  "version": "0.7.48",
   "private": true,
   "description": "The page language every product shares: PML (the markup), PSL (the scripts), the style system and the React renderer. Moved out of Portify unchanged (shared program E1); a product supplies only what is its own through the renderer's host (its lead form, its assistant widget, its regulator's badge, where errors go).",
   "type": "module",

@@ -4,6 +4,7 @@ import React from 'react';
 import { BadgeCheck, FileText } from 'lucide-react';
 
 import { PmlPostCover, postDate } from './PmlPostParts';
+import { EMPTY_BLOCK, EMPTY_MARK } from './PmlPostFlavor';
 
 /**
  * The Classic template's post pieces (owner 2026-11-17, T1: "breadcrumbs element built automatically (and rendered);
@@ -38,6 +39,7 @@ const ACCENT = 'var(--post-accent, #4F46E5)';
 const ACCENT_SOFT = 'var(--post-accent-soft, #EEF0FF)';
 /** An empty field's words on the canvas. */
 const PLACEHOLDER = '#A0A8B8';
+// Every empty piece on the canvas wears the one marker (owner 2026-11-17: empty sections "easily identifiable").
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 
@@ -52,7 +54,7 @@ function Slot({ inCanvas, className, style, children }: { inCanvas: boolean; cla
   if (!inCanvas) return null;
 
   return (
-    <span className={cls('inline-flex items-center gap-1.5 rounded border border-dashed border-current/25 px-2 py-0.5 text-sm opacity-60', className)} style={style}>
+    <span className={cls('inline-flex items-center gap-1.5 text-sm', className)} style={{ ...EMPTY_BLOCK, padding: '2px 10px', color: SLATE, ...style }}>
       <FileText className="h-3.5 w-3.5" aria-hidden />
       {children}
     </span>
@@ -100,7 +102,7 @@ export function PmlPostCategory({ props, className, style, inCanvas }: PieceProp
   return (
     <span
       className={className}
-      style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 5, padding: '3px 9px', margin: '8px 0 10px', ...style }}
+      style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 5, padding: '3px 9px', margin: '8px 0 10px', ...(name ? null : EMPTY_MARK), ...style }}
     >
       {name || 'Category'}
     </span>
@@ -112,7 +114,7 @@ export function PmlPostTitle({ props, className, style, inCanvas }: PieceProps):
   if (!title && !inCanvas) return null;
 
   return (
-    <h1 className={className} style={{ fontSize: 38, lineHeight: 1.12, fontWeight: 800, letterSpacing: '-.025em', margin: '0 0 10px', color: title ? INK : PLACEHOLDER, textWrap: 'balance', ...style }}>
+    <h1 className={className} style={{ fontSize: 38, lineHeight: 1.12, fontWeight: 800, letterSpacing: '-.025em', margin: '0 0 10px', color: title ? INK : PLACEHOLDER, textWrap: 'balance', ...(title ? null : EMPTY_BLOCK), ...style }}>
       {title || 'Add title'}
     </h1>
   );
@@ -123,7 +125,7 @@ export function PmlPostDek({ props, className, style, inCanvas }: PieceProps): R
   if (!dek && !inCanvas) return null;
 
   return (
-    <p className={className} style={{ fontSize: 18, lineHeight: 1.6, color: dek ? SLATE : PLACEHOLDER, margin: '0 0 12px', ...style }}>
+    <p className={className} style={{ fontSize: 18, lineHeight: 1.6, color: dek ? SLATE : PLACEHOLDER, margin: '0 0 12px', ...(dek ? null : EMPTY_BLOCK), ...style }}>
       {dek || 'Add a one-line dek under the title'}
     </p>
   );
@@ -182,7 +184,7 @@ export function PmlPostReviewerBadge({ props, className, style, inCanvas }: Piec
   if (!name && !inCanvas) return null;
 
   return (
-    <span className={className} style={{ ...PILL, ...style }}>
+    <span className={className} style={{ ...PILL, ...(name ? null : EMPTY_MARK), ...style }}>
       Reviewed by {name ? `${name}${str(reviewer.licence) ? `, RCIC ${str(reviewer.licence)}` : ''}` : <span style={{ color: PLACEHOLDER }}>RCIC not set</span>}
     </span>
   );
@@ -194,7 +196,7 @@ export function PmlPostSourcesBadge({ props, className, style, inCanvas }: Piece
   if (domains.length === 0 && !inCanvas) return null;
 
   return (
-    <span className={className} style={{ ...PILL, ...style }}>
+    <span className={className} style={{ ...PILL, ...(domains.length > 0 ? null : EMPTY_MARK), ...style }}>
       Sources: {domains.length > 0 ? domains.join(', ') : <span style={{ color: PLACEHOLDER }}>none yet</span>}
     </span>
   );
@@ -218,7 +220,7 @@ export function PmlPostCoverPiece({ props, className, style, inCanvas }: PiecePr
   if (!inCanvas) return null;
 
   return (
-    <figure className={className} style={{ margin: 0, ...style }}>
+    <figure className={className} style={{ margin: 0, ...EMPTY_MARK, padding: 6, ...style }}>
       <div style={{ aspectRatio: '16 / 9', maxWidth: '100%', borderRadius: 12, background: 'linear-gradient(135deg,#1E1B7B,#625FFB 60%,#A5A8FA)', display: 'grid', placeItems: 'end start', padding: 16, color: '#fff', fontSize: 13 }}>
         <span>
           <b style={{ display: 'block', fontSize: 14 }}>Featured image</b>

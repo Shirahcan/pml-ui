@@ -114,14 +114,22 @@ describe('PmlRenderer post parts', () => {
     expect(builder.getByText(/No call to action is set for the consideration stage yet/)).toBeTruthy();
   });
 
-  it('draws a baked client story under its four headings, and only its story fields', () => {
+  it('draws a baked client story as the reference card: heading and case type, then its three labelled parts', () => {
     const story = { case_type: 'Canadian Experience Class', challenge: 'A score just under recent cutoffs.', strategy: 'Reference letters rebuilt to match the NOC duties.', outcome: 'Invited in the next draw.', how_found: 'Through Portify Marketplace.' };
-    const { getByText, getByRole } = render(<PmlRenderer nodes={[{ primitive: 'post_story', props: { heading: 'Client story', resolved: story } } as PmlNode]} site={site} />);
+    const { getByText, getByRole } = render(
+      <PmlRenderer nodes={[{ primitive: 'post_story', props: { heading: 'Client story', situation_label: 'The situation', resolved: story } } as PmlNode]} site={site} />,
+    );
 
-    expect(getByRole('heading', { name: 'Client story' })).toBeTruthy();
-    expect(getByText('The challenge')).toBeTruthy();
-    expect(getByText('Invited in the next draw.')).toBeTruthy();
-    expect(getByText('How they found their consultant: Through Portify Marketplace.')).toBeTruthy();
+    expect(getByRole('heading', { name: 'Client story: Canadian Experience Class' })).toBeTruthy();
+    expect(getByText('The situation')).toBeTruthy();
+    expect(getByText('A score just under recent cutoffs.')).toBeTruthy();
+    // Labels the node leaves unset read as the reference's words.
+    expect(getByText('How they found their consultant on Portify')).toBeTruthy();
+    expect(getByText('Through Portify Marketplace.')).toBeTruthy();
+    // What happened: the strategy, then the outcome.
+    const happened = getByText('What happened');
+    expect(happened.nextElementSibling?.textContent).toBe('Reference letters rebuilt to match the NOC duties.');
+    expect(happened.nextElementSibling?.nextElementSibling?.textContent).toBe('Invited in the next draw.');
   });
 
   it('a story that was not baked draws nothing for readers and a note in the builder', () => {

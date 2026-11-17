@@ -50,6 +50,19 @@ import {
   PmlPostTitle,
 } from './modules/PmlPostPieces';
 import { PmlPostCta } from './modules/PmlPostCta';
+import {
+  EMPTY_BLOCK,
+  EMPTY_MARK,
+  POST_CAPTION,
+  POST_CELL,
+  POST_H2,
+  POST_HEADER_CELL,
+  POST_TABLE,
+  POST_TABLE_CARD,
+  PostAnswer,
+  PostFaqItem,
+  PostFlavorContext,
+} from './modules/PmlPostFlavor';
 import { PmlPostStory } from './modules/PmlPostStory';
 import { evaluateIn, handleIn, PmlScopeProvider, PslScript, usePmlScope, usePslRuntime, type PmlScope } from './modules/PslScript';
 import { MotionStyles, PmlMotion } from './PmlMotion';
@@ -396,9 +409,16 @@ export function PmlRenderer({
   pathRoot = NO_PATH,
   natives = null,
   host,
+  flavor,
 }: {
   nodes: PmlNode[];
   site: PublicSite;
+  /**
+   * What is being read (owner 2026-11-17): `post` draws the blog reading look (a no-tone callout as the short answer,
+   * a table as a card, the FAQ and the question headings as the reference does); `page` the plain look. Without one, a
+   * nested renderer keeps its parent's. Pages and emails never pass `post`.
+   */
+  flavor?: 'post' | 'page';
   /**
    * What the host product draws itself and where its errors go (see {@link PmlHost}). Without one, a nested
    * renderer keeps its parent's host.
@@ -436,8 +456,10 @@ export function PmlRenderer({
   // Every heading gets a stable anchor (S1-02) before render, so links and a table of contents can
   // jump to it; explicit anchors are kept. The outline (S1-06) is read from the same prepared nodes.
   const prepared = withDerivedAnchors(nodes);
+  const parentFlavor = React.useContext(PostFlavorContext);
 
   const body = (
+    <PostFlavorContext.Provider value={flavor === undefined ? parentFlavor : flavor === 'post'}>
     <ForceMobileContext.Provider value={forceMobile}>
       <CurrentPathContext.Provider value={currentPath}>
         <OutlineContext.Provider value={outline ?? pageOutline(prepared)}>
@@ -452,6 +474,7 @@ export function PmlRenderer({
         </OutlineContext.Provider>
       </CurrentPathContext.Provider>
     </ForceMobileContext.Provider>
+    </PostFlavorContext.Provider>
   );
 
   // ONE page scope wraps the whole tree: every expression reads it, and every <script> executes into it
@@ -886,9 +909,26 @@ function boundExpression(node: PmlNode): string | null {
 /** The builder's stand-in for an element with nothing to show yet: there to be seen, clicked and filled in. */
 function EmptyElement({ name }: { name: string }): React.JSX.Element {
   return (
-    <div className="rounded-[var(--site-radius)] border border-dashed border-current/30 px-3 py-2 text-sm opacity-60" data-pml-empty="">
-      Empty {name.replace(/_/g, ' ')}: select it to fill it in
+    <div className="text-sm" style={{ ...EMPTY_BLOCK, color: '#475569' }} data-pml-empty="">
+      Empty {EMPTY_NAMES[name] ?? name.replace(/_/g, ' ')}: select it to fill it in
     </div>
+  );
+}
+
+/** What the empty stand-in calls an element whose own name says nothing to an author. */
+const EMPTY_NAMES: Readonly<Record<string, string>> = {
+  p: 'paragraph',
+  rich_text: 'rich text',
+  post_dek: 'line under the title',
+  post_cta: 'call to action',
+  post_story: 'client story',
+  post_badges: 'trust badges',
+};
+
+/** Whether an element holds words a reader would see (an empty paragraph or table cell holds none). */
+function hasWords(node: PmlNode): boolean {
+  return (node.children ?? []).some((child) =>
+    child.primitive === 'text' ? str(child.props?.value).trim() !== '' || isExpr(child.props?.value) : !isCommentNode(child),
   );
 }
 
@@ -911,6 +951,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
   const resolved = resolvePrimitiveStyle(node.style);
   // In the builder canvas a fixed bar is drawn sticky, inside the canvas, never over the editor around it.
   const inCanvas = React.useContext(BuilderHintsContext);
+  const postFlavor = React.useContext(PostFlavorContext);
   const s = inCanvas && resolved.className.includes('fixed inset-x-0')
     ? { ...resolved, className: resolved.className.replace('fixed inset-x-0', 'sticky') }
     : resolved;
@@ -1033,6 +1074,18 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     case 'table': {
       const caption = str(p.caption);
 
+      if (postFlavor) {
+        // `.tbl`: the reference's card, scrolling sideways on its own when the table is wide.
+        return (
+          <div id={anchorId(p.anchor)} className={s.className} style={{ ...POST_TABLE_CARD, ...s.style }}>
+            <table style={POST_TABLE}>
+              {caption ? <caption style={POST_CAPTION}>{caption}</caption> : null}
+              <tbody>{children(node, site, ctx)}</tbody>
+            </table>
+          </div>
+        );
+      }
+
       return (
         // Wrapped in an x-scroller so a wide table scrolls itself instead of breaking the page.
         <div id={anchorId(p.anchor)} className={`w-full overflow-x-auto ${s.className}`.trim()} style={s.style}>
@@ -1047,7 +1100,7 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     case 'row':
       // Rendered by its parent <table>; a stray one renders nothing meaningful on its own.
       return (
-        <tr className="border-b border-current/10 last:border-0" {...selfPathProps(selfPath)}>
+        <tr className={postFlavor ? undefined : 'border-b border-current/10 last:border-0'} {...selfPathProps(selfPath)}>
           {children(node, site, ctx)}
         </tr>
       );
@@ -1058,17 +1111,23 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       // Spans map to the real HTML colSpan/rowSpan attributes (cleaner than CSS for a table).
       const colSpan = Math.max(num(size.col_span) || 1, 1);
       const rowSpan = Math.max(num(size.row_span) || 1, 1);
+      // An empty cell is marked on the canvas (a cell cannot be replaced by a stand-in inside its row).
+      const empty = inCanvas && !hasWords(node);
 
       return (
         <Tag
           scope={isHeader ? 'col' : undefined}
           colSpan={colSpan > 1 ? colSpan : undefined}
           rowSpan={rowSpan > 1 ? rowSpan : undefined}
-          className={`px-3 py-2 align-top ${isHeader ? 'font-semibold' : ''} ${s.className}`.trim()}
-          style={s.style}
+          className={`${postFlavor ? '' : 'px-3 py-2 align-top'} ${isHeader ? 'font-semibold' : ''} ${s.className}`.trim()}
+          style={postFlavor ? { ...(isHeader ? POST_HEADER_CELL : POST_CELL), ...s.style } : s.style}
           {...selfPathProps(selfPath)}
         >
-          {children(node, site, ctx)}
+          {empty ? (
+            <span style={{ ...EMPTY_MARK, display: 'inline-block', padding: '1px 8px', fontSize: 12, color: '#A0A8B8' }}>Empty cell</span>
+          ) : (
+            children(node, site, ctx)
+          )}
         </Tag>
       );
     }
@@ -1082,12 +1141,14 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       // Semibold unless the heading says its own weight: both classes on one element left the
       // heading's own weight to stylesheet order, and it lost (2026-11-08).
       const weight = typeof size.font_weight === 'string' && size.font_weight !== '' ? '' : 'font-semibold';
+      // `.post h2`, unless the author set the heading's own size or weight.
+      const postLook = postFlavor && level === 2 && !size.heading_size && !size.font_weight ? POST_H2 : undefined;
 
       return (
         <Tag
           id={anchorId(p.anchor)}
           className={`scroll-mt-24 ${weight} tracking-tight ${withResponsive(headingScale(size.heading_size, level), size, ['heading_size'])} ${s.className}`.replace(/\s+/g, ' ').trim()}
-          style={s.style}
+          style={postLook ? { ...postLook, ...s.style } : s.style}
         >
           {text}
         </Tag>
@@ -1315,6 +1376,15 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       const title = str(p.title);
       const ToneIcon = tone.icon;
 
+      // `.ans`: in a post, a callout with no tone is the short answer.
+      if (postFlavor && !str(p.tone)) {
+        return (
+          <PostAnswer id={anchorId(p.anchor)} title={title} className={s.className} style={s.style}>
+            <div className="space-y-2">{children(node, site, ctx)}</div>
+          </PostAnswer>
+        );
+      }
+
       return (
         <aside
           role="note"
@@ -1339,8 +1409,12 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
 
       return (
         <section id={anchorId(p.anchor)} aria-label={heading || 'Frequently asked questions'} className={s.className} style={s.style}>
-          {heading ? <h2 className="mb-4 text-2xl font-semibold tracking-tight">{heading}</h2> : null}
-          <div className="divide-y divide-current/10 border-y border-current/10">{children(node, site, ctx)}</div>
+          {heading ? (
+            <h2 className={postFlavor ? undefined : 'mb-4 text-2xl font-semibold tracking-tight'} style={postFlavor ? POST_H2 : undefined}>
+              {heading}
+            </h2>
+          ) : null}
+          <div className={postFlavor ? undefined : 'divide-y divide-current/10 border-y border-current/10'}>{children(node, site, ctx)}</div>
         </section>
       );
     }
@@ -1348,6 +1422,15 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     case 'faq_item': {
       const question = str(p.question);
       if (!question) return null;
+
+      // `.faq`: in a post, the reference's question and answer; open on the canvas so the answer can be edited.
+      if (postFlavor) {
+        return (
+          <PostFaqItem question={question} inCanvas={inCanvas}>
+            <div className="space-y-2">{children(node, site, ctx)}</div>
+          </PostFaqItem>
+        );
+      }
 
       return (
         <details className="group py-4">
@@ -1557,7 +1640,10 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
       return <PslScript node={node} />;
 
     case 'p': {
-      // A paragraph of words and inline elements (PML v3 L4), in the body type scale.
+      // A paragraph of words and inline elements (PML v3 L4), in the body type scale. An empty one draws nothing on the
+      // canvas, so the one empty marker stands in for it (it was an invisible <p> nobody could find to fill).
+      if (inCanvas && !hasWords(node)) return null;
+
       const body = withResponsive(bodyScale(size.body_size), size, ['body_size']);
 
       return (

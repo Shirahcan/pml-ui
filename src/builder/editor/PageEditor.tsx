@@ -32,6 +32,7 @@ import { PlaceholdersLeftNotice } from './PlaceholdersLeftNotice';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
+import { CanvasFlavorContext } from './canvasFlavor';
 import { PieceFieldsPanel } from './PieceFields';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
@@ -144,6 +145,13 @@ export interface PageEditorProps {
    * against its rule and "Add" / "Remove last" after a repeating part (owner 2026-11-17, T2).
    */
   layout?: DocumentLayout | null;
+  /** The canvas's reading look: a post's designer passes `post`, so the canvas draws what the public post does. */
+  flavor?: 'post' | 'page';
+  /**
+   * A document field was saved from a panel (a post's title, its category). The canvas compiles again by itself; a
+   * host whose own chrome shows a field (the top bar's title) reads it again here.
+   */
+  onFieldSaved?: (name: string) => void;
   /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
@@ -169,7 +177,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -209,6 +217,12 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const selectedTitle =
     selected && selectedPath && selectedPath.length > 1 ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents) : 'Section settings';
   const addLabel = labels.add ?? 'Add a section';
+
+  // A field saved from any panel: the canvas compiles again, and the host hears which field it was.
+  const fieldSaved = (name: string) => {
+    editor.refreshPreview();
+    onFieldSaved?.(name);
+  };
 
   // A template part the document cannot do without (required: a post's header, its cover) offers no Delete, nothing
   // inside a locked part is deleted, and a repeating part keeps at least its minimum (owner 2026-11-17: deleting the
@@ -297,6 +311,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
 
   return (
     <EditorNounProvider noun={noun}>
+    <CanvasFlavorContext.Provider value={flavor}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {/* The host's console FIRST: its dock is sticky, so drawn after the canvas it would sit at the bottom of a long
@@ -374,7 +389,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           {panel === 'selected' && selected && selectedPath ? (
             <div className="space-y-4">
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
-              {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={editor.refreshPreview} /> : null}
+              {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings
                 node={selected}
                 pageNodes={nodes}
@@ -390,11 +405,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           ) : openHost ? (
             openHost.render(controls)
           ) : openGroup ? (
-            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} aside={aside} onSaved={editor.refreshPreview} />
+            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} aside={aside} onSaved={fieldSaved} />
           ) : panel === 'details' ? (
             <div className="space-y-4">
               {aside}
-              {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={editor.refreshPreview} /> : null}
+              {adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
             </div>
           ) : panel === 'layers' ? (
             <PageLayers
@@ -463,6 +478,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         </AlertDialog>
       </div>
     </CatalogProvider>
+    </CanvasFlavorContext.Provider>
     </EditorNounProvider>
   );
 }
