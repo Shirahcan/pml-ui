@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 
-import { isCommentNode, isStudioComment, pageOutline, PML_CATALOG_BY_NAME, renderedPathFor, sourcePathFor, withDerivedAnchors } from '../../language';
+import { elementLabel, isCommentNode, isStudioComment, pageOutline, PML_CATALOG_BY_NAME, renderedPathFor, sourcePathFor, withDerivedAnchors } from '../../language';
 import type { PmlNativesPayload, PmlNode } from '../../language';
 import { selectionCornerClass } from '../../pml/primitiveStyle';
 import type { PmlSite } from '../../renderer/PmlRenderer';
@@ -285,6 +285,8 @@ export function PmlCanvas({
             <div
               role="button"
               tabIndex={0}
+              // Named by what it is and where, so it has a name before its preview draws (and when it draws no words).
+              aria-label={`${elementLabel(node.component ?? node.primitive ?? 'section', studioCatalog)}, section ${index + 1}`}
               // A press here selects this section, so the creator's panel must not close on it.
               data-pml-section={index}
               onClick={(event) => pick(event, index)}

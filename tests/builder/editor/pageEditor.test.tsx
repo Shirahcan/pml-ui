@@ -271,3 +271,36 @@ describe('PageEditor host panels', () => {
     await expect(seen.flush?.()).resolves.toBe(true);
   });
 });
+
+describe('PageEditor and the host console', () => {
+  it("hands the console the editor's controls: the design, a save, and one undoable replace", async () => {
+    let seen: { replaceNodes: (nodes: PmlNode[]) => void; nodes: PmlNode[] } | null = null;
+    render(
+      <PageEditor
+        adapter={fakeAdapter()}
+        id="p1"
+        console={(controls) => {
+          seen = controls;
+          return <p>The console</p>;
+        }}
+      />,
+    );
+
+    expect(await screen.findByText('The console')).toBeTruthy();
+    await screen.findByRole('heading', { name: 'Who can apply' });
+    expect(seen!.nodes).toHaveLength(1);
+
+    act(() => seen!.replaceNodes([{ primitive: 'heading', props: { text: 'Who can apply now', level: 2 } } as unknown as PmlNode]));
+    expect(await screen.findByRole('heading', { name: 'Who can apply now' }, { timeout: 3000 })).toBeTruthy();
+    // One change: Undo puts the old design back.
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('heading', { name: 'Who can apply' }, { timeout: 3000 })).toBeTruthy();
+  });
+
+  it('takes no edits on the canvas while locked', async () => {
+    render(<PageEditor adapter={fakeAdapter()} id="p1" locked />);
+
+    await screen.findByRole('heading', { name: 'Who can apply' });
+    expect((screen.getByRole('button', { name: /Add a section/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

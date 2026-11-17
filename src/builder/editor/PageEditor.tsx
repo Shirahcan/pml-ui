@@ -73,6 +73,13 @@ export interface PageEditorControls {
   flush: () => Promise<boolean>;
   /** The host's own panels (`panels` prop), opened with `openPanel(\`host:${key}\`)`. */
   hostPanels: { key: string; title: string }[];
+  /**
+   * Replace the whole design in ONE undoable change, saved by the editor's own autosave (as a draft, with the
+   * revision): how an assistant's Build lands from the host's console (designer sole surface P4b).
+   */
+  replaceNodes: (nodes: PmlNode[]) => void;
+  /** The design as it stands (the console's "@" targets and labels read it). */
+  nodes: PmlNode[];
 }
 
 /** A panel the host adds (help from the assistant, a share card): it slides in over the canvas like every other. */
@@ -126,6 +133,11 @@ export interface PageEditorProps {
   /** The host's own slide-in panels, after the editor's (owner 2026-11-17: every option in a panel over the design). */
   panels?: PageEditorHostPanel[];
   /**
+   * While the assistant works on the design (a console run in flight), the canvas takes no edits: what it lands would
+   * otherwise replace a change made meanwhile.
+   */
+  locked?: boolean;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -135,7 +147,7 @@ export interface PageEditorProps {
    * The host's console (S7c): drawn after the editor; the host mounts ai-ui's `ConsoleHost` here, which positions
    * itself (it overlays, it never shrinks the page), so pml-ui never imports ai-ui.
    */
-  console?: ReactNode;
+  console?: ReactNode | ((controls: PageEditorControls) => ReactNode);
   /** The host's own panel, shown at the top of the Details panel (above the document's fields). */
   aside?: ReactNode;
 }
@@ -150,7 +162,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -234,6 +246,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     fieldGroups,
     unpublish: adapter.unpublish && live ? () => setConfirmUnpublish(true) : undefined,
     flush: () => editor.flush(),
+    replaceNodes: (next) => change(next),
+    nodes,
     hostPanels: panels.map(({ key, title }) => ({ key, title })),
   };
   const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
@@ -277,6 +291,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           <PmlCanvas
             // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
             bare
+            // Locked while the assistant works: the canvas's own "building" state takes no presses (no skeleton row).
+            building={locked ? { at: nodes.length + 1, label: null } : null}
             nodes={nodes}
             compiled={editor.compiled}
             natives={editor.natives}
@@ -309,7 +325,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               {editor.previewError.message} The canvas shows the last version that worked.
             </p>
           ) : null}
-          <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
+          <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked} onClick={() => setAdding(true)}>
             <Plus className="h-4 w-4" />
             {addLabel}
           </Button>
@@ -367,7 +383,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           unavailable={[...unavailable]}
           title={addLabel}
         />
-        {consoleSlot}
+        {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
         <UnpublishDialog
           open={confirmUnpublish}
