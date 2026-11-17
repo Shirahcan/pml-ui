@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
 
 import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
-import type { EditableDocumentAdapter } from '../document';
+import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
+import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { EmailAsSent, type RenderedEmail } from './EmailAsSent';
 import { EmailInbox } from './emailInbox';
+import { FieldGroupPanel } from './FieldGroupPanel';
 import { FindingsPanel } from './FindingsPanel';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
@@ -35,7 +37,33 @@ export interface EmailEditorControls {
   /** "Save for everyone": present when the host has a publish step; refused (with the findings shown) while checks block. */
   publish?: () => void;
   publishing: boolean;
+  /**
+   * Slide a panel in over the email (the design never narrows), with the page editor's shapes so a host learns one API:
+   * `'checks'`, `'details'` (the first field group when there are groups), `group:{key}`, `host:{key}`.
+   */
+  openPanel: (panel: EmailEditorPanel) => void;
+  /** Whether the email has details to show in a panel (a fields port). */
+  hasDetails: boolean;
+  /** The email's field groups, in order: one slide-in panel each, opened with `openPanel(\`group:${key}\`)`. */
+  fieldGroups: DocumentFieldGroup[];
+  /** The host's own panels (`panels` prop), opened with `openPanel(\`host:${key}\`)`. */
+  hostPanels: { key: string; title: string }[];
+  /**
+   * Send a waiting save and every field write now; true once the email is saved (a host panel that acts on the SAVED
+   * email, such as sending a test, calls it first and stops on false).
+   */
+  flush: () => Promise<boolean>;
 }
+
+/** A panel the host adds (sending, help from the assistant): it slides in over the email like every other. */
+export interface EmailEditorHostPanel {
+  key: string;
+  title: string;
+  render: (controls: EmailEditorControls) => ReactNode;
+}
+
+/** The panels a host can open; the selected block's settings open on their own when a block is selected. */
+export type EmailEditorPanel = 'details' | 'checks' | `group:${string}` | `host:${string}`;
 
 export interface EmailEditorProps {
   adapter: EditableDocumentAdapter;
@@ -58,6 +86,21 @@ export interface EmailEditorProps {
    * from its own gate. Off, the editor behaves exactly as before.
    */
   quickEdit?: boolean;
+  /** The host's own slide-in panels, after the editor's (owner 2026-11-17: every option in a panel over the design). */
+  panels?: EmailEditorHostPanel[];
+  /**
+   * The fields the inbox frame draws above the email (what a reader meets before the body: the subject, the preview
+   * line, the standard header and footer). Absent, every text field and switch (today's behaviour); a newsletter keeps
+   * its signer, audience and sending fields in their panels instead.
+   */
+  inboxFields?: readonly string[];
+  /**
+   * The email takes no edits: it is a record now (a newsletter scheduled or sent) or the assistant is working on it. The
+   * canvas takes no presses and nothing can be added; the panels still open.
+   */
+  locked?: boolean;
+  /** A field was saved from a panel or the inbox frame (e.g. the host's bar shows the new subject). */
+  onFieldSaved?: (name: string) => void;
 }
 
 const NO_SITE: PmlSite = {};
@@ -72,7 +115,22 @@ const CHROME_ROOTS = ['header', 'footer'];
  * DRAFT; "Save for everyone" (the adapter's publish) is the one act that changes what sends. Mount it with
  * `key={id}`, so switching emails starts a fresh editor.
  */
-export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame, site = NO_SITE, renderControls, notice, onPublished, quickEdit = false }: EmailEditorProps): React.JSX.Element {
+export function EmailEditor({
+  adapter,
+  id,
+  allowedElements,
+  renderAsSent,
+  frame,
+  site = NO_SITE,
+  renderControls,
+  notice,
+  onPublished,
+  quickEdit = false,
+  panels = [],
+  inboxFields,
+  locked = false,
+  onFieldSaved,
+}: EmailEditorProps): React.JSX.Element {
   const editor = useDocumentEditor(adapter, id, {
     noun: 'email',
     publishedMessage: 'Saved for everyone. The next email sent uses this version.',
@@ -93,29 +151,58 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
   );
 
   // One rule for when the settings show, shared with the page editor (QUICK_EDIT_WINDOW_MS lives there).
-  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit);
-  const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
+  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit && !locked);
+  const selected = selectedPath && !locked ? getNodeAtPath(nodes, selectedPath) : null;
 
-  // Block settings and the checks slide in over the canvas (owner 2026-11-17: "the design area shouldn't be
-  // shrunken"): the selected block's settings once they are due, otherwise the checks when asked or after a refused
-  // "Save for everyone", until dismissed. Derived, so nothing syncs in an effect.
-  const [checksAsked, setChecksAsked] = useState(false);
+  // The field groups, one slide-in panel each (owner 2026-11-17: every option in a panel over the design), as the page
+  // editor reads them.
+  const [fieldGroups, setFieldGroups] = useState<DocumentFieldGroup[]>([]);
+  useEffect(() => {
+    let alive = true;
+
+    adapter.fields
+      ?.describe(id)
+      .then((list) => alive && setFieldGroups(fieldGroupsOf(list)))
+      // A group's panel reports its own load failure when opened; here it only means no group menu yet.
+      .catch(() => undefined);
+
+    return () => {
+      alive = false;
+    };
+  }, [adapter.fields, id]);
+
+  // Block settings, the checks, the field groups and the host's panels slide in over the canvas (owner 2026-11-17: "the
+  // design area shouldn't be shrunken"): the selected block's settings once they are due, otherwise what the host asked
+  // for, otherwise a refused "Save for everyone"'s findings until dismissed. Derived, so nothing syncs in an effect.
+  const [asked, setAsked] = useState<EmailEditorPanel | null>(null);
   const [openKey, setOpenKey] = useState(0);
   const [dismissedScan, setDismissedScan] = useState<unknown>(null);
-  const refused = Boolean(editor.scan && !editor.scan.mayPublish && editor.scan !== dismissedScan);
-  const panel: 'selected' | 'checks' | null = selected && selectedPath && settingsShown ? 'selected' : checksAsked || refused ? 'checks' : null;
+  const refused = editor.scan && !editor.scan.mayPublish && editor.scan !== dismissedScan ? 'checks' : null;
+  const panel: 'selected' | EmailEditorPanel | null = selected && selectedPath && settingsShown ? 'selected' : (asked ?? refused);
+  const openPanel = (next: EmailEditorPanel) => {
+    setAsked(next === 'details' && fieldGroups.length > 0 ? `group:${fieldGroups[0].key}` : next);
+    setOpenKey((k) => k + 1);
+    selectPath(null);
+  };
   const closePanel = () => {
     if (panel === 'selected') selectPath(null);
-    if (panel === 'checks') {
-      setChecksAsked(false);
-      setDismissedScan(editor.scan);
-    }
+    if (panel === 'checks') setDismissedScan(editor.scan);
+    setAsked(null);
   };
+  const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
+  const openGroup = panel?.startsWith('group:') ? fieldGroups.find((group) => `group:${group.key}` === panel) ?? null : null;
 
   const track = useCallback((write: Promise<unknown>) => {
     fieldWrites.current.add(write);
     void write.finally(() => fieldWrites.current.delete(write));
   }, []);
+
+  // A field saved from any panel or the inbox frame: the canvas compiles again ({{sender_name}} and the like), and the
+  // host hears which field it was.
+  const fieldSaved = (name: string) => {
+    editor.refreshPreview();
+    onFieldSaved?.(name);
+  };
 
   const showTab = useCallback(
     (next: 'design' | 'sent') => {
@@ -144,9 +231,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
     redo: editor.redoEdit,
     check: () => {
       void editor.check();
-      selectPath(null);
-      setChecksAsked(true);
-      setOpenKey((k) => k + 1);
+      openPanel('checks');
     },
     publish: editor.canPublish
       ? () => {
@@ -155,6 +240,11 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
         }
       : undefined,
     publishing: editor.publishing,
+    openPanel,
+    hasDetails: Boolean(adapter.fields),
+    fieldGroups,
+    hostPanels: panels.map(({ key, title }) => ({ key, title })),
+    flush: () => Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => saved),
   };
 
   if (editor.loading) {
@@ -183,8 +273,10 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
           <EmailAsSent render={render} version={sentVersion} stale={sentStale} />
         ) : (
           <div className="mx-auto w-full max-w-[600px]">
-            {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} /> : null}
+            {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} only={inboxFields} onSaved={fieldSaved} /> : null}
             <PmlCanvas
+              // Locked: the canvas's own "building" state takes no presses (no skeleton row), as in the page editor.
+              building={locked ? { at: nodes.length + 1, label: null } : null}
               nodes={nodes}
               compiled={editor.compiled}
               natives={editor.natives}
@@ -204,8 +296,8 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
                 const node = getNodeAtPath(nodes, path);
                 if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
               }}
-              quickEditAll={quickEdit}
-              onQuickEdit={quickEdit ? onQuickEdit : undefined}
+              quickEditAll={quickEdit && !locked}
+              onQuickEdit={quickEdit && !locked ? onQuickEdit : undefined}
               // Rich words edited in place: the paragraph keeps its own shape, only its words change.
               onEditWords={(path, children) => {
                 const node = getNodeAtPath(nodes, path);
@@ -217,10 +309,12 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
                 {editor.previewError.message} The canvas shows the last version that worked.
               </p>
             ) : null}
-            <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
-              <Plus className="h-4 w-4" />
-              Add a block
-            </Button>
+            {locked ? null : (
+              <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
+                <Plus className="h-4 w-4" />
+                Add a block
+              </Button>
+            )}
           </div>
         )}
 
@@ -228,7 +322,7 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? 'Block settings' : 'Email checks'}
+          title={panel === 'selected' ? 'Block settings' : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : 'Email checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <PmlSettings
@@ -240,6 +334,12 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
                 selectPath(null);
               }}
             />
+          ) : openHost ? (
+            openHost.render(controls)
+          ) : openGroup ? (
+            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} onSaved={fieldSaved} />
+          ) : panel === 'details' ? (
+            adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null
           ) : panel === 'checks' ? (
             editor.scan ? (
               <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to save for everyone.' }} />

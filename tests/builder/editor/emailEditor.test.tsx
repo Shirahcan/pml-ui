@@ -264,3 +264,92 @@ describe('quick edits in the email (post layouts E1/E2, owner: newsletters adopt
     expect(screen.queryByRole('toolbar', { name: 'Format these words' })).toBeNull();
   });
 });
+
+/** A newsletter's details, audience and sending are slide-in panels, with the page editor's shapes (N1f, 0.7.55). */
+describe('panels over the email (designer sole surface: the newsletter)', () => {
+  function newsletterAdapter() {
+    const adapter = fakeAdapter();
+    adapter.fields.describe.mockResolvedValue([
+      { name: 'subject', label: 'Subject', kind: 'text' as const, max: 120, group: { key: 'details', label: 'Details' } },
+      { name: 'preheader', label: 'Preview text', kind: 'text' as const, max: 140, group: { key: 'details', label: 'Details' } },
+      { name: 'signer_name', label: 'Signed by', kind: 'text' as const, max: 120, group: { key: 'details', label: 'Details' } },
+      { name: 'topic', label: 'Topic', kind: 'text' as const, max: 60, group: { key: 'audience', label: 'Audience' } },
+    ] as never);
+    adapter.fields.read.mockResolvedValue({ values: { subject: 'November news', preheader: '', signer_name: 'Ada', topic: '' }, revision: 'f1' } as never);
+
+    return adapter;
+  }
+
+  it('draws only the inbox fields above the email, and opens a field group and a host panel from the controls', async () => {
+    const adapter = newsletterAdapter();
+    let controls: import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null = null;
+    const send = vi.fn();
+    render(
+      <BuilderHostProvider>
+        <EmailEditor
+          adapter={adapter}
+          id="c1"
+          allowedElements={ALLOWED}
+          renderAsSent={vi.fn()}
+          inboxFields={['subject', 'preheader']}
+          panels={[{ key: 'send', title: 'Send', render: (c) => <button type="button" onClick={() => void c.flush().then(send)}>Send me a test</button> }]}
+          renderControls={(c) => {
+            controls = c;
+            return null;
+          }}
+        />
+      </BuilderHostProvider>,
+    );
+
+    expect(((await screen.findByLabelText('Subject')) as HTMLInputElement).value).toBe('November news');
+    // The signer and the topic stay in their panels, out of the inbox frame.
+    expect(screen.queryByLabelText('Signed by')).toBeNull();
+    await waitFor(() => expect(controls?.fieldGroups.map((g) => g.key)).toEqual(['details', 'audience']));
+    expect(controls?.hostPanels).toEqual([{ key: 'send', title: 'Send' }]);
+
+    await act(async () => controls?.openPanel('group:audience'));
+    expect(await screen.findByLabelText('Topic')).toBeTruthy();
+    // The groups are pills at the top of the panel, so the host's menu needs one item for all of them.
+    expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
+
+    await act(async () => controls?.openPanel('host:send'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Send me a test' }));
+    await waitFor(() => expect(send).toHaveBeenCalledWith(true));
+  });
+
+  it('tells the host when a field is saved, from the inbox frame', async () => {
+    const adapter = newsletterAdapter();
+    const onFieldSaved = vi.fn();
+    render(<EmailEditor adapter={adapter} id="c1" allowedElements={ALLOWED} renderAsSent={vi.fn()} inboxFields={['subject', 'preheader']} onFieldSaved={onFieldSaved} />);
+
+    const subject = await screen.findByLabelText('Subject');
+    fireEvent.change(subject, { target: { value: 'December news' } });
+    fireEvent.blur(subject);
+    await waitFor(() => expect(onFieldSaved).toHaveBeenCalledWith('subject'));
+  });
+
+  it('locked, the email takes no edits and offers nothing to add, while its panels still open', async () => {
+    let controls: import('../../../src/builder/editor/EmailEditor').EmailEditorControls | null = null;
+    render(
+      <EmailEditor
+        adapter={newsletterAdapter()}
+        id="c1"
+        allowedElements={ALLOWED}
+        renderAsSent={vi.fn()}
+        inboxFields={['subject', 'preheader']}
+        locked
+        renderControls={(c) => {
+          controls = c;
+          return null;
+        }}
+      />,
+    );
+
+    expect(await screen.findByLabelText('Subject')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Add a block/ })).toBeNull();
+    await waitFor(() => expect(controls?.fieldGroups.length).toBe(2));
+    await act(async () => controls?.openPanel('details'));
+    // 'details' opens the first group.
+    expect(await screen.findByLabelText('Signed by')).toBeTruthy();
+  });
+});

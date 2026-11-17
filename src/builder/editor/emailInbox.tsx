@@ -20,11 +20,17 @@ export function EmailInbox({
   fields,
   session,
   track,
+  only,
+  onSaved,
 }: {
   id: string;
   fields: DocumentFieldsPort;
   session: string;
   track?: (write: Promise<unknown>) => void;
+  /** The fields this frame draws, by name; absent, every text field and switch. */
+  only?: readonly string[];
+  /** A field's write landed. */
+  onSaved?: (name: string) => void;
 }): React.JSX.Element {
   const host = useBuilderHost();
   // The host's callbacks may change identity every render; reading them through a ref keeps the load from re-running
@@ -76,6 +82,7 @@ export function EmailInbox({
 
         revision.current = result.revision || revision.current;
         saved.current = { ...saved.current, [name]: value };
+        onSaved?.(name);
       } catch (err) {
         setValues((v) => ({ ...v, [name]: saved.current[name] }));
         hostRef.current.onError(err);
@@ -98,8 +105,9 @@ export function EmailInbox({
     }
   };
 
-  const text = described.filter((f) => f.kind === 'text');
-  const toggles = described.filter((f) => f.kind === 'toggle');
+  const drawn = only === undefined ? described : described.filter((f) => only.includes(f.name));
+  const text = drawn.filter((f) => f.kind === 'text');
+  const toggles = drawn.filter((f) => f.kind === 'toggle');
 
   return (
     <div className="space-y-3 rounded-t-xl border border-b-0 border-[var(--pb-border)] bg-[var(--pb-surface)] px-4 py-3 text-[var(--pb-text)]" style={vars}>
