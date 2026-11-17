@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowDown, ArrowUp, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, MessageSquarePlus, Sparkles, Trash2, Wand2 } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, removeNodeAtPath, type PmlNode } from '../../language';
 import type { DocumentLayout } from '../document';
@@ -48,6 +48,7 @@ export function SelectionBar({
   select,
   onAsk,
   canAsk,
+  onComment,
 }: {
   nodes: PmlNode[];
   path: number[];
@@ -58,6 +59,8 @@ export function SelectionBar({
   onAsk?: (ask: AssistantAsk) => void;
   /** Which elements the host's assistant takes an ask about (its server's own rule). Absent: every element that is not the post's fields. */
   canAsk?: (node: PmlNode, path: number[]) => boolean;
+  /** Write a studio comment pinned to this element; absent where the host has no author. */
+  onComment?: (path: number[]) => void;
 }): React.JSX.Element | null {
   const node = getNodeAtPath(nodes, path);
   if (!node) return null;
@@ -108,6 +111,12 @@ export function SelectionBar({
             AI suggest
           </button>
         </>
+      ) : null}
+      {onComment ? (
+        <button type="button" className={button} onClick={() => onComment(path)}>
+          <MessageSquarePlus className="h-3 w-3" aria-hidden />
+          Comment
+        </button>
       ) : null}
       {moves ? (
         <>

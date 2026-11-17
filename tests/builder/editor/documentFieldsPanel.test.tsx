@@ -77,6 +77,20 @@ describe('DocumentFieldsPanel', () => {
     await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { url: 'https://img.test/b.png', caption: 'A greenhouse in Leamington.' }, 'r2', 's'));
   });
 
+  it('takes a caption before any picture is chosen, and keeps it when one is (owner: "Add a caption" with nowhere to add it)', async () => {
+    const fields = port({ cover: null });
+    render(<DocumentFieldsPanel id="p1" fields={fields} session="s" />);
+
+    const caption = await screen.findByLabelText('Cover: caption');
+    expect(screen.queryByLabelText('Cover: what it shows')).toBeNull();
+    fireEvent.change(caption, { target: { value: 'Our office in Toronto.' } });
+    fireEvent.blur(caption);
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { caption: 'Our office in Toronto.' }, 'r1', 's'));
+
+    fireEvent.change(screen.getByLabelText('Image address'), { target: { value: 'https://img.test/c.png' } });
+    await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { caption: 'Our office in Toronto.', url: 'https://img.test/c.png' }, 'r2', 's'));
+  });
+
   it('says so, with a retry, when the details cannot be read (never an empty panel)', async () => {
     const fields = port();
     const failure = new Error('The post could not be reached.');

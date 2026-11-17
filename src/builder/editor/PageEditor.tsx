@@ -36,6 +36,8 @@ import { CanvasFlavorContext } from './canvasFlavor';
 import { canDelete as layoutAllowsDelete, canReorder } from './layoutParts';
 import { PieceFieldsPanel } from './PieceFields';
 import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
+import { useStudioComments, type CommentMenuItem } from './useStudioComments';
+import type { StudioComment } from '../../language';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
 import { UnpublishDialog } from './UnpublishDialog';
@@ -74,6 +76,8 @@ export interface PageEditorControls {
    * `openPanel(\`group:${key}\`)`. Empty when its fields have no groups (then `'details'` shows them all).
    */
   fieldGroups: DocumentFieldGroup[];
+  /** "Hide comments (3)", "Show resolved (2)": for the host's menu; empty while the document has no comments. */
+  commentMenu: CommentMenuItem[];
   /** Take the document off the public site (the adapter's unpublish); absent unless it is live. Confirms first. */
   unpublish?: () => void;
   /**
@@ -172,6 +176,14 @@ export interface PageEditorProps {
    */
   canAskAssistant?: (node: PmlNode, path: number[]) => boolean;
   /**
+   * Who writes new studio comments (the signed-in person's name). With it, the selection bar offers "Comment" on any
+   * element; without it, comments already in the design are still drawn, read, resolved and deleted (owner 2026-11-17:
+   * comments surface in the designer "similar to figma comments", a template's Purpose and VERIFY notes among them).
+   */
+  commentAuthor?: string;
+  /** Send a comment to the host's assistant as an ask about its element (D5); absent where it cannot act. */
+  onAddressComment?: (comment: StudioComment) => void;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -196,7 +208,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -214,6 +226,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const host = useBuilderHost();
   const { nodes, change } = editor;
+  // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
+  const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
   // The field groups, one slide-in panel each (owner 2026-11-17: every option in a panel over the design).
   const [fieldGroups, setFieldGroups] = useState<DocumentFieldGroup[]>([]);
@@ -327,6 +341,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     openPanel,
     hasDetails,
     fieldGroups,
+    commentMenu: comments.menuItems,
     unpublish: adapter.unpublish && live ? () => setConfirmUnpublish(true) : undefined,
     flush: () => editor.flush(),
     replaceNodes: (next) => change(next),
@@ -388,9 +403,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             frame={frame}
             selectedIndex={selectedPath ? selectedPath[0] : null}
             selectedPath={selectedPath}
-            onSelectPath={selectPath}
+            // While a comment is being moved, the next element clicked becomes its element instead of the selection.
+            onSelectPath={comments.pickOr(selectPath)}
+            overlay={comments.layer}
             viewport="desktop"
-            onSelect={(index) => selectPath(index === null ? null : [index])}
+            onSelect={(index) => comments.pickOr(selectPath)(index === null ? null : [index])}
             canDelete={(index) => deletable([index])}
             // A template part keeps its place (moving the cover or the contents breaks the post's order and starts a
             // layout finding); a repeat instance moves with its selection bar's Up / Down, among its own kind only.
@@ -402,7 +419,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             renderSelectionBar={
               locked
                 ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} />
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} onComment={comments.canAdd ? comments.add : undefined} />
             }
             onDelete={(index) => {
               if (!deletable([index])) return;

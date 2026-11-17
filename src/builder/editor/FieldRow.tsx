@@ -95,11 +95,13 @@ export function FieldRow({
         <div className="space-y-2">
           <p className="text-sm font-medium">{field.label}</p>
           <MediaField value={url} onChange={(next) => onCommit(withPicture({ url: next }))} />
+          {/* What the picture shows describes a chosen picture; the caption is the element's own words, so it can be typed
+              before a picture is chosen (owner 2026-11-17: the canvas said "Add a caption" with nowhere to add it). */}
           {withWords && url ? (
-            <>
-              <Input aria-label={`${field.label}: what it shows`} placeholder="What the picture shows" value={picture.alt ?? ''} onChange={(e) => onDraft(withPicture({ alt: e.target.value }))} onBlur={(e) => onCommit(withPicture({ alt: e.target.value }))} className="px-3 py-2 outline-none" />
-              <Input aria-label={`${field.label}: caption`} placeholder="Caption (optional)" value={picture.caption ?? ''} onChange={(e) => onDraft(withPicture({ caption: e.target.value }))} onBlur={(e) => onCommit(withPicture({ caption: e.target.value }))} className="px-3 py-2 outline-none" />
-            </>
+            <Input aria-label={`${field.label}: what it shows`} placeholder="What the picture shows" value={picture.alt ?? ''} onChange={(e) => onDraft(withPicture({ alt: e.target.value }))} onBlur={(e) => onCommit(withPicture({ alt: e.target.value }))} className="px-3 py-2 outline-none" />
+          ) : null}
+          {withWords ? (
+            <Input aria-label={`${field.label}: caption`} placeholder="Caption (optional)" value={picture.caption ?? ''} onChange={(e) => onDraft(withPicture({ caption: e.target.value }))} onBlur={(e) => onCommit(withPicture({ caption: e.target.value }))} className="px-3 py-2 outline-none" />
           ) : null}
         </div>
       );

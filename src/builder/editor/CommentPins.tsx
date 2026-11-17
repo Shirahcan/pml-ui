@@ -30,26 +30,36 @@ function boxOf(root: HTMLElement, nodes: PmlNode[], target: number[]): DOMRect |
   return element ? element.getBoundingClientRect() : null;
 }
 
-function pinAt(box: DOMRect, origin: DOMRect, placement: CommentNote['placement']): { x: number; y: number } {
+/**
+ * Where a pin sits on its element. The `n`th pin sharing the element and the placement steps aside by one pin (2026-11-17:
+ * a template's Purpose and VERIFY notes share an element's top-right corner, and must never cover each other). A pin on a
+ * right-hand corner stays inside the element's box, so the editor's slide-in panel over the right side cannot hide it
+ * while the element itself shows.
+ */
+function pinAt(box: DOMRect, origin: DOMRect, placement: CommentNote['placement'], n = 0): { x: number; y: number } {
   const left = box.left - origin.left;
   const top = box.top - origin.top;
   const half = PIN / 2;
+  const step = n * (PIN + 4);
 
   switch (placement) {
     case 'top-left':
-      return { x: left - half, y: top - half };
+      return { x: left - half + step, y: top - half };
     case 'bottom-left':
-      return { x: left - half, y: top + box.height - half };
+      return { x: left - half + step, y: top + box.height - half };
     case 'bottom-right':
-      return { x: left + box.width - half, y: top + box.height - half };
+      return { x: left + box.width - PIN - step, y: top + box.height - half };
     case 'left':
-      return { x: left - PIN - 4, y: top + Math.min(box.height / 2, 40) - half };
+      return { x: left - PIN - 4, y: top + Math.min(box.height / 2, 40) - half + step };
     case 'right':
-      return { x: left + box.width + 4, y: top + Math.min(box.height / 2, 40) - half };
+      return { x: left + box.width + 4, y: top + Math.min(box.height / 2, 40) - half + step };
     default:
-      return { x: left + box.width - half, y: top - half };
+      return { x: left + box.width - PIN - step, y: top - half };
   }
 }
+
+/** A check the author still owes ("VERIFY: ..."), labelled beside its pin so it reads without a click. */
+const VERIFY = /^\s*VERIFY:\s*/i;
 
 /**
  * Studio comments drawn Figma-style over the canvas (D2, owner 2026-11-07): a pin in the comment's
@@ -81,6 +91,18 @@ export function CommentPins({
   banner?: React.ReactNode;
 }): React.JSX.Element | null {
   const layer = useRef<HTMLDivElement>(null);
+  // A card shown because the pointer rests on its pin (or on the card itself): it reads without a click, and goes when
+  // the pointer leaves, unless it was opened by a click.
+  const [peek, setPeek] = useState<string | null>(null);
+  const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hold = (key: string) => {
+    if (leaving.current) clearTimeout(leaving.current);
+    if (!editingKey) setPeek(key);
+  };
+  const release = () => {
+    if (leaving.current) clearTimeout(leaving.current);
+    leaving.current = setTimeout(() => setPeek(null), 180);
+  };
   const [spots, setSpots] = useState<Record<string, { x: number; y: number }>>({});
   const [width, setWidth] = useState(0);
   // Memoised: the measuring effect below runs when THESE change, never on every render.
@@ -102,11 +124,17 @@ export function CommentPins({
       frame = requestAnimationFrame(() => {
         const origin = root.getBoundingClientRect();
         const next: Record<string, { x: number; y: number }> = {};
+        const sharing: Record<string, number> = {};
 
         for (const comment of pinned) {
           const box = comment.target ? boxOf(root, nodes, comment.target) : null;
+          const corner = `${comment.target?.join('.')}|${comment.note.placement ?? 'top-right'}`;
+          const n = sharing[corner] ?? 0;
 
-          if (box) next[commentKey(comment)] = pinAt(box, origin, comment.note.placement);
+          if (box) {
+            next[commentKey(comment)] = pinAt(box, origin, comment.note.placement, n);
+            sharing[corner] = n + 1;
+          }
         }
 
         setSpots(next);
@@ -129,12 +157,12 @@ export function CommentPins({
   const card = (comment: StudioComment, at: { x: number; y: number } | null) => {
     const key = commentKey(comment);
 
-    if (openKey !== key) return null;
+    if (openKey !== key && peek !== key) return null;
 
     const left = at ? Math.max(8, Math.min(at.x + PIN + 6, width - 296)) : 8;
 
     return (
-      <div className="pointer-events-auto absolute z-40" style={{ left, top: at ? at.y : 44 }}>
+      <div className="pointer-events-auto absolute z-40" style={{ left, top: at ? at.y : 44 }} onMouseEnter={() => hold(key)} onMouseLeave={release}>
         <CommentCard
           comment={comment}
           editing={editingKey === key}
@@ -181,10 +209,37 @@ export function CommentPins({
 
         const swatch = COMMENT_SWATCH[comment.note.color ?? 'yellow'];
         const initial = (comment.note.author ?? '?').trim().charAt(0).toUpperCase() || '?';
+        const check = VERIFY.test(comment.text) ? comment.text.replace(VERIFY, '').trim() : null;
+        // A check's label sits beside its pin, on the side away from the element's edge.
+        const rightSide = (comment.note.placement ?? 'top-right').endsWith('right');
 
         return (
           <React.Fragment key={key}>
+            {check && !comment.note.resolved ? (
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(openKey === key ? null : key);
+                }}
+                onMouseEnter={() => hold(key)}
+                onMouseLeave={release}
+                className="pointer-events-auto absolute max-w-[14rem] truncate whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold shadow-sm outline-none"
+                style={{
+                  top: at.y + 3,
+                  ...(rightSide ? { right: width - at.x + 4 } : { left: at.x + PIN + 4 }),
+                  background: '#FEF3E2',
+                  color: '#A15C07',
+                  borderColor: '#F4C77B',
+                }}
+              >
+                Check: {check}
+              </button>
+            ) : null}
             <button
+              onMouseEnter={() => hold(key)}
+              onMouseLeave={release}
               type="button"
               aria-label={`Comment by ${comment.note.author ?? 'someone'}: ${comment.text}`}
               aria-expanded={openKey === key}

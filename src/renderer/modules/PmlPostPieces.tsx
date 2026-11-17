@@ -227,7 +227,8 @@ export function PmlPostCoverPiece({ props, className, style, inCanvas }: PiecePr
           {str(cover.alt) || 'No image yet. Choose one from the image bank.'}
         </span>
       </div>
-      <figcaption style={{ fontSize: 13, color: PLACEHOLDER, marginTop: 8 }}>Add a caption</figcaption>
+      {/* A caption typed before the picture is chosen shows as written (owner 2026-11-17: "Add a caption" stayed with nowhere to add it). */}
+      <figcaption style={{ fontSize: 13, color: str(cover.caption) ? undefined : PLACEHOLDER, marginTop: 8 }}>{str(cover.caption) || 'Add a caption'}</figcaption>
     </figure>
   );
 }
