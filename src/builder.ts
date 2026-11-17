@@ -50,3 +50,6 @@ export * from './builder/editor/settingsFields';
 export * from './builder/editor/settingsContentsSlots';
 export * from './builder/editor/settingsControls';
 export * from './builder/editor/useDocumentEditor';
+export * from './builder/editor/emailInbox';
+export * from './builder/editor/EmailAsSent';
+export * from './builder/editor/EmailEditor';

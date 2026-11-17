@@ -161,7 +161,8 @@ export interface DocumentField {
   /** The product's name for it, as bound parts read it (`title`, `tags`, `read_minutes`). */
   name: string;
   label: string;
-  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record';
+  /** `toggle` (pml-email C1a): an on/off setting, such as an email's standard header and footer. */
+  kind: 'text' | 'rich' | 'list' | 'date' | 'media' | 'record' | 'toggle';
   /** Computed by the product (a read time): shown, never edited. */
   readOnly?: boolean;
   /** The limit the builder counts against: characters for text, items for a list. */
