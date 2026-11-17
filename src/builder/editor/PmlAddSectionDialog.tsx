@@ -42,11 +42,13 @@ import {
 
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../ui/overlays';
+import { useEditorSurface } from './surface';
 import { Input } from '../ui/controls';
 import type { DocumentPartial as SitePartial } from '../components';
 import type { DocumentLibraryComponent as BuilderStudioComponent } from '../components';
@@ -65,8 +67,9 @@ import type { PmlNode } from '../../language';
  * My components (see catalog `group`), with a search box across all of them. Selecting an
  * entry inserts its starter node and closes. Singletons already on the page are disabled.
  *
- * The shared DialogContent keeps its default `max-h-[90vh] overflow-y-auto`, so a long list
- * of groups stays reachable (including on a short screen) without a custom scroller.
+ * The dialog is bounded (`max-h-[90vh]`) with its header and search pinned; the groups scroll in a DialogBody
+ * (`flex-1 min-h-0 overflow-y-auto`), so the last entry is reachable on a short screen (pml-email Loop 1 found
+ * the list clipped with no scroll at 600px).
  */
 
 const ICONS: Record<string, LucideIcon> = {
@@ -174,6 +177,7 @@ export function PmlAddSectionDialog({
   unavailable?: string[];
 }): React.JSX.Element {
   const [query, setQuery] = useState('');
+  const surface = useEditorSurface();
   const studio = useStudioCatalog();
   const refused = useMemo(() => new Set(unavailable), [unavailable]);
   const used = useMemo(
@@ -263,21 +267,23 @@ export function PmlAddSectionDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+        <div className="relative shrink-0 px-5">
+          <Search className="pointer-events-none absolute left-8 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
           <Input
             id="pml-add-search"
             name="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search sections"
+            placeholder={surface === 'email' ? 'Search blocks' : 'Search sections'}
             className="pl-9 pr-3 py-2 outline-none"
             autoComplete="off"
-            aria-label="Search sections"
+            aria-label={surface === 'email' ? 'Search blocks' : 'Search sections'}
           />
         </div>
 
-        <div className="space-y-5">
+        {/* The list scrolls inside the bounded dialog (the header and search stay pinned), so the last item is
+            reachable on a short screen. */}
+        <DialogBody className="space-y-5 pb-5">
           {groups.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--pb-muted)]">
               Nothing matches &ldquo;{query}&rdquo;.
@@ -297,7 +303,7 @@ export function PmlAddSectionDialog({
                         key={item.key}
                         type="button"
                         disabled={item.disabled}
-                        title={item.disabled ? 'Already on this page' : item.description}
+                        title={item.disabled ? (surface === 'email' ? 'Already in this email' : 'Already on this page') : item.description}
                         onClick={item.add}
                         className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-left text-sm outline-none hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -310,7 +316,7 @@ export function PmlAddSectionDialog({
               </div>
             ))
           )}
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

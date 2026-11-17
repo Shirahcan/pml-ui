@@ -54,6 +54,9 @@ export interface EmailEditorProps {
 
 const NO_SITE: PmlSite = {};
 
+/** The standard header and footer parts' roots: in the email profile, but never something an author adds to a body. */
+const CHROME_ROOTS = ['header', 'footer'];
+
 /**
  * The email editor (pml-email C1a/C2b), the shared builder composed for an email: the inbox frame (subject, preview
  * text, the standard header and footer), a 600px canvas holding only email elements, the settings rail for what is
@@ -76,7 +79,11 @@ export function EmailEditor({ adapter, id, allowedElements, renderAsSent, frame,
   const fieldWrites = useRef(new Set<Promise<unknown>>());
   const { nodes, change } = editor;
 
-  const unavailable = useMemo(() => Object.keys(PML_CATALOG_BY_NAME).filter((name) => !allowedElements.includes(name)), [allowedElements]);
+  // `header` and `footer` are the standard chrome's roots (added to every email at send time), never body blocks.
+  const unavailable = useMemo(
+    () => Object.keys(PML_CATALOG_BY_NAME).filter((name) => !allowedElements.includes(name) || CHROME_ROOTS.includes(name)),
+    [allowedElements],
+  );
   const selected = selectedPath ? getNodeAtPath(nodes, selectedPath) : null;
 
   const track = useCallback((write: Promise<unknown>) => {

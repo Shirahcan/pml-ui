@@ -36,7 +36,7 @@ function fakeAdapter() {
   return adapter as unknown as DocumentAdapter & { fields: typeof fields };
 }
 
-const ALLOWED = ['heading', 'p', 'text', 'button', 'image', 'divider', 'callout', 'table', 'list', 'box', 'spacer'];
+const ALLOWED = ['heading', 'p', 'text', 'button', 'image', 'divider', 'callout', 'table', 'list', 'box', 'spacer', 'header', 'footer'];
 
 /** The email editor on the shared builder (pml-email C1a). */
 describe('EmailEditor', () => {
@@ -66,6 +66,11 @@ describe('EmailEditor', () => {
 
     expect(dialog.textContent).toMatch(/Button/);
     expect(dialog.textContent).not.toMatch(/Carousel/);
+    // The standard header and footer are added at send time, never as body blocks.
+    expect(dialog.textContent).not.toMatch(/Header|Footer/);
+    // The list scrolls inside the bounded dialog, so its last entry is reachable on a short screen.
+    expect(screen.getByRole('button', { name: /Button/ }).closest('.overflow-y-auto')).not.toBeNull();
+    expect((screen.getByRole('textbox', { name: 'Search blocks' }) as HTMLInputElement).placeholder).toBe('Search blocks');
   });
 
   it('shows the email exactly as sent, light, dark and plain text, after sending a waiting save', async () => {
