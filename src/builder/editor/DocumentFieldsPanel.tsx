@@ -48,6 +48,9 @@ export function DocumentFieldsPanel({
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const richTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [conflict, setConflict] = useState(false);
+  // The details could not be read: said in the panel with a retry, never an empty panel (2026-11-17: a piece's panel
+  // with no field row and a double-click that did nothing looked like a broken editor, with nothing saying why).
+  const [unread, setUnread] = useState(false);
 
   const load = async () => {
     const [list, read] = await Promise.all([fields.describe(id), fields.read(id)]);
@@ -56,6 +59,7 @@ export function DocumentFieldsPanel({
     saved.current = read.values;
     revision.current = read.revision;
     setConflict(false);
+    setUnread(false);
   };
 
   useEffect(() => {
@@ -69,7 +73,11 @@ export function DocumentFieldsPanel({
         saved.current = read.values;
         revision.current = read.revision;
       })
-      .catch((err) => hostRef.current.onError(err));
+      .catch((err) => {
+        if (!alive) return;
+        setUnread(true);
+        hostRef.current.onError(err);
+      });
 
     return () => {
       alive = false;
@@ -106,6 +114,17 @@ export function DocumentFieldsPanel({
   // One group's panel draws only that group's fields (designer sole surface P2a); without a group, every field.
   const inGroup = group === undefined ? described : described.filter((field) => field.group?.key === group);
   const shown = only === undefined ? inGroup : inGroup.filter((field) => only.includes(field.name));
+
+  if (unread) {
+    return (
+      <p role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900" style={vars}>
+        These details could not be loaded.
+        <button type="button" onClick={() => void load().catch((err) => hostRef.current.onError(err))} className="whitespace-nowrap font-medium underline outline-none">
+          Try again
+        </button>
+      </p>
+    );
+  }
 
   if (shown.length === 0) return null;
 

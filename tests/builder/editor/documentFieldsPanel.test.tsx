@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { DocumentField, DocumentFieldsPort, EditableDocumentAdapter } from '../../../src/builder/document';
 import { DocumentFieldsPanel } from '../../../src/builder/editor/DocumentFieldsPanel';
+import { BuilderHostProvider } from '../../../src/builder/editor/host';
 import { PageEditor } from '../../../src/builder/editor/PageEditor';
 import type { PmlNode } from '../../../src/language';
 
@@ -74,6 +75,27 @@ describe('DocumentFieldsPanel', () => {
     fireEvent.change(caption, { target: { value: 'A greenhouse in Leamington.' } });
     fireEvent.blur(caption);
     await waitFor(() => expect(fields.write).toHaveBeenLastCalledWith('p1', 'cover', { url: 'https://img.test/b.png', caption: 'A greenhouse in Leamington.' }, 'r2', 's'));
+  });
+
+  it('says so, with a retry, when the details cannot be read (never an empty panel)', async () => {
+    const fields = port();
+    const failure = new Error('The post could not be reached.');
+    (fields.read as ReturnType<typeof vi.fn>).mockRejectedValueOnce(failure);
+    const onError = vi.fn();
+    render(
+      <BuilderHostProvider onError={onError}>
+        <DocumentFieldsPanel id="p1" fields={fields} session="s" only={['title']} label="This element's details" />
+      </BuilderHostProvider>,
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('These details could not be loaded.');
+    // The real reason reaches the host's error surface (Porter in Portify).
+    expect(onError).toHaveBeenCalledWith(failure);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(((await screen.findByLabelText('Title')) as HTMLInputElement).value).toBe('Work permits in 2026');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('a picture field that holds an address keeps writing an address', async () => {
