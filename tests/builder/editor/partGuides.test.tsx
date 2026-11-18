@@ -34,11 +34,12 @@ describe('PartGuides', () => {
     expect(line.className).toContain('#C62828');
   });
 
-  it('counts a nested part (a short answer inside a question section)', () => {
+  it('leaves a nested part (a short answer inside a question section) to be counted under itself', () => {
+    // Owner 2026-11-18: counts are "placed individually below each item": NestedPartCounters draws this one.
     const nodes = [{ primitive: 'box', part: 'section', children: [para('Who can apply?'), para(words(33), 'answer')] } as unknown as PmlNode, { primitive: 'box', part: 'section', children: [] } as unknown as PmlNode];
     render(<PartGuides nodes={nodes} index={0} layout={layout} change={() => undefined} />);
 
-    expect(screen.getByText(/Short answer: 33 words · under 50/).className).toContain('#15803D');
+    expect(screen.queryByText(/33 words/)).toBeNull();
   });
 
   it('adds another section after the last one, from the starter, and removes the last only above the minimum', () => {

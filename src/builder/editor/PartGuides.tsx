@@ -5,6 +5,8 @@ import { Minus, Plus } from 'lucide-react';
 
 import { ensureUids, getNodeAtPath, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
 import type { DocumentLayout, DocumentLayoutPart } from '../document';
+import { resolvePrimitiveStyle } from '../../pml/primitiveStyle';
+import { FRAME_GUTTER, FRAME_MAX_WIDTH, splitSectionFrame } from '../../pml/sectionFrame';
 
 /**
  * The layout's guides on the canvas, editor-only (owner 2026-11-17, T2: the designer mirrors the reference studio):
@@ -34,7 +36,8 @@ export function wordCount(node: PmlNode): number {
   return text === '' ? 0 : text.split(/\s+/u).length;
 }
 
-interface Counter {
+/** One part's count against its words rule. */
+export interface PartCounter {
   key: string;
   label: string;
   words: number;
@@ -61,7 +64,27 @@ function partNodes(nodes: PmlNode[], index: number): { node: PmlNode; path: numb
   return out;
 }
 
-function counterWords(c: Counter): string {
+/** Every part instance NESTED inside a section that has a words rule, with its path and its count. */
+export function nestedCounters(nodes: PmlNode[], layout: DocumentLayout): Array<PartCounter & { path: number[] }> {
+  const parts = new Map(layout.parts.map((part) => [part.key, part]));
+
+  return nodes.flatMap((_, index) =>
+    partNodes(nodes, index)
+      .filter(({ path }) => path.length > 1)
+      .map(({ node, path }) => ({ node, path, part: parts.get(node.part as string) }))
+      .filter(({ part }) => part?.rules?.words)
+      .map(({ node, path, part }) => ({
+        key: path.join('.'),
+        path,
+        label: part!.label,
+        words: wordCount(node),
+        min: part!.rules!.words!.min,
+        max: part!.rules!.words!.max,
+      })),
+  );
+}
+
+export function counterWords(c: PartCounter): string {
   const range = c.min !== undefined && c.max !== undefined ? `aim ${c.min} to ${c.max}` : c.max !== undefined ? `under ${c.max}` : `at least ${c.min}`;
 
   return `${c.words} words · ${range}`;
@@ -82,7 +105,10 @@ export function PartGuides({
   const parts = new Map(layout.parts.map((part) => [part.key, part]));
   const inHere = partNodes(nodes, index);
 
-  const counters: Counter[] = inHere
+  // Only the section's OWN count here; an instance nested inside it (an FAQ's question) is counted under that instance
+  // (NestedPartCounters, owner 2026-11-18: "placed individually below each item/question").
+  const counters: PartCounter[] = inHere
+    .filter(({ path }) => path.length === 1)
     .map(({ node }) => ({ node, part: parts.get(node.part as string) }))
     .filter(({ part }) => part?.rules?.words)
     .map(({ node, part }, i) => ({ key: `${part!.key}-${i}`, label: part!.label, words: wordCount(node), min: part!.rules!.words!.min, max: part!.rules!.words!.max }));
@@ -122,8 +148,17 @@ export function PartGuides({
 
   const removeLast = (row: RepeatRow) => change(removeNodeAtPath(nodes, row.paths[row.paths.length - 1]));
 
+  // The counters sit in the same column as the section's content (owner 2026-11-18: "these notices/markers/counters
+  // should use appropriate left padding"): its frame's width, gutters and own side padding, read from the section itself,
+  // so they line up with the words at every width and whatever padding the section was given.
+  const frame = nodes[index] ? splitSectionFrame(nodes[index]) : null;
+  const container = frame?.framed ? resolvePrimitiveStyle(frame.container) : null;
+  const column = frame?.framed && container ? `mx-auto w-full ${FRAME_MAX_WIDTH[frame.width]} ${frame.defaultGutter ? FRAME_GUTTER : ''} ${container.className}`.replace(/\s+/g, ' ').trim() : '';
+
   return (
     <div className="mt-1 space-y-1.5" data-builder-keep-panel="">
+      {counters.length > 0 ? (
+      <div className={`${column} space-y-1.5`.trim()} style={container?.style}>
       {counters.map((c) => {
         const ok = (c.min === undefined || c.words >= c.min) && (c.max === undefined || c.words <= c.max);
 
@@ -134,6 +169,8 @@ export function PartGuides({
           </p>
         );
       })}
+      </div>
+      ) : null}
       {rows.map((row) => {
         const count = row.paths.length;
         const canAdd = (row.part.max === undefined || row.part.max === null || count < row.part.max) && (row.part.starter?.length ?? 0) > 0;

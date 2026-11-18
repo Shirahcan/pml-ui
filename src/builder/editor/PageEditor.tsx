@@ -34,6 +34,7 @@ import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlCodePane } from './PmlCodePane';
 import { CanvasFlavorContext } from './canvasFlavor';
 import { canDelete as layoutAllowsDelete, canReorder } from './layoutParts';
+import { NestedPartCounters } from './NestedPartCounters';
 import { PieceFieldsPanel } from './PieceFields';
 import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
 import { useStudioComments, type CommentMenuItem } from './useStudioComments';
@@ -442,7 +443,13 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             // While a comment is being moved, the next element clicked becomes its element instead of the selection.
             onSelectPath={comments.pickOr(selectFromCanvas)}
             onClearSelection={() => comments.pickOr(selectFromCanvas)(null)}
-            overlay={comments.layer}
+            overlay={
+              <>
+                {comments.layer}
+                {/* An FAQ's question (any nested part instance) is counted under itself, not after the whole section. */}
+                {layout && layout.parts.length > 0 ? <NestedPartCounters nodes={nodes} layout={layout} /> : null}
+              </>
+            }
             viewport="desktop"
             onSelect={(index) => comments.pickOr(selectFromCanvas)(index === null ? null : [index])}
             canDelete={(index) => deletable([index])}
