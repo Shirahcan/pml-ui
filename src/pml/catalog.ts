@@ -25,7 +25,7 @@ export type PmlFieldKind = 'text' | 'textarea' | 'url' | 'boolean' | 'select' | 
  * semantic page landmarks header/nav/footer, which are container primitives), and My components (the
  * consultant's reusable partials). An entry with no `group` is a curated Component.
  */
-export type PmlGroup = 'basic' | 'layout' | 'components' | 'sections' | 'portify-components' | 'my-components';
+export type PmlGroup = 'basic' | 'layout' | 'components' | 'sections' | 'portify-components' | 'my-components' | 'pieces';
 
 export interface PmlFieldDef {
   key: string;
@@ -1106,6 +1106,8 @@ export const PML_GROUP_LABELS: Record<PmlGroup, string> = {
   sections: 'Sections',
   'portify-components': 'Portify components',
   'my-components': 'My components',
+  // The document's own pieces (its profile's), named for what a post is; offered first when the document has any.
+  pieces: 'Post',
 };
 
 /** The effective group for an entry; entries without an explicit group are curated Components. */

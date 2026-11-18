@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, moveTopLevel, pieceOf, piecesOf, removeNodeAtPath, updateNodeAtPath, type PmlNode, type ProfileKey } from '../../language';
@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '../ui/overlays';
 import { useOwnVars } from '../ui/theme';
-import { CatalogProvider } from './catalog';
+import { CatalogProvider, PiecesProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 import { FieldGroupPanel } from './FieldGroupPanel';
 import { useBuilderHost } from './host';
@@ -275,6 +275,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
 
   // The document's pieces, from its profile (one authority in pml-kit): a post's have fields, a page has none.
   const pieces = piecesOf(profile);
+  const pieceNames = useMemo(() => Object.keys(pieces), [pieces]);
 
   // A double-click on a piece whose words are one text field (a post's title, line under the title, author) types it
   // where it sits and saves it to the document (owner 2026-11-17: "double on the title for quick edit"). Written at the
@@ -425,6 +426,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     <EditorNounProvider noun={noun}>
     <CanvasFlavorContext.Provider value={flavor}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
+    <PiecesProvider pieces={pieceNames}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {/* The host's console FIRST: its dock is sticky, so drawn after the canvas it would sit at the bottom of a long
             document and its tab would vanish below the fold (owner 2026-11-17: "it should always be visible"). */}
@@ -626,6 +628,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           </AlertDialogContent>
         </AlertDialog>
       </div>
+    </PiecesProvider>
     </CatalogProvider>
     </CanvasFlavorContext.Provider>
     </EditorNounProvider>

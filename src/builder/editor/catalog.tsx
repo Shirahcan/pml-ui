@@ -12,6 +12,22 @@ import type { DocumentLibraryComponent, DocumentPartial } from '../components';
  */
 const LibraryContext = createContext<DocumentLibraryComponent[]>([]);
 const PartialsContext = createContext<DocumentPartial[]>([]);
+/**
+ * The document's OWN pieces (its profile's: a post's title, summary, byline, sources...), offered in every Add dialog so
+ * an admin can put one back or add a new one anywhere (owner 2026-11-18: nothing is locked, so what can be removed must
+ * be addable). Empty for a page, an email or a card.
+ */
+const PiecesContext = createContext<readonly string[]>([]);
+const NO_PIECES: readonly string[] = [];
+
+export function PiecesProvider({ pieces, children }: { pieces: readonly string[]; children: ReactNode }) {
+  return <PiecesContext.Provider value={pieces}>{children}</PiecesContext.Provider>;
+}
+
+/** The document's own pieces, by element name; empty outside a provider. */
+export function useDocumentPieces(): readonly string[] {
+  return useContext(PiecesContext) ?? NO_PIECES;
+}
 
 const NO_PARTIALS: DocumentPartial[] = [];
 

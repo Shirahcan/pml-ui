@@ -4,9 +4,32 @@ import { render, screen, fireEvent } from '@testing-library/react';
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 
 import { PmlAddSectionDialog } from '../../../src/builder/editor/PmlAddSectionDialog';
+import { PiecesProvider } from '../../../src/builder/editor/catalog';
 
 describe('PmlAddSectionDialog', () => {
   const noop = () => {};
+
+  it("offers a post's own pieces first, inside a box too, never the retired header or related guides (owner 2026-11-18)", () => {
+    const onAdd = vi.fn();
+    render(
+      <PiecesProvider pieces={['post_title', 'post_summary', 'post_sources', 'post_header', 'post_related']}>
+        <PmlAddSectionDialog open onOpenChange={noop} existing={[]} onAdd={onAdd} groups={['basic', 'layout']} title="Add an element" />
+      </PiecesProvider>,
+    );
+
+    expect(screen.getByText('Post')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Title' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sources' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Post header' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Related guides' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Summary' }));
+    expect(onAdd.mock.calls[0][0]).toMatchObject({ primitive: 'post_summary' });
+  });
+
+  it('offers no Post group for a document without pieces', () => {
+    render(<PmlAddSectionDialog open onOpenChange={noop} existing={[]} onAdd={noop} partials={[]} />);
+    expect(screen.queryByText('Post')).toBeNull();
+  });
 
   it('renders the Components group with a curated section', () => {
     render(

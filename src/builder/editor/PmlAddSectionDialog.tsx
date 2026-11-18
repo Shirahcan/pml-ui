@@ -2,8 +2,16 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  AlignLeft,
   BadgeCheck,
   BarChart3,
+  Calendar,
+  Clock,
+  Link,
+  Rows3,
+  ShieldCheck,
+  Tag,
+  Tags,
   BookOpen,
   ClipboardList,
   Code2,
@@ -52,14 +60,19 @@ import { useEditorSurface } from './surface';
 import { Input } from '../ui/controls';
 import type { DocumentPartial as SitePartial } from '../components';
 import type { DocumentLibraryComponent as BuilderStudioComponent } from '../components';
-import { useCatalog as useStudioCatalog } from './catalog';
+import { useCatalog as useStudioCatalog, useDocumentPieces } from './catalog';
 import {
   groupOf,
+  PML_CATALOG,
   PML_GROUP_LABELS,
   PML_GROUP_ORDER,
   PML_SECTIONS,
   type PmlGroup,
 } from '../../language';
+
+/** Pieces a document never gets from the menu: the old one-piece header (posts now place its pieces one by one) and
+ * related guides, which a post draws from its own logic, never from the design (owner 2026-11-17). */
+const NEVER_ADDED = new Set(['post_header', 'post_related']);
 import type { PmlNode } from '../../language';
 
 /**
@@ -107,6 +120,14 @@ const ICONS: Record<string, LucideIcon> = {
   PanelBottom,
   ListTree,
   BookOpen,
+  AlignLeft,
+  Calendar,
+  Clock,
+  Link,
+  Rows3,
+  ShieldCheck,
+  Tag,
+  Tags,
 };
 
 /**
@@ -179,6 +200,7 @@ export function PmlAddSectionDialog({
   const [query, setQuery] = useState('');
   const surface = useEditorSurface();
   const studio = useStudioCatalog();
+  const pieces = useDocumentPieces();
   const refused = useMemo(() => new Set(unavailable), [unavailable]);
   const used = useMemo(
     () => new Set(existing.map((node) => node.component ?? node.primitive)),
@@ -199,10 +221,25 @@ export function PmlAddSectionDialog({
     const match = (label: string, description: string) =>
       q === '' || label.toLowerCase().includes(q) || description.toLowerCase().includes(q);
 
-    return allowedGroups.map((group: PmlGroup) => {
+    // The document's own pieces first, at every level (the opening's box and the page alike): an admin can remove any
+    // piece, so any piece can be added back (owner 2026-11-18, no element is locked).
+    const withPieces: PmlGroup[] = pieces.length > 0 && variant !== 'premium' && !allowedGroups.includes('pieces') ? ['pieces', ...allowedGroups] : allowedGroups;
+
+    return withPieces.map((group: PmlGroup) => {
       let items: MenuItem[];
 
-      if (group === 'portify-components') {
+      if (group === 'pieces') {
+        items = PML_CATALOG.filter((def) => pieces.includes(def.name) && !NEVER_ADDED.has(def.name))
+          .filter((def) => !refused.has(def.name))
+          .map((def) => ({
+            key: def.name,
+            label: def.label,
+            description: def.description,
+            icon: def.icon,
+            disabled: Boolean(def.singleton && used.has(def.name)),
+            add: () => close(cloneNode(def.defaults)),
+          }));
+      } else if (group === 'portify-components') {
         items =
           variant === 'premium'
             ? []
@@ -251,7 +288,7 @@ export function PmlAddSectionDialog({
         items: items.filter((item) => match(item.label, item.description)),
       };
     }).filter((section) => section.items.length > 0);
-  }, [allowedGroups, close, partials, query, refused, studio, used, variant]);
+  }, [allowedGroups, close, partials, pieces, query, refused, studio, used, variant]);
 
   return (
     <Dialog
