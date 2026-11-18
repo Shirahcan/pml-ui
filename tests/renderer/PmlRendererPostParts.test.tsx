@@ -98,6 +98,10 @@ describe('PmlRenderer post parts', () => {
     expect(main.getAttribute('style')).toContain('var(--site-strong, var(--site-text))');
     expect(main.getAttribute('style')).toContain('var(--site-on-strong');
     expect(main.className).not.toContain('bg-[var(--site-accent)]');
+    // Both buttons wear the site's button shape (a pill by default), never the card radius (owner 2026-11-18).
+    for (const name of ['Get Matched Now', 'Sign up free on Portify']) {
+      expect((getByRole('link', { name }) as HTMLElement).className).toContain('rounded-[var(--site-button-radius,9999px)]');
+    }
   });
 
   it('keeps the accent for the awareness and consideration stages', () => {
@@ -117,6 +121,11 @@ describe('PmlRenderer post parts', () => {
 
     expect(getByTestId('host-form')).toBeTruthy();
     expect(queryByRole('link', { name: 'Get updates' })).toBeNull();
+    // A sign-up box centres its words over a form of a reasonable width (owner 2026-11-18).
+    const form = getByTestId('host-form');
+    expect(form.closest('aside')?.className).toContain('text-center');
+    expect(form.parentElement?.className).toContain('mx-auto');
+    expect(form.parentElement?.className).toContain('max-w-md');
   });
 
   it('an unset stage draws nothing for readers and says so in the builder', () => {

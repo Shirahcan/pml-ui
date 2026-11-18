@@ -62,9 +62,38 @@ describe('post pieces', () => {
   });
 
   it('a piece with nothing to show draws nothing on the page', () => {
-    const c = draw([{ primitive: 'post_title', props: { resolved: {} } }, { primitive: 'post_tags', props: { resolved: {} } }] as unknown as PmlNode[]);
+    const c = draw([
+      { primitive: 'post_title', props: { resolved: {} } },
+      { primitive: 'post_tags', props: { resolved: {} } },
+      { primitive: 'post_summary', props: { resolved: {} } },
+      { primitive: 'post_sources', props: { resolved: {} } },
+    ] as unknown as PmlNode[]);
 
     expect(words(c).trim()).toBe('');
+  });
+
+  it("draws the post's summary under the title and its sources linked (owner 2026-11-18)", () => {
+    const answer = 'Most graduates of an eligible program can apply within 180 days of their final marks.';
+    const c = draw([
+      { primitive: 'post_summary', props: { resolved: { answer } } },
+      { primitive: 'post_sources', props: { resolved: { sources: [
+        { label: 'IRCC: Post-graduation work permit', url: 'https://www.canada.ca/pgwp' },
+        { label: 'Not a web address', url: 'javascript:alert(1)' },
+      ] } } },
+    ] as unknown as PmlNode[]);
+
+    expect(words(c)).toContain(answer);
+    const links = [...c.querySelectorAll('section[aria-label="Sources"] a')] as HTMLAnchorElement[];
+    expect(links.map((a) => [a.textContent, a.getAttribute('href'), a.getAttribute('rel')])).toEqual([
+      ['IRCC: Post-graduation work permit', 'https://www.canada.ca/pgwp', 'noopener noreferrer'],
+    ]);
+  });
+
+  it('on the canvas an empty summary or sources list says where its words come from', () => {
+    const c = render(<PmlRenderer nodes={[{ primitive: 'post_summary', props: {} }, { primitive: 'post_sources', props: {} }] as unknown as PmlNode[]} site={site} builderHints />).container;
+
+    expect(words(c)).toContain('Add the post’s summary in Post details');
+    expect(words(c)).toContain('once each figure in Post details has its source');
   });
 
   it('a contents list holding items lists exactly those', () => {

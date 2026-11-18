@@ -104,7 +104,7 @@ export function PmlPostCategory({ props, className, style, inCanvas }: PieceProp
       className={className}
       // `width: fit-content`: the header box is a stack (a flex column), whose items stretch to its width, so the pill
       // ran edge to edge as a bar instead of hugging its words (owner's sample post, 2026-11-18).
-      style={{ display: 'inline-block', width: 'fit-content', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 5, padding: '3px 9px', margin: '8px 0 10px', ...(name ? null : EMPTY_MARK), ...style }}
+      style={{ display: 'inline-block', width: 'fit-content', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 999, padding: '3px 10px', margin: '8px 0 10px', ...(name ? null : EMPTY_MARK), ...style }}
     >
       {name || 'Category'}
     </span>
@@ -201,6 +201,55 @@ export function PmlPostSourcesBadge({ props, className, style, inCanvas }: Piece
     <span className={className} style={{ ...PILL, ...(domains.length > 0 ? null : EMPTY_MARK), ...style }}>
       Sources: {domains.length > 0 ? domains.join(', ') : <span style={{ color: PLACEHOLDER }}>none yet</span>}
     </span>
+  );
+}
+
+/**
+ * The post's Summary under the title (owner 2026-11-18: "Show it under the title"): the short answer search engines
+ * and AI assistants quote, so readers see the same words. Its words are the post's Summary field, never typed here.
+ */
+export function PmlPostSummary({ props, className, style, inCanvas }: PieceProps): React.JSX.Element | null {
+  const answer = str(resolved(props).answer);
+  if (!answer && !inCanvas) return null;
+
+  return (
+    <div
+      className={className}
+      style={{ borderLeft: `3px solid ${ACCENT}`, background: ACCENT_SOFT, borderRadius: 8, padding: '12px 16px', margin: '4px 0 14px', ...(answer ? null : EMPTY_BLOCK), ...style }}
+    >
+      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: ACCENT, margin: '0 0 4px' }}>Summary</p>
+      <p style={{ fontSize: 16, lineHeight: 1.6, color: answer ? INK : PLACEHOLDER, margin: 0 }}>{answer || 'Add the post’s summary in Post details'}</p>
+    </div>
+  );
+}
+
+/**
+ * The official pages the post's figures come from, linked (owner 2026-11-18: a template block, so its place is the
+ * design's, not a list the blog adds below it). Built from each figure's source, stamped at publish; never typed here.
+ */
+export function PmlPostSources({ props, className, style, inCanvas }: PieceProps): React.JSX.Element | null {
+  const sources = (Array.isArray(resolved(props).sources) ? (resolved(props).sources as unknown[]) : [])
+    .map(record)
+    .filter((source) => str(source.label) !== '' && /^https?:\/\//i.test(str(source.url)));
+  if (sources.length === 0 && !inCanvas) return null;
+
+  return (
+    <section aria-label="Sources" className={className} style={{ margin: '8px 0', ...(sources.length > 0 ? null : EMPTY_BLOCK), ...style }}>
+      <p style={{ fontSize: 16, fontWeight: 700, color: INK, margin: '0 0 6px' }}>Sources</p>
+      {sources.length > 0 ? (
+        <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'disc', fontSize: 14, lineHeight: 1.7, color: SLATE }}>
+          {sources.map((source) => (
+            <li key={str(source.url)}>
+              <a href={str(source.url)} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, textDecoration: 'underline' }}>
+                {str(source.label)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ fontSize: 14, color: PLACEHOLDER, margin: 0 }}>The official pages the post&rsquo;s figures come from show here, linked, once each figure in Post details has its source.</p>
+      )}
+    </section>
   );
 }
 

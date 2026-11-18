@@ -632,6 +632,9 @@ export const PML_CATALOG: PmlComponentDef[] = [
       ['post_category', 'Category', 'The post’s category, as a small label above the title.', 'Tag'],
       ['post_title', 'Title', 'The post’s title, as its main heading.', 'Heading'],
       ['post_dek', 'Line under the title', 'The one line under the title that says what the post covers.', 'AlignLeft'],
+      // The post's Summary (Post details): the short answer search engines and AI assistants quote, shown on the page
+      // so readers see the same words (owner 2026-11-18).
+      ['post_summary', 'Summary', 'The post’s summary: the short answer search engines and assistants quote. Its words are the Summary in Post details.', 'FileText'],
       ['post_meta', 'Byline', 'The row under the title: author and date, side by side. Each is its own element.', 'Rows3'],
       ['post_author', 'Author', 'Who wrote the post.', 'User'],
       ['post_read_time', 'Read time', 'How long the post takes to read, worked out from its words.', 'Clock'],
@@ -708,6 +711,18 @@ export const PML_CATALOG: PmlComponentDef[] = [
     hasSlot: false,
     fields: [heading()],
     defaults: { primitive: 'post_story', props: { heading: 'Client story' } },
+  },
+  {
+    // The official pages the post's figures come from, linked (owner 2026-11-18: a template block, so its place is the
+    // design's). Built from each figure's source in Post details; never typed here.
+    name: 'post_sources',
+    label: 'Sources',
+    description: 'The official pages the post’s figures come from, linked. Built from the figures in Post details, never typed here.',
+    icon: 'Link',
+    singleton: true,
+    hasSlot: false,
+    fields: [],
+    defaults: { primitive: 'post_sources', props: {} },
   },
   {
     name: 'post_disclaimer',

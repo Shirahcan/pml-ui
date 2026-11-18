@@ -60,6 +60,9 @@ export function PmlPostCta({
   const main = action(row.button);
   const second = action(row.secondary);
   const subscribe = main.kind === 'subscribe';
+  // A sign-up box centres its words over a form of a reasonable width (owner 2026-11-18: "the free updates section
+  // should center its content and use a reasonable input field width"), as a banner centres its own.
+  const centred = banner || subscribe;
   const decision = stage === 'decision';
   const accent = decision ? '' : 'border-t-[var(--site-accent)]';
   // The decision stage wears the site's EMPHASIS colour (Website > Theme, --site-strong: the reference studio's navy),
@@ -73,27 +76,29 @@ export function PmlPostCta({
   return (
     <aside
       aria-label={headline}
-      className={`rounded-[var(--site-radius)] border border-current/15 border-t-4 ${accent} p-6 ${banner ? 'text-center' : ''} ${className}`.replace(/\s+/g, ' ').trim()}
+      className={`rounded-[var(--site-radius)] border border-current/15 border-t-4 ${accent} p-6 ${centred ? 'text-center' : ''} ${className}`.replace(/\s+/g, ' ').trim()}
       style={{ ...strongEdge, ...style }}
     >
       {str(row.eyebrow) ? <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--site-accent)]">{str(row.eyebrow)}</p> : null}
       <p className={`mt-1 font-extrabold leading-snug ${banner ? 'text-2xl md:text-3xl' : 'text-xl'}`}>{headline}</p>
-      {str(row.body) ? <p className={`mt-2 opacity-75 ${banner ? 'mx-auto max-w-[52ch]' : ''}`}>{str(row.body)}</p> : null}
+      {str(row.body) ? <p className={`mt-2 opacity-75 ${centred ? 'mx-auto max-w-[52ch]' : ''}`}>{str(row.body)}</p> : null}
       {subscribe ? (
-        <div className="mt-4">{subscribeForm}</div>
+        <div className="mx-auto mt-4 w-full max-w-md text-left">{subscribeForm}</div>
       ) : (
         <div className={`mt-4 flex flex-wrap gap-3 ${banner ? 'justify-center' : ''}`}>
           {str(main.label) && str(main.href) ? (
             <a
               href={str(main.href)}
-              className={`inline-flex items-center rounded-[var(--site-radius)] px-4 py-2.5 font-semibold ${decision ? '' : 'bg-[var(--site-accent)] text-white'}`.trim()}
+              // Buttons wear the site's BUTTON shape (--site-button-radius, a pill unless the site says otherwise), as the
+              // standard button does; the card radius made them squared tabs (owner 2026-11-18: "Portify uses pills globally").
+              className={`inline-flex items-center whitespace-nowrap rounded-[var(--site-button-radius,9999px)] px-5 py-2.5 font-semibold ${decision ? '' : 'bg-[var(--site-accent)] text-white'}`.trim()}
               style={strongButton}
             >
               {str(main.label)}
             </a>
           ) : null}
           {str(second.label) && str(second.href) ? (
-            <a href={str(second.href)} className="inline-flex items-center rounded-[var(--site-radius)] border border-[var(--site-accent)] px-4 py-2.5 font-semibold text-[var(--site-accent)]">
+            <a href={str(second.href)} className="inline-flex items-center whitespace-nowrap rounded-[var(--site-button-radius,9999px)] border border-[var(--site-accent)] px-5 py-2.5 font-semibold text-[var(--site-accent)]">
               {str(second.label)}
             </a>
           ) : null}

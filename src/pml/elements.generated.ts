@@ -61,7 +61,7 @@ export const PML_ENUMS = {
 } as const;
 
 /** Every element, in definition order. */
-export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_breadcrumbs', 'post_category', 'post_badges', 'post_reviewer_badge', 'post_sources_badge', 'post_title', 'post_dek', 'post_meta', 'post_author', 'post_date', 'post_read_time', 'post_reviewer', 'post_tags', 'post_cover', 'post_related', 'post_disclaimer', 'post_cta', 'post_story', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'toc_item', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
+export const ELEMENT_NAMES = ['text', 'p', 'rich_text', 'span', 'strong', 'emphasis', 'small', 'mark', 'link', 'quote', 'keyboard', 'sub', 'sup', 'abbr', 'time', 'code', 'br', 'heading', 'image', 'icon', 'button', 'video', 'box', 'grid', 'field', 'form', 'spacer', 'divider', 'packages', 'credentials', 'post_header', 'post_breadcrumbs', 'post_category', 'post_badges', 'post_reviewer_badge', 'post_sources_badge', 'post_title', 'post_dek', 'post_summary', 'post_meta', 'post_author', 'post_date', 'post_read_time', 'post_reviewer', 'post_tags', 'post_cover', 'post_related', 'post_sources', 'post_disclaimer', 'post_cta', 'post_story', 'porter_intake', 'contact_form', 'testimonials', 'growth_form', 'list', 'list_item', 'table', 'row', 'cell', 'script', 'header', 'nav', 'footer', 'callout', 'toc', 'toc_item', 'sources', 'source', 'faq', 'faq_item', 'layer', 'pre', 'blockquote', 'details', 'summary', 'definitions', 'term', 'definition', 'figure', 'caption'] as const;
 
 export type ElementName = (typeof ELEMENT_NAMES)[number];
 
@@ -366,6 +366,10 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     container: false,
     props: {},
   },
+  post_summary: {
+    container: false,
+    props: {},
+  },
   post_meta: {
     container: true,
     children: ['post_author', 'post_date', 'post_read_time', 'post_reviewer'],
@@ -404,6 +408,10 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     props: {
       heading: { type: 'prose' },
     },
+  },
+  post_sources: {
+    container: false,
+    props: {},
   },
   post_disclaimer: {
     container: false,
@@ -694,6 +702,7 @@ export const PROFILE_PIECES: Readonly<Record<ProfileKey, Readonly<Record<string,
     post_sources_badge: { fields: ['facts'] },
     post_title: { fields: ['title'], quickEdit: 'title', drafts: ['title', 'meta_title', 'focus_keyword'] },
     post_dek: { fields: ['dek'], quickEdit: 'dek', drafts: ['dek', 'answer'] },
+    post_summary: { fields: ['answer'], quickEdit: 'answer', drafts: ['answer'] },
     post_meta: { fields: [] },
     post_author: { fields: ['author_name'], quickEdit: 'author_name' },
     post_date: { fields: [] },
@@ -702,6 +711,7 @@ export const PROFILE_PIECES: Readonly<Record<ProfileKey, Readonly<Record<string,
     post_tags: { fields: ['tags'], drafts: ['tags'] },
     post_cover: { fields: ['cover'] },
     post_related: { fields: [] },
+    post_sources: { fields: ['facts'] },
     post_disclaimer: { fields: [] },
     post_cta: { fields: ['cta_kind', 'cta_ref'] },
     post_story: { fields: ['story_id'] },

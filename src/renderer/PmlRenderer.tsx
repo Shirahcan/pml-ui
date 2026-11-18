@@ -45,7 +45,9 @@ import {
   PmlPostReadTime,
   PmlPostReviewer,
   PmlPostReviewerBadge,
+  PmlPostSources,
   PmlPostSourcesBadge,
+  PmlPostSummary,
   PmlPostTags,
   PmlPostTitle,
 } from './modules/PmlPostPieces';
@@ -223,6 +225,8 @@ const POST_PIECES = {
   post_category: PmlPostCategory,
   post_title: PmlPostTitle,
   post_dek: PmlPostDek,
+  post_summary: PmlPostSummary,
+  post_sources: PmlPostSources,
   post_author: PmlPostAuthor,
   post_date: PmlPostDate,
   post_read_time: PmlPostReadTime,
@@ -1558,6 +1562,8 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
     case 'post_category':
     case 'post_title':
     case 'post_dek':
+    case 'post_summary':
+    case 'post_sources':
     case 'post_author':
     case 'post_date':
     case 'post_read_time':
