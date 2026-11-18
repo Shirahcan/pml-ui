@@ -33,7 +33,10 @@ export function SectionFrame({ node, render }: { node: PmlNode; render: (node: P
       // The band and the container are the section's PADDING: a click there lands on no element's content (the
       // builder's canvas reads this to clear a selection, owner 2026-11-18). Inert on a live page.
       data-pml-frame=""
-      className={`w-full ${parts.sticky ? 'pml-motion' : ''} ${band.className}`.replace(/\s+/g, ' ').trim()}
+      // A section whose element draws nothing on a live page (a post without a cover, owner 2026-11-18) takes no room:
+      // its container is empty, so the band hides rather than leaving its padding as a blank gap. A spacer or any
+      // element that draws something keeps the container non-empty.
+      className={`w-full [&:has(>[data-pml-frame]:empty)]:hidden ${parts.sticky ? 'pml-motion' : ''} ${band.className}`.replace(/\s+/g, ' ').trim()}
       // The shared motion stylesheet makes `.pml-motion[data-motion="sticky"]` sticky: on the band,
       // so the whole full-width bar sticks rather than a column trapped inside it.
       data-motion={parts.sticky ? 'sticky' : undefined}

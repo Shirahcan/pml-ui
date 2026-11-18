@@ -19,6 +19,8 @@ describe('PmlCanvas', () => {
 
     const root = container.firstElementChild as HTMLElement;
     expect(root.className).toContain('site-fonts');
+    // Its own stacking context: an element's bar never draws over the host's docked console (owner 2026-11-18).
+    expect(root.className.split(/\s+/)).toContain('isolate');
     expect(root.getAttribute('style')).toContain('--site-accent: #123456');
     expect(screen.getByText('Use Add a section in the Actions menu to start building.')).toBeTruthy();
 

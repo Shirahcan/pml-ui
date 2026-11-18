@@ -358,7 +358,10 @@ export function PmlCanvas({
       onContextMenu={contextMenu}
       onClick={clearOnEmpty}
       aria-busy={building ? true : undefined}
-      className={`relative mx-auto ${width} bg-[var(--site-bg)] text-[var(--site-text)] ${bare ? '' : 'border border-black/10 shadow-sm'} ${frame?.className ?? ''} ${building ? 'pointer-events-none select-none' : ''}`}
+      // `isolate`: the canvas is its own stacking context, so its bars and tools (z-30) stay inside it and never draw
+      // over the host's chrome laid over the design, such as the docked Porter console (also z-30, earlier in the page,
+      // so the later canvas won the tie; owner 2026-11-18). Menus and dialogs portal to the body, unaffected.
+      className={`relative isolate mx-auto ${width} bg-[var(--site-bg)] text-[var(--site-text)] ${bare ? '' : 'border border-black/10 shadow-sm'} ${frame?.className ?? ''} ${building ? 'pointer-events-none select-none' : ''}`}
       style={frame?.style}
     >
       {deep ? <style>{ELEMENT_STYLES}</style> : null}
