@@ -716,7 +716,9 @@ export const PML_CATALOG: PmlComponentDef[] = [
     // The official pages the post's figures come from, linked (owner 2026-11-18: a template block, so its place is the
     // design's). Built from each figure's source in Post details; never typed here.
     name: 'post_sources',
-    label: 'Sources',
+    // "Post sources", like "Post cover": the general `sources` block is "Sources", and a post's menu offers both (ab /
+    // owner 2026-11-18: keep the general one, the Full guide's data tables use it for their own source lists).
+    label: 'Post sources',
     description: 'The official pages the post’s figures come from, linked. Built from the figures in Post details, never typed here.',
     icon: 'Link',
     singleton: true,

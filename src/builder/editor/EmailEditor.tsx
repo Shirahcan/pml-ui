@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Plus, Redo2, Send, ShieldCheck, Undo2 } from 'lucide-react';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import { Plus } from 'lucide-react';
 
-import { getNodeAtPath, moveTopLevel, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode, type StudioComment } from '../../language';
+import { getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode, type StudioComment } from '../../language';
 import { fieldGroupsOf, type DocumentFieldGroup, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
@@ -11,8 +11,8 @@ import { useOwnVars } from '../ui/theme';
 import { CatalogProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 import { DraftConflictDialog } from './DraftConflictDialog';
-import { EmailAsSent, type RenderedEmail } from './EmailAsSent';
-import { EmailInbox } from './emailInbox';
+import type { RenderedEmail } from './EmailAsSent';
+import { EMAIL_WORDS, EmailHeader, useEmailProfile } from '../studio/profiles/email';
 import { FieldGroupPanel } from './FieldGroupPanel';
 import { useBuilderHost } from './host';
 import { FindingsPanel, type FindingsWords } from './FindingsPanel';
@@ -146,13 +146,7 @@ export interface EmailEditorProps {
   console?: ReactNode | ((controls: EmailEditorControls) => ReactNode);
 }
 
-/** What the checks say for an email whose next step is "Save for everyone" (a template). */
-const SAVE_FOR_EVERYONE_WORDS: Partial<FindingsWords> = { clean: 'Nothing here needs to change. Ready to save for everyone.' };
-
 const NO_SITE: PmlSite = {};
-
-/** The standard header and footer parts' roots: in the email profile, but never something an author adds to a body. */
-const CHROME_ROOTS = ['header', 'footer'];
 
 /**
  * The email editor (pml-email C1a/C2b), the shared builder composed for an email: the inbox frame (subject, preview
@@ -187,23 +181,15 @@ export function EmailEditor({
     onPublished: () => onPublished?.(),
   });
   const vars = useOwnVars();
-  const [tab, setTab] = useState<'design' | 'sent'>('design');
   const [adding, setAdding] = useState(false);
-  const [sentVersion, setSentVersion] = useState(0);
   // Bumped by refreshFields(): the inbox frame and every details form read the email's fields again.
   const [fieldsEpoch, setFieldsEpoch] = useState(0);
-  const [sentStale, setSentStale] = useState(false);
-  const fieldWrites = useRef(new Set<Promise<unknown>>());
   const host = useBuilderHost();
   const { nodes, change } = editor;
+  // The email's own chrome (shared PML Studio P2b1): its views, inbox frame, field writes and words, in one module.
+  const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements, renderAsSent, inboxFields, checkWords, onFieldSaved });
   // Studio comments pinned to blocks, the page editor's own hook (one shape for every designer).
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
-
-  // `header` and `footer` are the standard chrome's roots (added to every email at send time), never body blocks.
-  const unavailable = useMemo(
-    () => Object.keys(PML_CATALOG_BY_NAME).filter((name) => !allowedElements.includes(name) || CHROME_ROOTS.includes(name)),
-    [allowedElements],
-  );
 
   // One rule for when the settings show, shared with the page editor (QUICK_EDIT_WINDOW_MS lives there).
   const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit && !locked);
@@ -247,37 +233,10 @@ export function EmailEditor({
   const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
   const openGroup = panel?.startsWith('group:') ? fieldGroups.find((group) => `group:${group.key}` === panel) ?? null : null;
 
-  const track = useCallback((write: Promise<unknown>) => {
-    fieldWrites.current.add(write);
-    void write.finally(() => fieldWrites.current.delete(write));
-  }, []);
-
-  // A field saved from any panel or the inbox frame: the canvas compiles again ({{sender_name}} and the like), and the
-  // host hears which field it was.
-  const fieldSaved = (name: string) => {
-    editor.refreshPreview();
-    onFieldSaved?.(name);
-  };
-
-  const showTab = useCallback(
-    (next: 'design' | 'sent') => {
-      if (next === 'sent') {
-        // "As sent" draws the SAVED draft: send a waiting design save and every field write first.
-        void Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => {
-          setSentStale(saved === false);
-          setSentVersion((v) => v + 1);
-        });
-      }
-      setTab(next);
-    },
-    [editor],
-  );
-
-  const render = useCallback(() => renderAsSent(id), [renderAsSent, id]);
 
   const controls: EmailEditorControls = {
-    tab,
-    setTab: showTab,
+    tab: email.tab,
+    setTab: email.setTab,
     saving: editor.saving,
     dirty: editor.dirty,
     canUndo: editor.canUndo,
@@ -288,38 +247,33 @@ export function EmailEditor({
       void editor.check();
       openPanel('checks');
     },
-    publish: editor.canPublish
-      ? () => {
-          // Field writes are part of what is saved for everyone: let them land first.
-          void Promise.all([...fieldWrites.current]).then(() => editor.publish());
-        }
-      : undefined,
+    publish: email.publish,
     publishing: editor.publishing,
     openPanel,
     hasDetails: Boolean(adapter.fields),
     fieldGroups,
     hostPanels: panels.map(({ key, title }) => ({ key, title })),
-    flush: () => Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => saved),
+    flush: email.flush,
     commentMenu: comments.menuItems,
     replaceNodes: (next) => change(next),
     refreshFields: () => {
       setFieldsEpoch((n) => n + 1);
       editor.refreshPreview();
       // "As sent" draws the saved email, subject and preview text included: draw it again when it is the view.
-      if (tab === 'sent') setSentVersion((v) => v + 1);
+      email.redrawAsSent();
     },
     adoptSavedDraft: editor.adoptSavedDraft,
     nodes,
   };
 
   if (editor.loading) {
-    return <p className="py-16 text-center text-sm text-[var(--pb-muted)]" style={vars}>Opening the email...</p>;
+    return <p className="py-16 text-center text-sm text-[var(--pb-muted)]" style={vars}>{EMAIL_WORDS.opening}</p>;
   }
 
   if (editor.loadError) {
     return (
       <div role="alert" className="mx-auto max-w-md space-y-3 py-16 text-center text-sm text-[var(--pb-text)]" style={vars}>
-        <p>This email could not be opened, so nothing here can be edited yet.</p>
+        <p>{EMAIL_WORDS.unopened}</p>
         <Button variant="outline" onClick={() => editor.reload()}>
           Try again
         </Button>
@@ -333,14 +287,14 @@ export function EmailEditor({
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
         {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
-        {renderControls ? renderControls(controls) : <EmailEditorHeader controls={controls} />}
+        {renderControls ? renderControls(controls) : <EmailHeader controls={controls} />}
         {notice}
 
-        {tab === 'sent' ? (
-          <EmailAsSent render={render} version={sentVersion} stale={sentStale} />
+        {email.tab === 'sent' ? (
+          email.asSent
         ) : (
           <div className="mx-auto w-full max-w-[600px]">
-            {adapter.fields ? <EmailInbox id={id} fields={adapter.fields} session={editor.session} track={track} only={inboxFields} onSaved={fieldSaved} /> : null}
+            {email.inboxFrame}
             <PmlCanvas
               // Locked: the canvas's own "building" state takes no presses (no skeleton row), as in the page editor.
               building={locked ? { at: nodes.length + 1, label: null } : null}
@@ -381,7 +335,7 @@ export function EmailEditor({
             {locked ? null : (
               <Button variant="outline" className="mt-3 w-full border-dashed" onClick={() => setAdding(true)}>
                 <Plus className="h-4 w-4" />
-                Add a block
+                {EMAIL_WORDS.add}
               </Button>
             )}
           </div>
@@ -391,7 +345,7 @@ export function EmailEditor({
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? 'Block settings' : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : 'Email checks'}
+          title={panel === 'selected' ? EMAIL_WORDS.settings : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : EMAIL_WORDS.checks}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <div className="space-y-4">
@@ -404,12 +358,12 @@ export function EmailEditor({
                     selectPath(null);
                   }}
                 >
-                  Comment on this block
+                  {EMAIL_WORDS.commentOn}
                 </Button>
               ) : null}
             <PmlSettings
               node={selected}
-              deleteLabel="Delete block"
+              deleteLabel={EMAIL_WORDS.remove}
               onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
               onDelete={() => {
                 change(removeNodeAtPath(nodes, selectedPath));
@@ -420,12 +374,12 @@ export function EmailEditor({
           ) : openHost ? (
             openHost.render(controls)
           ) : openGroup ? (
-            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} onSaved={fieldSaved} />
+            <FieldGroupPanel id={id} fields={adapter.fields} session={editor.session} groups={fieldGroups} open={openGroup} onOpen={(key) => openPanel(`group:${key}`)} onSaved={email.fieldSaved} />
           ) : panel === 'details' ? (
-            adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null
+            adapter.fields ? <DocumentFieldsPanel id={id} fields={adapter.fields} session={editor.session} onSaved={email.fieldSaved} /> : null
           ) : panel === 'checks' ? (
             editor.scan ? (
-              <FindingsPanel preflight={editor.scan} words={{ ...SAVE_FOR_EVERYONE_WORDS, ...checkWords }} />
+              <FindingsPanel preflight={editor.scan} words={email.findingsWords} />
             ) : (
               <p className="text-sm text-[var(--pb-muted)]">Running the checks...</p>
             )
@@ -436,52 +390,14 @@ export function EmailEditor({
           onOpenChange={setAdding}
           existing={nodes}
           onAdd={(node: PmlNode) => change([...nodes, node])}
-          unavailable={unavailable}
-          title="Add a block"
-          description="Only what an email can hold: words, headings, buttons, pictures, notes, tables and dividers."
+          unavailable={email.unavailable}
+          title={EMAIL_WORDS.add}
+          description={EMAIL_WORDS.addDescription}
         />
         <DraftConflictDialog open={editor.conflict !== null} noun="email" onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
       </div>
     </CatalogProvider>
     </EditorSurfaceProvider>
     </FieldsEpochContext.Provider>
-  );
-}
-
-/** The editor's own header when the host does not draw the controls in its chrome. */
-function EmailEditorHeader({ controls }: { controls: EmailEditorControls }): React.JSX.Element {
-  const status = controls.saving ? 'Saving draft' : controls.dirty ? 'Unsaved changes' : 'Draft saved';
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div role="tablist" aria-label="Email views" className="flex gap-2">
-        {(['design', 'sent'] as const).map((t) => (
-          <Button key={t} role="tab" aria-selected={controls.tab === t} size="sm" variant={controls.tab === t ? 'primary' : 'outline'} onClick={() => controls.setTab(t)}>
-            {t === 'design' ? 'Design' : 'As sent'}
-          </Button>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-[var(--pb-muted)]" aria-live="polite">
-          {status}
-        </span>
-        <Button size="icon" variant="ghost" aria-label="Undo" disabled={!controls.canUndo} onClick={controls.undo}>
-          <Undo2 />
-        </Button>
-        <Button size="icon" variant="ghost" aria-label="Redo" disabled={!controls.canRedo} onClick={controls.redo}>
-          <Redo2 />
-        </Button>
-        <Button size="sm" variant="outline" onClick={controls.check}>
-          <ShieldCheck />
-          Run the checks
-        </Button>
-        {controls.publish ? (
-          <Button size="sm" onClick={controls.publish} disabled={controls.publishing}>
-            <Send />
-            {controls.publishing ? 'Saving for everyone' : 'Save for everyone'}
-          </Button>
-        ) : null}
-      </div>
-    </div>
   );
 }

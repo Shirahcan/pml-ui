@@ -19,7 +19,7 @@ describe('PmlAddSectionDialog', () => {
 
     expect(screen.getByText('Post')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Title' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sources' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Post sources' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Post header' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Related guides' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Summary' }));
