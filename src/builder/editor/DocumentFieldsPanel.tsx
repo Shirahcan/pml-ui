@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { isConflict, type DocumentField, type DocumentFieldsPort } from '../document';
 import { useOwnVars } from '../ui/theme';
 import { FieldRow } from './FieldRow';
+import { mergeFreshRead, useFieldsEpoch } from './fieldsEpoch';
 import { useBuilderHost } from './host';
 
 /**
@@ -84,6 +85,31 @@ export function DocumentFieldsPanel({
       Object.values(richTimers.current).forEach(clearTimeout);
     };
   }, [fields, id]);
+
+  // The editor's refreshFields(): read the fields again, after any write still on its way, keeping what is being typed.
+  const epoch = useFieldsEpoch();
+  const firstEpoch = useRef(epoch);
+  useEffect(() => {
+    if (epoch === firstEpoch.current) return undefined;
+
+    let alive = true;
+
+    queue.current = queue.current
+      .then(() => fields.read(id))
+      .then((read) => {
+        if (!alive) return;
+        setValues((current) => mergeFreshRead(current, saved.current, read.values));
+        saved.current = read.values;
+        revision.current = read.revision;
+        setConflict(false);
+      })
+      .catch((err) => hostRef.current.onError(err));
+
+    return () => {
+      alive = false;
+    };
+    // Only a new epoch re-reads; a new document or port is the load above.
+  }, [epoch]);
 
   const set = (name: string, value: unknown) => setValues((v) => ({ ...v, [name]: value }));
 

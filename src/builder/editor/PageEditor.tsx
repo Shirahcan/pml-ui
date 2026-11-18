@@ -38,6 +38,7 @@ import { NestedPartCounters } from './NestedPartCounters';
 import { PieceFieldsPanel } from './PieceFields';
 import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
 import type { StudioElementAction } from '../studio/ElementMenu';
+import { FieldsEpochContext } from './fieldsEpoch';
 import { useStudioComments, type CommentMenuItem } from './useStudioComments';
 import type { StudioComment } from '../../language';
 import { PmlSettings } from './PmlSettings';
@@ -64,6 +65,18 @@ export interface PageEditorControls {
    * post's title applied from an assistant's proposal through the fields port). Keeps the undo history, unlike a remount.
    */
   refreshPreview: () => void;
+  /**
+   * The host wrote the document's fields itself (its assistant set an email's preview text through the fields port): every
+   * open details form reads them again, keeping a field the person is typing in, and the canvas compiles again. Keeps the
+   * undo history, unlike a remount (2026-11-18).
+   */
+  refreshFields: () => void;
+  /**
+   * A draft was saved elsewhere on purpose (the host's worker saved the assistant's result): take it, tree and revision,
+   * as one undo step, without saving it again. False, and nothing changes, while this editor has an unsaved change or a
+   * save on its way; the host then says so (2026-11-18).
+   */
+  adoptSavedDraft: () => Promise<boolean>;
   /** Copy a shareable preview link; absent when the document has none. */
   copyPreviewLink?: () => void;
   /** Which view shows: the design or its code; `toggleCode` is absent when the document has no code port. */
@@ -238,6 +251,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const code = adapter.code;
   const [confirmRollback, setConfirmRollback] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  // Bumped by refreshFields(): every open details form reads the document's fields again.
+  const [fieldsEpoch, setFieldsEpoch] = useState(0);
   // The element whose menu is open (its path, joined): a right-click opens it, as does its three dots on the bar.
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const host = useBuilderHost();
@@ -385,6 +400,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     publish: () => void editor.publish(),
     rollback: editor.canRollback ? () => setConfirmRollback(true) : undefined,
     refreshPreview: editor.refreshPreview,
+    refreshFields: () => {
+      setFieldsEpoch((n) => n + 1);
+      editor.refreshPreview();
+    },
+    adoptSavedDraft: editor.adoptSavedDraft,
     copyPreviewLink: editor.canPreviewLink ? () => void editor.copyPreviewLink() : undefined,
     view,
     toggleCode: code
@@ -423,6 +443,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   }
 
   return (
+    <FieldsEpochContext.Provider value={fieldsEpoch}>
     <EditorNounProvider noun={noun}>
     <CanvasFlavorContext.Provider value={flavor}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
@@ -632,5 +653,6 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     </CatalogProvider>
     </CanvasFlavorContext.Provider>
     </EditorNounProvider>
+    </FieldsEpochContext.Provider>
   );
 }

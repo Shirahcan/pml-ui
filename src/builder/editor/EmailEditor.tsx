@@ -20,6 +20,7 @@ import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { PmlCanvas, type CanvasFrame } from './PmlCanvas';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
+import { FieldsEpochContext } from './fieldsEpoch';
 import { EditorSurfaceProvider } from './surface';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
@@ -62,6 +63,18 @@ export interface EmailEditorControls {
    * revision): how an assistant's answer lands from the host's console, as in the page editor.
    */
   replaceNodes: (nodes: PmlNode[]) => void;
+  /**
+   * The host wrote the document's fields itself (its assistant set an email's preview text through the fields port): every
+   * open details form reads them again, keeping a field the person is typing in, and the canvas compiles again. Keeps the
+   * undo history, unlike a remount (2026-11-18).
+   */
+  refreshFields: () => void;
+  /**
+   * A draft was saved elsewhere on purpose (the host's worker saved the assistant's result): take it, tree and revision,
+   * as one undo step, without saving it again. False, and nothing changes, while this editor has an unsaved change or a
+   * save on its way; the host then says so (2026-11-18).
+   */
+  adoptSavedDraft: () => Promise<boolean>;
   /** The email's design as it stands (the console's "@" targets and labels read it). */
   nodes: PmlNode[];
 }
@@ -177,6 +190,8 @@ export function EmailEditor({
   const [tab, setTab] = useState<'design' | 'sent'>('design');
   const [adding, setAdding] = useState(false);
   const [sentVersion, setSentVersion] = useState(0);
+  // Bumped by refreshFields(): the inbox frame and every details form read the email's fields again.
+  const [fieldsEpoch, setFieldsEpoch] = useState(0);
   const [sentStale, setSentStale] = useState(false);
   const fieldWrites = useRef(new Set<Promise<unknown>>());
   const host = useBuilderHost();
@@ -287,6 +302,13 @@ export function EmailEditor({
     flush: () => Promise.all([editor.flush(), ...fieldWrites.current]).then(([saved]) => saved),
     commentMenu: comments.menuItems,
     replaceNodes: (next) => change(next),
+    refreshFields: () => {
+      setFieldsEpoch((n) => n + 1);
+      editor.refreshPreview();
+      // "As sent" draws the saved email, subject and preview text included: draw it again when it is the view.
+      if (tab === 'sent') setSentVersion((v) => v + 1);
+    },
+    adoptSavedDraft: editor.adoptSavedDraft,
     nodes,
   };
 
@@ -306,6 +328,7 @@ export function EmailEditor({
   }
 
   return (
+    <FieldsEpochContext.Provider value={fieldsEpoch}>
     <EditorSurfaceProvider surface="email">
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
@@ -421,6 +444,7 @@ export function EmailEditor({
       </div>
     </CatalogProvider>
     </EditorSurfaceProvider>
+    </FieldsEpochContext.Provider>
   );
 }
 

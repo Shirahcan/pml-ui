@@ -63,4 +63,6 @@ export { ElementMenu, type StudioElementAction } from './builder/studio/ElementM
 export { CLIPBOARD_KEY, availableActions, elementActions, freshCopy, heldElement, holdElement } from './builder/studio/elementActions';
 export * from './builder/editor/useQuickEditSelection';
 export * from './builder/editor/DocumentFieldsPanel';
+// A host's own fields form under an editor re-reads with the editor's refreshFields() (2026-11-18).
+export { FieldsEpochContext, mergeFreshRead, useFieldsEpoch } from './builder/editor/fieldsEpoch';
 export * from './builder/editor/SlidePanel';

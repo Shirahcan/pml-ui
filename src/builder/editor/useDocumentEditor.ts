@@ -247,6 +247,43 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     }
   }, [cancelWaitingSave, replaceFromSaved]);
 
+  /**
+   * Take a draft that was saved elsewhere on purpose (2026-11-18, portify-1c: the host's background worker saved the
+   * assistant's result as the next draft, so this editor's next autosave would have been refused as a conflict): the
+   * saved tree and its revision become this editor's, as ONE undo step, and nothing is saved again. Undo goes back to
+   * the tree before it and saves that at the new revision, like any change. Refused (false), touching nothing, while
+   * this editor has a change that is not saved yet or a save on its way, so nobody's work is replaced; the host says so.
+   */
+  const adoptSavedDraft = useCallback(async (): Promise<boolean> => {
+    if (dirtyRef.current || saveTimer.current) return false;
+
+    // A save already sent finishes first, so the draft read below is the newest one.
+    await saveChain.current;
+    if (dirtyRef.current || saveTimer.current) return false;
+
+    const gen = ++generation.current;
+
+    try {
+      const loaded = await loadDocument();
+
+      // The person changed something while it was being read: their change wins, the saved draft waits.
+      if (gen !== generation.current || dirtyRef.current) return false;
+
+      history.record(latestNodes.current);
+      take(loaded);
+      setConflict(null);
+      markDirty(false);
+      setScan(null);
+      setPlaceholdersLeft(null);
+
+      return true;
+    } catch (err) {
+      sayRef.current.error(err);
+
+      return false;
+    }
+  }, [history, loadDocument, take, markDirty]);
+
   /** Try the load again after it failed (the host shows `loadError` with a Retry). */
   const reload = useCallback(() => {
     cancelWaitingSave();
@@ -490,5 +527,6 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     conflict,
     keepMine,
     loadLatest,
+    adoptSavedDraft,
   };
 }
