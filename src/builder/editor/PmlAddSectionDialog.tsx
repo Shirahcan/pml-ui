@@ -67,12 +67,21 @@ import {
   PML_GROUP_LABELS,
   PML_GROUP_ORDER,
   PML_SECTIONS,
+  PROFILE_PIECES,
   type PmlGroup,
 } from '../../language';
 
 /** Pieces a document never gets from the menu: the old one-piece header (posts now place its pieces one by one) and
  * related guides, which a post draws from its own logic, never from the design (owner 2026-11-17). */
 const NEVER_ADDED = new Set(['post_header', 'post_related']);
+
+/**
+ * Every profile's pieces (pml-kit's profiles, one authority). A piece is offered ONLY in its own document's group of
+ * pieces: never in the general groups, so a post lists each once (2026-11-18: they showed in "Post" AND "Components"),
+ * and a page, an email or a card never offers a post's (shared PML Studio P1a-3: the page profile refuses post pieces,
+ * which read a post's record a page does not have).
+ */
+const PROFILE_PIECE_NAMES: ReadonlySet<string> = new Set(Object.values(PROFILE_PIECES).flatMap((pieces) => Object.keys(pieces)));
 import type { PmlNode } from '../../language';
 
 /**
@@ -268,6 +277,8 @@ export function PmlAddSectionDialog({
             : [];
       } else {
         items = PML_SECTIONS.filter((def) => groupOf(def) === group)
+          // A profile's piece is offered only in its own document's pieces group (above), never here.
+          .filter((def) => !PROFILE_PIECE_NAMES.has(def.name) && !PROFILE_PIECE_NAMES.has(def.defaults.primitive ?? ''))
           // The premium modal shows ONLY premium components; the standard modal shows the rest.
           .filter((def) => (variant === 'premium' ? def.premium === true : !def.premium))
           // Never offer what this site's owner cannot have.

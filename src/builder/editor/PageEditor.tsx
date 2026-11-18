@@ -171,7 +171,10 @@ export interface PageEditorProps {
    * against its rule and "Add" / "Remove last" after a repeating part (owner 2026-11-17, T2).
    */
   layout?: DocumentLayout | null;
-  /** The canvas's reading look: a post's designer passes `post`, so the canvas draws what the public post does. */
+  /**
+   * @deprecated The canvas's reading look now follows `profile` (a post draws in the post's reading look, as its public
+   * page does). Kept for one release as an override; a host passes `profile` only.
+   */
   flavor?: 'post' | 'page';
   /**
    * A document field was saved from a panel (a post's title, its category). The canvas compiles again by itself; a
@@ -290,6 +293,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
 
   // The document's pieces, from its profile (one authority in pml-kit): a post's have fields, a page has none.
   const pieces = piecesOf(profile);
+  // The reading look follows the profile (shared PML Studio P2a); an explicit `flavor` still wins for one release.
+  const canvasFlavor = flavor ?? (profile === 'post' ? 'post' : 'page');
   const pieceNames = useMemo(() => Object.keys(pieces), [pieces]);
 
   // A double-click on a piece whose words are one text field (a post's title, line under the title, author) types it
@@ -445,7 +450,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   return (
     <FieldsEpochContext.Provider value={fieldsEpoch}>
     <EditorNounProvider noun={noun}>
-    <CanvasFlavorContext.Provider value={flavor}>
+    <CanvasFlavorContext.Provider value={canvasFlavor}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
     <PiecesProvider pieces={pieceNames}>
       <div className="space-y-4 text-[var(--pb-text)]" style={vars}>
@@ -656,3 +661,12 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     </FieldsEpochContext.Provider>
   );
 }
+
+/**
+ * The Studio (shared PML Studio P2a): one editor for every kind of PML document, its purpose given by `profile` (a page,
+ * a post, an email, a card). `PageEditor` is the same component under its first name. What is shared chrome and what
+ * is a profile's own is written down in docs/STUDIO.md.
+ */
+export const Studio = PageEditor;
+export type StudioProps = PageEditorProps;
+export type StudioControls = PageEditorControls;

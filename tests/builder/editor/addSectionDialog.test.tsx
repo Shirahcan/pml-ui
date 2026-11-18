@@ -31,6 +31,27 @@ describe('PmlAddSectionDialog', () => {
     expect(screen.queryByText('Post')).toBeNull();
   });
 
+  it("never offers a post's pieces to a page, an email or a card (shared PML Studio P2a / P1a-3)", () => {
+    render(<PmlAddSectionDialog open onOpenChange={noop} existing={[]} onAdd={noop} partials={[]} />);
+
+    for (const name of ['Post cover', 'Call to action (from the library)', 'Client story', 'Disclaimer']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+    // The page's own blocks are all still there.
+    expect(screen.getByRole('button', { name: 'Hero' })).toBeTruthy();
+  });
+
+  it("lists each of a post's pieces once, in its Post group, never again under Components (2026-11-18)", () => {
+    render(
+      <PiecesProvider pieces={['post_cover', 'post_cta', 'post_story', 'post_sources', 'post_disclaimer']}>
+        <PmlAddSectionDialog open onOpenChange={noop} existing={[]} onAdd={noop} partials={[]} />
+      </PiecesProvider>,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Post cover' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Disclaimer' })).toHaveLength(1);
+  });
+
   it('renders the Components group with a curated section', () => {
     render(
       <PmlAddSectionDialog open onOpenChange={noop} existing={[]} onAdd={noop} partials={[]} />,

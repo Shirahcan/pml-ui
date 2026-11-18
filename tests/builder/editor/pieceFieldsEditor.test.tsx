@@ -118,6 +118,23 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
     expect((key as HTMLElement).style.textTransform).toBe('uppercase');
   });
 
+  it('the reading look follows the profile alone, and Studio is the same editor (shared PML Studio P2a)', async () => {
+    const { Studio } = await import('../../../src/builder/editor/PageEditor');
+    expect(Studio).toBe(PageEditor);
+
+    const adapter = fakeAdapter();
+    const withAnswer = [...design, { primitive: 'callout', props: { title: 'Short answer' }, children: [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Most can.' } }] }] }];
+    (adapter.load as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ document: { nodes: withAnswer }, revision: 'd1', meta: { title: 'Work permits', slug: 'work-permits', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } });
+    const { unmount } = render(<Studio adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} profile="post" />);
+
+    expect(((await screen.findByText('Short answer', {}, { timeout: 3000 })) as HTMLElement).style.textTransform).toBe('uppercase');
+    unmount();
+
+    // A page draws its own look: the same note is not set in the post's reading style.
+    render(<Studio adapter={adapter} id="p1" labels={{ noun: 'page' }} profile="page" />);
+    expect(((await screen.findByText('Short answer', {}, { timeout: 3000 })) as HTMLElement).style.textTransform).not.toBe('uppercase');
+  });
+
   it('a required part, a locked part and a repeat at its minimum can all be deleted, and undo brings them back', async () => {
     // Owner 2026-11-18: "don't lock any element/component; admins should be able to modify/remove/etc every element".
     const adapter = fakeAdapter();
