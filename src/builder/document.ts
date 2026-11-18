@@ -202,14 +202,18 @@ export interface DocumentLayoutPart {
   max?: number | null;
   rules?: { words?: { min?: number; max?: number }; chars?: { max?: number } } | null;
   starter?: PmlNode[] | null;
-  /** The document cannot do without it (a post's header, its cover): the designer offers no Delete for it. */
+  /**
+   * The document should not go without it (a post's header, its cover). ADVICE, checked before publishing: the designer
+   * still deletes it (owner 2026-11-18: "don't lock any element/component; admins should be able to modify/remove/etc
+   * every element"), and undo brings it back.
+   */
   required?: boolean;
-  /** Its shape is fixed by the template: neither it nor anything inside it is deleted on the canvas. */
+  /** The template means its shape to stay as designed: a publish check, never a lock in the designer (as `required`). */
   locked?: boolean;
   /**
-   * The repeating part this whole block may move among (growth-service, pml-kit layout.outside_range): anywhere after
-   * the first instance of that part and no further than just after its last, never above or below them. A post's data
-   * table and its mid-post call to action move among the question sections. Absent: a template part keeps its place.
+   * The repeating part this whole block belongs among (growth-service, pml-kit layout.outside_range): after the first
+   * instance of that part and no further than just after its last. A post's data table and its mid-post call to action
+   * sit among the question sections. ADVICE: the publish checks name a block outside its range; the designer moves it.
    */
   moves_within?: string | null;
 }

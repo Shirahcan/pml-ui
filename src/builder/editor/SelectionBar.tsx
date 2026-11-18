@@ -33,7 +33,8 @@ export interface AssistantAsk {
 
 /**
  * The selected element's bar (owner 2026-11-17, the reference studio): its number and name over its top-left corner,
- * the assistant's two asks, and for one instance of a repeating part Up / Down / Remove within the part's limits.
+ * the assistant's two asks, and Up / Down / Remove for every element (owner 2026-11-18: no element is locked; a repeat's
+ * limits are the publish checks, never a disabled button).
  *
  * "AI write" and "AI suggest" make NO call here: they hand the host a scoped ask, which a post's designer sends to its
  * docked console as an ordinary turn about that element (the person asked by clicking). Without `onAsk` they are not
@@ -72,7 +73,7 @@ export function SelectionBar({
   const nth = instances.findIndex((at) => at.join('.') === path.join('.')) + 1;
   const askable = canAsk ? canAsk(node, path) : !onlyPostPieces(node);
   // Moves and removal by the layout's one rule (owner 2026-11-17: the reorder buttons live here, at the top-left, where
-  // the slide-in panel never covers them, and show on hover as well as for the selection).
+  // the slide-in panel never covers them, and show on hover as well as for the selection; 2026-11-18: nothing refuses).
   const up = reorder(nodes, layout, path, -1);
   const down = reorder(nodes, layout, path, 1);
   const moves = movable(nodes, layout, path);
@@ -134,13 +135,11 @@ export function SelectionBar({
         <button
           type="button"
           className={button}
-          disabled={!removable}
           onClick={() => {
             change(removeNodeAtPath(nodes, path));
             select(null);
           }}
           aria-label={`Remove this ${label.toLowerCase()}`}
-          title={removable ? undefined : `The template needs at least ${Math.max(part?.min ?? 0, 1)}.`}
         >
           <Trash2 className="h-3 w-3" aria-hidden />
           Remove
@@ -152,7 +151,7 @@ export function SelectionBar({
 
 /**
  * The selected element's position in its settings panel (owner 2026-11-17: "there should be reorder options on the side
- * panel config"), by the same rule as its bar: nothing for a template part that keeps its place.
+ * panel config"), by the same rule as its bar: every element moves; nothing only when it has no sibling to pass.
  */
 export function PositionControls({
   nodes,

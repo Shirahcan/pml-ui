@@ -181,14 +181,13 @@ export function PmlSettings({
             Duplicate
           </Button>
         ) : null}
+        {/* Every element can be deleted (owner 2026-11-18: "don't lock any element/component"); undo brings it back. */}
         {canDelete ? (
           <Button type="button" variant="outline" onClick={onDelete} className="w-full whitespace-nowrap text-red-600 outline-none">
             <Trash2 className="mr-2 h-4 w-4" />
             {deleteLabel}
           </Button>
-        ) : (
-          <p className="text-xs text-[var(--pb-muted)]">The template needs this part, so it cannot be deleted.</p>
-        )}
+        ) : null}
       </div>
     </div>
   );

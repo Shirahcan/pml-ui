@@ -11,7 +11,8 @@ import { FRAME_GUTTER, FRAME_MAX_WIDTH, splitSectionFrame } from '../../pml/sect
 /**
  * The layout's guides on the canvas, editor-only (owner 2026-11-17, T2: the designer mirrors the reference studio):
  * under each part with a words rule, its count against the rule ("142 words · aim 150 to 200", red outside the range);
- * after the last instance of a repeating part, "+ Add {part}" and "Remove last {part}" within its min and max. The
+ * after the last instance of a repeating part, "+ Add {part}" and "Remove last {part}". Its min and max are the publish
+ * checks' advice, never a limit here (owner 2026-11-18: "don't lock any element/component"). The
  * parts come from the document's layout (its meta); a node says which part it is with `part`.
  */
 
@@ -173,8 +174,10 @@ export function PartGuides({
       ) : null}
       {rows.map((row) => {
         const count = row.paths.length;
-        const canAdd = (row.part.max === undefined || row.part.max === null || count < row.part.max) && (row.part.starter?.length ?? 0) > 0;
-        const canRemove = count > (row.part.min ?? 0);
+        // Owner 2026-11-18: no element is locked, so neither the template's max nor its min refuses; the publish checks
+        // name a count outside them. Add needs only a starter to copy.
+        const canAdd = (row.part.starter?.length ?? 0) > 0;
+        const canRemove = count > 0;
 
         if (!canAdd && !canRemove) return null;
 

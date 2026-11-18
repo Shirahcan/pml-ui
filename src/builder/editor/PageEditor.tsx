@@ -453,8 +453,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             viewport="desktop"
             onSelect={(index) => comments.pickOr(selectFromCanvas)(index === null ? null : [index])}
             canDelete={(index) => deletable([index])}
-            // A template part keeps its place (moving the cover or the contents breaks the post's order and starts a
-            // layout finding); a repeat instance moves with its selection bar's Up / Down, among its own kind only.
+            // Every element moves (owner 2026-11-18: no element is locked); a template's order is a publish check.
             canMove={(index) => canReorder(nodes, layout, [index])}
             onMove={(from, to) => {
               if (!canReorder(nodes, layout, [from])) return;

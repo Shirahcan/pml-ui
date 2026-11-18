@@ -65,7 +65,8 @@ describe('the selection bar (owner 2026-11-17, the reference studio)', () => {
     const select = vi.fn();
     render(<SelectionBar nodes={design} path={[2]} layout={layout} change={change} select={select} />);
 
-    expect((screen.getByRole('button', { name: 'Move this question section up' }) as HTMLButtonElement).disabled).toBe(true);
+    // It may go above the opening too (owner 2026-11-18: nothing is locked; the publish checks advise on order).
+    expect((screen.getByRole('button', { name: 'Move this question section up' }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Move this question section down' }));
 
     const next = change.mock.calls[0][0] as PmlNode[];
@@ -73,12 +74,12 @@ describe('the selection bar (owner 2026-11-17, the reference studio)', () => {
     expect(select).toHaveBeenCalledWith([4]);
   });
 
-  it('moves a nested repeat inside its parent, and keeps it at its minimum', () => {
+  it('moves a nested repeat inside its parent, and removes it even at the template minimum (a publish check, not a lock)', () => {
     const change = vi.fn();
     render(<SelectionBar nodes={design} path={[5, 1]} layout={layout} change={change} select={() => undefined} />);
 
-    // Two FAQ items, and the template needs two: none may go.
-    expect((screen.getByRole('button', { name: 'Remove this faq item' }) as HTMLButtonElement).disabled).toBe(true);
+    // Two FAQ items and the template asks for two: removing one is still the admin's call (owner 2026-11-18).
+    expect((screen.getByRole('button', { name: 'Remove this faq item' }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Move this faq item up' }));
     const faq = (change.mock.calls[0][0] as PmlNode[])[5];
     expect(faq.children?.map((item) => item.props?.question)).toEqual(['How long does it take?', 'Can I work while I wait?']);
@@ -110,28 +111,24 @@ describe('the selection bar (owner 2026-11-17, the reference studio)', () => {
     expect(screen.queryByRole('button', { name: /AI write/ })).toBeNull();
   });
 
-  it('shows no repeat controls for a part that does not repeat', () => {
-    render(<SelectionBar nodes={design} path={[0]} layout={layout} change={() => undefined} select={() => undefined} />);
+  it('a required, locked part that does not repeat still moves and can be removed (owner 2026-11-18)', () => {
+    const change = vi.fn();
+    render(<SelectionBar nodes={design} path={[0]} layout={layout} change={change} select={() => undefined} />);
 
     expect(screen.getByRole('toolbar').textContent).toContain('01 · Opening');
-    expect(screen.queryByRole('button', { name: /Remove/ })).toBeNull();
+    expect((screen.getByRole('button', { name: 'Move this opening down' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove this opening' }));
+    expect((change.mock.calls[0][0] as PmlNode[]).some((node) => node.part === 'header')).toBe(false);
   });
 });
 
 describe('what may be deleted, by the layout', () => {
-  it('an element follows its OWN part first, nested repeats included; inside a locked part nothing goes', () => {
-    expect(canDelete(design, layout, [0])).toBe(false); // the opening: required and locked
-    expect(canDelete(design, layout, [0, 0])).toBe(false); // the title, inside the locked opening
-    expect(canDelete(design, layout, [2])).toBe(true); // two questions, one is enough
-    expect(canDelete(design, layout, [5, 0])).toBe(false); // two FAQ items, two are needed
-    expect(canDelete(design, layout, [1])).toBe(true); // a note is no part
+  it('every element may be deleted, required and locked parts and the pieces inside them included (owner 2026-11-18)', () => {
+    for (const path of [[0], [0, 0], [2], [5, 0], [1]]) expect(canDelete(design, layout, path)).toBe(true);
   });
 
-  it('a template part, and anything inside a locked part, keeps its place; everything else moves freely', () => {
-    expect(canReorder(design, layout, [0])).toBe(false); // the opening
-    expect(canReorder(design, layout, [0, 0])).toBe(false); // the title inside the locked opening
-    expect(canReorder(design, layout, [2])).toBe(false); // a question section moves only with its bar's Up / Down
-    expect(canReorder(design, layout, [1])).toBe(true); // a note
+  it('every element may be moved and dragged', () => {
+    for (const path of [[0], [0, 0], [2], [1]]) expect(canReorder(design, layout, path)).toBe(true);
   });
 });
 
@@ -162,8 +159,8 @@ describe("reordering lives in the bar and the panel, never under the slide-in (o
     fireEvent.click(await screen.findByRole('heading', { name: 'Who can apply?' }, { timeout: 3000 }));
     const position = await screen.findByRole('group', { name: 'Position' }, { timeout: 3000 });
 
-    // The first question section cannot go above itself among its kind.
-    expect((within(position).getByRole('button', { name: /Move up/ }) as HTMLButtonElement).disabled).toBe(true);
+    // A template part moves past the opening too (owner 2026-11-18: nothing is locked).
+    expect((within(position).getByRole('button', { name: /Move up/ }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(within(position).getByRole('button', { name: /Move down/ }));
 
     await waitFor(() => {
@@ -172,12 +169,13 @@ describe("reordering lives in the bar and the panel, never under the slide-in (o
     });
   });
 
-  it('a template part that keeps its place offers no Position at all; an element the author added moves', async () => {
+  it('an element alone in its parent has nowhere to move; every other one moves', async () => {
     open();
     fireEvent.click(await screen.findByRole('heading', { name: 'An extra note' }, { timeout: 3000 }));
     const bar = await screen.findByRole('toolbar', { name: 'Heading tools' }, { timeout: 3000 });
     expect((within(bar).getByRole('button', { name: 'Move this heading up' }) as HTMLButtonElement).disabled).toBe(false);
 
+    // The title is the opening's only piece here: no sibling to change places with.
     fireEvent.click(screen.getByRole('heading', { level: 1, name: 'Work permits' }));
     await screen.findByRole('toolbar', { name: 'Title tools' }, { timeout: 3000 });
     expect(screen.queryByRole('group', { name: 'Position' })).toBeNull();
@@ -191,10 +189,10 @@ describe("reordering lives in the bar and the panel, never under the slide-in (o
   });
 });
 
-describe('moving a block within its range (moves_within)', () => {
+describe('every element moves (owner 2026-11-18: no element is locked)', () => {
   const c = (n: number) => ({ comment: `Purpose: note ${n}.` });
   const q = (text: string) => ({ primitive: 'heading', part: 'section', props: { text, level: 2 } });
-  // header, note, Q1, note, DATA, note, Q2, note, Q3, faq
+  // header, note, Q1, note, DATA, note, Q2, faq
   const page = [
     { primitive: 'box', part: 'header', children: [] },
     c(1),
@@ -203,13 +201,11 @@ describe('moving a block within its range (moves_within)', () => {
     { primitive: 'table', part: 'data', props: {} },
     c(3),
     q('Q2'),
-    c(4),
-    q('Q3'),
     { primitive: 'faq', part: 'faq', children: [] },
   ] as unknown as PmlNode[];
   const ranges: DocumentLayout = {
     parts: [
-      { key: 'header', label: 'Opening', kind: 'header', required: true },
+      { key: 'header', label: 'Opening', kind: 'header', required: true, locked: true },
       { key: 'section', label: 'Question section', kind: 'repeat', min: 1 },
       { key: 'data', label: 'Data table', kind: 'fill', moves_within: 'section' },
       { key: 'faq', label: 'FAQ', kind: 'faq' },
@@ -217,26 +213,24 @@ describe('moving a block within its range (moves_within)', () => {
   };
   const words = (nodes: PmlNode[]) => nodes.map((n) => n.comment ?? n.props?.text ?? n.part);
 
-  it('never goes above the first instance of its range', () => {
-    expect(reorder(page, ranges, [4], -1)).toBeNull();
+  it('a block with a range may leave it: the publish checks advise, the designer never refuses', () => {
+    const up = reorder(page, ranges, [4], -1)!;
+
+    expect(words(up.nodes)).toEqual(['header', 'Purpose: note 1.', 'data', 'Purpose: note 2.', 'Q1', 'Purpose: note 3.', 'Q2', 'faq']);
+    expect(up.path).toEqual([2]);
   });
 
-  it('hops past the next section with its own note, never splitting a note from its section', () => {
-    const once = reorder(page, ranges, [4], 1)!;
-    expect(words(once.nodes)).toEqual(['header', 'Purpose: note 1.', 'Q1', 'Purpose: note 3.', 'Q2', 'Purpose: note 2.', 'data', 'Purpose: note 4.', 'Q3', 'faq']);
-    expect(once.path).toEqual([6]);
+  it('a step skips the comments (they draw nothing), so every click visibly moves the element', () => {
+    const down = reorder(page, ranges, [2], 1)!;
 
-    const twice = reorder(once.nodes, ranges, once.path, 1)!;
-    expect(words(twice.nodes).slice(-3)).toEqual(['Purpose: note 2.', 'data', 'faq']);
-    // Below the last section it goes no further.
-    expect(reorder(twice.nodes, ranges, twice.path, 1)).toBeNull();
-    // And it comes back the way it went.
-    expect(words(reorder(once.nodes, ranges, once.path, -1)!.nodes)).toEqual(words(page));
+    expect(words(down.nodes).slice(0, 5)).toEqual(['header', 'Purpose: note 1.', 'data', 'Purpose: note 2.', 'Q1']);
+    expect(down.path).toEqual([4]);
   });
 
-  it('a template part without a range keeps its place', () => {
-    expect(reorder(page, ranges, [0], 1)).toBeNull();
-    expect(reorder(page, ranges, [9], -1)).toBeNull();
+  it('a required, locked part moves too, and stops only at an edge', () => {
+    expect(reorder(page, ranges, [0], 1)!.path).toEqual([2]);
+    expect(reorder(page, ranges, [0], -1)).toBeNull();
+    expect(reorder(page, ranges, [7], 1)).toBeNull();
   });
 });
 

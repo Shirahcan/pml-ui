@@ -42,13 +42,13 @@ describe('PartGuides', () => {
     expect(screen.queryByText(/33 words/)).toBeNull();
   });
 
-  it('adds another section after the last one, from the starter, and removes the last only above the minimum', () => {
+  it('adds another section after the last one, from the starter, and removes the last even at the minimum', () => {
     const nodes = [{ primitive: 'box', part: 'section', children: [] } as unknown as PmlNode, { primitive: 'box', part: 'section', children: [] } as unknown as PmlNode, para('after')];
     const change = vi.fn();
     const { rerender } = render(<PartGuides nodes={nodes} index={1} layout={layout} change={change} />);
 
-    // Two is the minimum: nothing to remove yet.
-    expect(screen.queryByRole('button', { name: /Remove last question section/ })).toBeNull();
+    // Two is the template's minimum, and removing one is still the admin's call (owner 2026-11-18: no locks).
+    expect(screen.getByRole('button', { name: /Remove last question section/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Add question section/ }));
     const next = change.mock.calls[0][0] as PmlNode[];
     expect(next).toHaveLength(4);
@@ -72,12 +72,12 @@ describe('PartGuides', () => {
     expect(next[0].children?.[1].part).toBe('faq-item');
   });
 
-  it('offers no add at the maximum, only remove', () => {
+  it('still adds past the maximum (a publish check, not a lock), and removes', () => {
     const faq = { primitive: 'box', part: 'faq', children: [para(words(45), 'faq-item'), para(words(50), 'faq-item')] } as unknown as PmlNode;
     const change = vi.fn();
     render(<PartGuides nodes={[faq]} index={0} layout={layout} change={change} />);
 
-    expect(screen.queryByRole('button', { name: /Add faq/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Add faq/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Remove last faq/ }));
     expect((change.mock.calls[0][0] as PmlNode[])[0].children).toHaveLength(1);
   });

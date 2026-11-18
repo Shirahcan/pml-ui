@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import type { DocumentLayout, EditableDocumentAdapter } from '../../../src/builder/document';
 import { PageEditor } from '../../../src/builder/editor/PageEditor';
@@ -118,17 +118,38 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
     expect((key as HTMLElement).style.textTransform).toBe('uppercase');
   });
 
-  it('a part the post cannot do without offers no Delete, and a repeat at its minimum neither', async () => {
-    render(<PageEditor adapter={fakeAdapter()} id="p1" labels={{ noun: 'post' }} layout={layout} />);
+  it('a required part, a locked part and a repeat at its minimum can all be deleted, and undo brings them back', async () => {
+    // Owner 2026-11-18: "don't lock any element/component; admins should be able to modify/remove/etc every element".
+    const adapter = fakeAdapter();
+    let controls = null as import('../../../src/builder/editor/PageEditor').PageEditorControls | null;
+    render(
+      <PageEditor
+        adapter={adapter}
+        id="p1"
+        labels={{ noun: 'post' }}
+        layout={{ parts: layout.parts.map((part) => (part.key === 'header' ? { ...part, locked: true } : part)) }}
+        renderControls={(c) => {
+          controls = c;
+          return null;
+        }}
+      />,
+    );
     await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 });
 
-    for (const name of [/Box, section 1/, /Heading, section 4/]) {
-      fireEvent.click(screen.getByRole('button', { name }));
-      const panel = await screen.findByRole('complementary', { name: 'Section settings' }, { timeout: 3000 });
+    fireEvent.click(screen.getByRole('button', { name: /Box, section 1/ }));
+    const panel = await screen.findByRole('complementary', { name: 'Section settings' }, { timeout: 3000 });
+    expect(within(panel).queryByText(/cannot be deleted/)).toBeNull();
+    fireEvent.click(within(panel).getByRole('button', { name: 'Delete box' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { level: 1, name: 'Work permits' })).toBeNull());
 
-      expect(await within(panel).findByText('The template needs this part, so it cannot be deleted.')).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Delete section' })).toBeNull();
-    }
+    await act(async () => controls?.undo());
+    expect(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 })).toBeTruthy();
+
+    // The only question, and the template asks for at least one: still the admin's call.
+    fireEvent.click(screen.getByRole('button', { name: /Heading, section 4/ }));
+    const again = await screen.findByRole('complementary', { name: 'Section settings' }, { timeout: 3000 });
+    fireEvent.click(within(again).getByRole('button', { name: 'Delete heading' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Who can apply?' })).toBeNull());
   });
 });
 
