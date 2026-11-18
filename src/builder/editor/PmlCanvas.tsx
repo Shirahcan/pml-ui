@@ -38,6 +38,13 @@ function holderAt(target: EventTarget | null): HTMLElement | null {
   return holder;
 }
 
+/** Whether a click landed on no element's drawn content: the section frame itself or its padding / gutters. */
+function isEmptySpot(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+
+  return Boolean(element?.matches?.('[data-pml-section], [data-pml-frame]'));
+}
+
 const SELECTED = 'z-10 outline outline-2 outline-offset-2 outline-[var(--pml-select,#625FFB)]';
 const IDLE =
   'hover:outline hover:outline-1 hover:outline-offset-2 hover:outline-[color-mix(in_srgb,var(--pml-select,#625FFB)_45%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pml-select,#625FFB)]';
@@ -75,6 +82,7 @@ export function PmlCanvas({
   afterSection,
   canDelete,
   canMove,
+  onClearSelection,
   renderSelectionBar,
   selectedPath,
   onSelectPath,
@@ -110,6 +118,11 @@ export function PmlCanvas({
    * Move up / Move down. Absent, every section can move.
    */
   canMove?: (index: number) => boolean;
+  /**
+   * A click on no element's content (a section's padding, the canvas below the last section, the guides under a
+   * section) clears the selection. Absent, such a click behaves as before (it selects the section).
+   */
+  onClearSelection?: () => void;
   /**
    * The selected element's bar, drawn over its top-left corner (above it when there is room): its name, the
    * assistant's asks, a repeat's moves. Absent, nothing is drawn.
@@ -262,9 +275,26 @@ export function PmlCanvas({
     event.preventDefault();
 
     const holder = holderAt(event.target);
+
+    // Figma-like (owner 2026-11-18: "clicking outside a selected element doesn't remove the selection"): a click that
+    // lands on no element's content (a section's padding or gutters, the frame itself) clears a selection. With nothing
+    // selected the same click selects the section, so a section stays reachable by clicking it twice. Only a pointer's
+    // click clears (`detail` > 0): the section frame is also a button, and pressing it from the keyboard or a screen
+    // reader (a click with `detail` 0) still selects that section.
+    if (onClearSelection && !holder && selectedPath && event.detail > 0 && isEmptySpot(event.target)) {
+      onClearSelection();
+
+      return;
+    }
+
     const rendered = holder?.dataset.pmlPath?.split('.').map(Number) ?? [index];
 
     onSelectPath(sourcePathFor(nodes, rendered));
+  };
+
+  // A click on the canvas outside every section (below the last one) clears the selection too.
+  const clearOnEmpty = (event: React.MouseEvent) => {
+    if (onClearSelection && selectedPath && event.target === canvas.current) onClearSelection();
   };
 
   const hover = (event: React.MouseEvent) => {
@@ -315,6 +345,7 @@ export function PmlCanvas({
       onMouseMove={hover}
       onMouseLeave={unhover}
       onContextMenu={contextMenu}
+      onClick={clearOnEmpty}
       aria-busy={building ? true : undefined}
       className={`relative mx-auto ${width} bg-[var(--site-bg)] text-[var(--site-text)] ${bare ? '' : 'border border-black/10 shadow-sm'} ${frame?.className ?? ''} ${building ? 'pointer-events-none select-none' : ''}`}
       style={frame?.style}
@@ -438,7 +469,21 @@ export function PmlCanvas({
                 </div>
               ) : null}
             </div>
-            {afterSection?.(index)}
+            {(() => {
+              // The guides under a section (word counts, Add / Remove) are not elements: a click on their words clears a
+              // selection like any empty canvas; their buttons still work.
+              const after = afterSection?.(index);
+
+              return after ? (
+                <div
+                  onClick={(event) => {
+                    if (onClearSelection && selectedPath && !(event.target as HTMLElement).closest('button, a, input, select, textarea')) onClearSelection();
+                  }}
+                >
+                  {after}
+                </div>
+              ) : null;
+            })()}
             </React.Fragment>
           );
         })

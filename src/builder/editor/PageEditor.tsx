@@ -308,11 +308,47 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     selectPath(null);
   };
   const closePanel = () => {
-    if (panel === 'selected') selectPath(null);
+    // Clearing a selection never opens another panel (owner 2026-11-18: it switched to "Checks"): a refused publish's
+    // findings that were waiting behind the element's panel are put away with it; "Run the checks" shows them again.
+    if (panel === 'selected') {
+      selectPath(null);
+      setDismissedScan(editor.scan);
+    }
     if (panel === 'checks') setDismissedScan(editor.scan);
     setAsked(null);
   };
   const hasDetails = Boolean(adapter.fields || aside);
+
+  // A click on empty canvas clears the selection and closes its panel outright: neither a refused check's findings nor
+  // a panel opened before the selection (Checks, Details) comes back from behind it.
+  const selectFromCanvas = (path: number[] | null) => {
+    if (path === null && selectedPath) {
+      setDismissedScan(editor.scan);
+      setAsked(null);
+    }
+    selectPath(path);
+  };
+
+  // Esc clears a selection even while its panel is not open (a quick edit); a dialog, a menu or a field keeps its own Esc.
+  useEffect(() => {
+    if (!selectedPath) return undefined;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+
+      const focused = document.activeElement as HTMLElement | null;
+      if (focused && (focused.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(focused.tagName))) return;
+
+      setDismissedScan(editor.scan);
+      setAsked(null);
+      selectPath(null);
+    };
+
+    window.addEventListener('keydown', onKey);
+
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedPath, selectPath, editor.scan]);
 
   const controls: PageEditorControls = {
     saving: editor.saving,
@@ -404,10 +440,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             selectedIndex={selectedPath ? selectedPath[0] : null}
             selectedPath={selectedPath}
             // While a comment is being moved, the next element clicked becomes its element instead of the selection.
-            onSelectPath={comments.pickOr(selectPath)}
+            onSelectPath={comments.pickOr(selectFromCanvas)}
+            onClearSelection={() => comments.pickOr(selectFromCanvas)(null)}
             overlay={comments.layer}
             viewport="desktop"
-            onSelect={(index) => comments.pickOr(selectPath)(index === null ? null : [index])}
+            onSelect={(index) => comments.pickOr(selectFromCanvas)(index === null ? null : [index])}
             canDelete={(index) => deletable([index])}
             // A template part keeps its place (moving the cover or the contents breaks the post's order and starts a
             // layout finding); a repeat instance moves with its selection bar's Up / Down, among its own kind only.
@@ -452,6 +489,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         )}
 
         <SlidePanel
+          // An element's options get more room than a list (owner 2026-11-18), each kind with its own remembered width.
+          defaultWidth={panel === 'selected' ? 480 : 420}
+          widthKey={panel === 'selected' ? 'pml.panel.width.element' : 'pml.panel.width'}
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
@@ -468,6 +508,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 pageNodes={nodes}
                 onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
                 canDelete={deletable(selectedPath)}
+                // Named for what it is ("Delete paragraph"), never "Delete section" for an element inside one (2026-11-18).
+                deleteLabel={`Delete ${elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents).toLowerCase()}`}
                 onDelete={() => {
                   if (!deletable(selectedPath)) return;
                   change(removeNodeAtPath(nodes, selectedPath));

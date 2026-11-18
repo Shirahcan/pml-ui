@@ -22,6 +22,32 @@ const KEEPS_OPEN = [
   '[role="listbox"]',
 ].join(', ');
 
+/** The narrowest and widest a person may drag the panel to (owner 2026-11-18: "make side panel wider"). */
+export const PANEL_MIN_WIDTH = 360;
+export const PANEL_MAX_WIDTH = 720;
+
+function rememberedWidth(key: string): number | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const value = Number(window.localStorage.getItem(key));
+
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberWidth(key: string, width: number): void {
+  try {
+    window.localStorage.setItem(key, String(Math.round(width)));
+  } catch {
+    // Private browsing: the width lasts for this visit only.
+  }
+}
+
+const clampWidth = (width: number): number => Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, width));
+
 /** Close on a press outside the panel, except where that press means something to it (see KEEPS_OPEN). */
 function useDismissOnOutside(panel: RefObject<HTMLElement | null>, open: boolean, onDismiss: () => void): void {
   useEffect(() => {
@@ -57,6 +83,8 @@ export function SlidePanel({
   onClose,
   openKey,
   top = 'var(--shell-top-bar-h,0px)',
+  defaultWidth = 420,
+  widthKey = 'pml.panel.width',
   children,
 }: {
   open: boolean;
@@ -67,9 +95,22 @@ export function SlidePanel({
   openKey?: number;
   /** Where the panel starts from the top of the window (under the host's bar). */
   top?: string;
+  /** Its width until the person drags it (an element's options are wider than a list). */
+  defaultWidth?: number;
+  /** Where the person's own width is remembered on this device; panels of one kind share it. */
+  widthKey?: string;
   children: ReactNode;
 }): React.JSX.Element {
   const panel = useRef<HTMLElement>(null);
+  // The person's width per kind of panel: dragged by the left edge, remembered on this device, never wider than the
+  // window. The panel still floats over the canvas (owner: the design never narrows).
+  const [dragged, setDragged] = useState<Record<string, number>>({});
+  const width = clampWidth(dragged[widthKey] ?? rememberedWidth(widthKey) ?? defaultWidth);
+  const setWidth = (next: number, keep: boolean) => {
+    const clamped = clampWidth(next);
+    setDragged((all) => ({ ...all, [widthKey]: clamped }));
+    if (keep) rememberWidth(widthKey, clamped);
+  };
   // Dismissed here first so the panel starts sliding out at once; the editor is told as a transition.
   const [dismissed, setDismissed] = useState(false);
   const [seenKey, setSeenKey] = useState(openKey);
@@ -109,11 +150,40 @@ export function SlidePanel({
       aria-hidden={!shown}
       inert={!shown}
       data-builder-panel=""
-      style={{ top }}
-      className={`fixed bottom-0 right-0 z-40 flex w-full flex-col border-l border-[var(--pb-border)] bg-[var(--pb-surface)] text-[var(--pb-text)] shadow-[-12px_0_40px_rgb(15,23,42,0.12)] transition-transform duration-200 ease-out motion-reduce:transition-none sm:w-[380px] ${
+      style={{ top, width: `min(${width}px, 100vw)` }}
+      className={`fixed bottom-0 right-0 z-40 flex flex-col border-l border-[var(--pb-border)] bg-[var(--pb-surface)] text-[var(--pb-text)] shadow-[-12px_0_40px_rgb(15,23,42,0.12)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
         shown ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
+      {/* Drag the left edge to resize; arrow keys do the same. Inline styles, so a host need not generate new classes. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the panel"
+        aria-valuemin={PANEL_MIN_WIDTH}
+        aria-valuemax={PANEL_MAX_WIDTH}
+        aria-valuenow={Math.round(width)}
+        tabIndex={0}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture?.(event.pointerId)) setWidth(window.innerWidth - event.clientX, false);
+        }}
+        onPointerUp={(event) => {
+          if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+          setWidth(window.innerWidth - event.clientX, true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            setWidth(width + (event.key === 'ArrowLeft' ? 24 : -24), true);
+          }
+        }}
+        style={{ position: 'absolute', top: 0, bottom: 0, left: -4, width: 8, cursor: 'ew-resize', zIndex: 1, outline: 'none' }}
+      />
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--pb-border)] px-5 py-3">
         <h2 className="truncate text-sm font-semibold">{title}</h2>
         <button type="button" onClick={dismiss} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--pb-muted)] outline-none hover:bg-black/5">
