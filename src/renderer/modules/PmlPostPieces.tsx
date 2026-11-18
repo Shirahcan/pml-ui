@@ -102,7 +102,9 @@ export function PmlPostCategory({ props, className, style, inCanvas }: PieceProp
   return (
     <span
       className={className}
-      style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 5, padding: '3px 9px', margin: '8px 0 10px', ...(name ? null : EMPTY_MARK), ...style }}
+      // `width: fit-content`: the header box is a stack (a flex column), whose items stretch to its width, so the pill
+      // ran edge to edge as a bar instead of hugging its words (owner's sample post, 2026-11-18).
+      style={{ display: 'inline-block', width: 'fit-content', fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: name ? ACCENT : PLACEHOLDER, background: ACCENT_SOFT, borderRadius: 5, padding: '3px 9px', margin: '8px 0 10px', ...(name ? null : EMPTY_MARK), ...style }}
     >
       {name || 'Category'}
     </span>

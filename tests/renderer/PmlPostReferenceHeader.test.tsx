@@ -50,6 +50,8 @@ describe('the reference header', () => {
 
     const pill = [...c.querySelectorAll('span')].find((s) => s.textContent === 'Express Entry' && !s.closest('nav')) as HTMLElement;
     expect([pill.style.fontSize, pill.style.textTransform, pill.style.borderRadius, pill.style.padding]).toEqual(['11px', 'uppercase', '5px', '3px 9px']);
+    // It hugs its words: in the header's stack it ran edge to edge as a bar (2026-11-18).
+    expect(pill.style.width).toBe('fit-content');
 
     const h1 = c.querySelector('h1') as HTMLElement;
     expect(h1.textContent).toBe(full.title);
