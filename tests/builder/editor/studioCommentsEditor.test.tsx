@@ -95,3 +95,31 @@ describe('studio comments in the page editor', () => {
     expect(screen.getByRole('button', { name: /Comment by Template/ })).toBeTruthy();
   });
 });
+
+describe("a pin whose host's preview keeps its notes (1c's newsletter, 2026-11-18)", () => {
+  it('still draws on its nested element: the canvas compile drops every comment, whatever the service sends', async () => {
+    // A box holding a note and the heading it is pinned to; the service's preview returns the tree WITH the note.
+    const nested = [
+      {
+        primitive: 'box',
+        uid: 'boxone01',
+        children: [
+          { primitive: 'text', props: { value: 'November news' } },
+          { comment: 'Shorter, please.', note: { for: 'headone1', placement: 'top-right', color: 'yellow', author: 'Ada' } },
+          { primitive: 'heading', uid: 'headone1', props: { text: 'What changed this month', level: 2 } },
+        ],
+      },
+    ] as unknown as PmlNode[];
+    const adapter = {
+      load: vi.fn(async () => ({ document: { nodes: nested }, revision: 'd1', meta: { title: 'News', slug: 'news', status: 'draft', publishedAt: null, hasUnpublishedChanges: true, publicUrl: null } })),
+      saveDraft: vi.fn(async () => ({ revision: 'd2' })),
+      // Realistic: the preview keeps the note (growth-service does).
+      preview: vi.fn(async (_id: string, nodes: PmlNode[]) => ({ tree: nodes, natives: null, error: null })),
+      preflight: vi.fn(async () => ({ mayPublish: true, findings: [] })),
+    } as unknown as EditableDocumentAdapter;
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'newsletter' }} />);
+
+    await screen.findByRole('heading', { name: 'What changed this month' }, { timeout: 3000 });
+    expect(await screen.findByRole('button', { name: /Comment by Ada: Shorter, please/ }, { timeout: 3000 })).toBeTruthy();
+  });
+});

@@ -142,13 +142,22 @@ export function CommentPins({
       });
     };
     const observer = new ResizeObserver(measure);
+    // The canvas draws its compile AFTER the design arrives: a nested element a pin stands on does not exist until then,
+    // and its arrival need not change the canvas's size (2026-11-18: a newsletter's pinned note never drew). Any change
+    // to the drawn page re-measures; changes inside this layer (the pins themselves) do not, so it cannot loop.
+    const drawn = new MutationObserver((records) => {
+      if (records.every((record) => layer.current?.contains(record.target))) return;
+      measure();
+    });
 
     observer.observe(root);
+    drawn.observe(root, { childList: true, subtree: true });
     measure();
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      drawn.disconnect();
     };
   }, [nodes, pinned]);
 

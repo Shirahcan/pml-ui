@@ -2,8 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { PmlNativesPayload, PmlNode } from '../../language';
+import { isCommentNode, type PmlNativesPayload, type PmlNode } from '../../language';
 import type { EditableDocumentAdapter } from '../document';
+
+/**
+ * The compile the canvas draws: every comment node removed, at every depth. The canvas pairs a design's blocks with the
+ * compile by counting non-comment nodes (PmlCanvas, renderedPathFor), so a service whose preview KEEPS its notes (the
+ * growth-service post and newsletter previews do) put a nested note's empty wrapper where its element should be and the
+ * comment's pin never drew (found by 1c on a real newsletter, 2026-11-18). One authority here, whatever a host sends.
+ */
+export function withoutComments(nodes: PmlNode[]): PmlNode[] {
+  return nodes.filter((node) => !isCommentNode(node)).map((node) => (node.children ? { ...node, children: withoutComments(node.children) } : node));
+}
 
 /**
  * The canvas's live compile of a design, debounced (shared program E4a4i). A transiently invalid edit KEEPS the last
@@ -47,7 +57,7 @@ export function useCompiledPreview(
           if (result.error) {
             setPreviewError(result.error);
           } else {
-            setCompiled(result.tree);
+            setCompiled(withoutComments(result.tree));
             setNatives(result.natives);
             setPreviewError(null);
           }
