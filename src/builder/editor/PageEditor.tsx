@@ -22,9 +22,11 @@ import { CatalogProvider, PiecesProvider } from './catalog';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 import { FieldGroupPanel } from './FieldGroupPanel';
 import { useBuilderHost } from './host';
-import { EditorNounProvider } from './surface';
+import { EditorNounProvider, EditorSurfaceProvider } from './surface';
+import type { RenderedEmail } from './EmailAsSent';
+import { EMAIL_WORDS, EmailHeader, useEmailProfile } from '../studio/profiles/email';
 import { DraftConflictDialog } from './DraftConflictDialog';
-import { FindingsPanel } from './FindingsPanel';
+import { FindingsPanel, type FindingsWords } from './FindingsPanel';
 import { PageEditorHeader } from './PageEditorHeader';
 import { PageLayers } from './PageLayers';
 import { PartGuides } from './PartGuides';
@@ -102,6 +104,11 @@ export interface PageEditorControls {
   flush: () => Promise<boolean>;
   /** The host's own panels (`panels` prop), opened with `openPanel(\`host:${key}\`)`. */
   hostPanels: { key: string; title: string }[];
+  /** Whether the document has a publish step ("Save for everyone" for an email template; a newsletter has none). */
+  canPublish: boolean;
+  /** An email's views (profile `email` only): the design, or the email exactly as sent. */
+  tab?: 'design' | 'sent';
+  setTab?: (tab: 'design' | 'sent') => void;
   /**
    * Replace the whole design in ONE undoable change, saved by the editor's own autosave (as a draft, with the
    * revision): how an assistant's Build lands from the host's console (designer sole surface P4b).
@@ -222,6 +229,16 @@ export interface PageEditorProps {
   /** The host's own panel, shown at the top of the Details panel (above the document's fields). */
   aside?: ReactNode;
   /**
+   * The email profile's own (shared PML Studio P2b2; ignored by other profiles). `allowedElements`: what an email may
+   * hold (the server's email profile), everything else off the Add menu. `renderAsSent`: the email as the host sends
+   * it, for the As sent view. `inboxFields`: the fields the inbox frame draws above the email. `checkWords`: the
+   * checks panel's words over the email's own.
+   */
+  allowedElements?: readonly string[];
+  renderAsSent?: (id: string) => Promise<RenderedEmail>;
+  inboxFields?: readonly string[];
+  checkWords?: Partial<FindingsWords>;
+  /**
    * The host's own items in every element's menu (shared PML Studio P3a: Portify's "Add to Porter"), placed before
    * Comment and Remove. The menu itself (move, duplicate, copy, paste, wrap, unwrap, remove) is the Studio's.
    */
@@ -229,6 +246,9 @@ export interface PageEditorProps {
 }
 
 const NO_SITE: PmlSite = {};
+
+/** An email Studio without a host renderer: the As sent view says it cannot draw the email. */
+const NO_AS_SENT = (): Promise<RenderedEmail> => Promise.reject(new Error('This editor has no way to draw the email as sent.'));
 
 /**
  * The page editor (shared program E4a4i, blog-on-growth-service S7a): the shared builder composed for a page or a post
@@ -238,7 +258,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions, allowedElements, renderAsSent, inboxFields, checkWords }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -248,7 +268,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     onPublished: () => onPublished?.(),
   });
   const vars = useOwnVars();
-  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(quickEdit);
+  const isEmail = profile === 'email';
+  const { selectedPath, selectPath, settingsShown, onQuickEdit } = useQuickEditSelection(isEmail ? quickEdit && !locked : quickEdit);
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<'design' | 'code'>('design');
   const code = adapter.code;
@@ -260,6 +281,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const host = useBuilderHost();
   const { nodes, change } = editor;
+  // The email profile's chrome (P2b1): drawn only for profile="email"; a hook, so it runs for every profile.
+  const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements: allowedElements ?? [], renderAsSent: renderAsSent ?? NO_AS_SENT, inboxFields, checkWords, onFieldSaved });
   // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
@@ -282,8 +305,12 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   // An element inside a section is named for what it is ("Title", "Author"), never "Section settings": the owner read
   // that title as the whole header being selected (2026-11-17).
   const selectedTitle =
-    selected && selectedPath && selectedPath.length > 1 ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents) : 'Section settings';
-  const addLabel = labels.add ?? 'Add a section';
+    isEmail
+      ? EMAIL_WORDS.settings
+      : selected && selectedPath && selectedPath.length > 1
+        ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents)
+        : 'Section settings';
+  const addLabel = labels.add ?? (isEmail ? EMAIL_WORDS.add : 'Add a section');
 
   // A field saved from any panel: the canvas compiles again, and the host hears which field it was.
   const fieldSaved = (name: string) => {
@@ -402,12 +429,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       void editor.check();
       openPanel('checks');
     },
-    publish: () => void editor.publish(),
+    // An email's publish waits for its field writes (they are part of what is saved for everyone).
+    publish: isEmail ? () => email.publish?.() : () => void editor.publish(),
     rollback: editor.canRollback ? () => setConfirmRollback(true) : undefined,
     refreshPreview: editor.refreshPreview,
     refreshFields: () => {
       setFieldsEpoch((n) => n + 1);
       editor.refreshPreview();
+      email.redrawAsSent();
     },
     adoptSavedDraft: editor.adoptSavedDraft,
     copyPreviewLink: editor.canPreviewLink ? () => void editor.copyPreviewLink() : undefined,
@@ -424,10 +453,13 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     fieldGroups,
     commentMenu: comments.menuItems,
     unpublish: adapter.unpublish && live ? () => setConfirmUnpublish(true) : undefined,
-    flush: () => editor.flush(),
+    flush: isEmail ? email.flush : () => editor.flush(),
     replaceNodes: (next) => change(next),
     nodes,
     hostPanels: panels.map(({ key, title }) => ({ key, title })),
+    canPublish: editor.canPublish,
+    tab: isEmail ? email.tab : undefined,
+    setTab: isEmail ? email.setTab : undefined,
   };
   const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
   const openGroup = panel?.startsWith('group:') ? fieldGroups.find((group) => `group:${group.key}` === panel) ?? null : null;
@@ -449,6 +481,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
 
   return (
     <FieldsEpochContext.Provider value={fieldsEpoch}>
+    <MaybeEmailSurface email={isEmail}>
     <EditorNounProvider noun={noun}>
     <CanvasFlavorContext.Provider value={canvasFlavor}>
     <CatalogProvider components={editor.studioComponents} partials={editor.partials}>
@@ -457,7 +490,13 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         {/* The host's console FIRST: its dock is sticky, so drawn after the canvas it would sit at the bottom of a long
             document and its tab would vanish below the fold (owner 2026-11-17: "it should always be visible"). */}
         {typeof consoleSlot === 'function' ? consoleSlot(controls) : consoleSlot}
-        {renderControls ? renderControls(controls) : <PageEditorHeader controls={controls} />}
+        {renderControls ? (
+          renderControls(controls)
+        ) : isEmail ? (
+          <EmailHeader controls={{ ...controls, tab: email.tab, setTab: email.setTab, publish: email.publish }} />
+        ) : (
+          <PageEditorHeader controls={controls} />
+        )}
         {notice}
         {editor.placeholdersLeft ? <PlaceholdersLeftNotice message={editor.placeholdersLeft.message} left={editor.placeholdersLeft.left} /> : null}
 
@@ -471,11 +510,15 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             }}
             onCancel={() => setView('design')}
           />
+        ) : isEmail && email.tab === 'sent' ? (
+          email.asSent
         ) : (
-        <div className="min-w-0">
+        // An email is a 600px column with its inbox frame (subject, preview text) above it.
+        <div className={isEmail ? 'mx-auto w-full min-w-0 max-w-[600px]' : 'min-w-0'}>
+          {isEmail ? email.inboxFrame : null}
           <PmlCanvas
             // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
-            bare
+            bare={!isEmail}
             // Locked while the assistant works: the canvas's own "building" state takes no presses (no skeleton row).
             building={locked ? { at: nodes.length + 1, label: null } : null}
             afterSection={layout && layout.parts.length > 0 ? (index) => <PartGuides nodes={nodes} index={index} layout={layout} change={change} /> : undefined}
@@ -542,10 +585,12 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               {editor.previewError.message} The canvas shows the last version that worked.
             </p>
           ) : null}
-          <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked} onClick={() => setAdding(true)}>
-            <Plus className="h-4 w-4" />
-            {addLabel}
-          </Button>
+          {isEmail && locked ? null : (
+            <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked} onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              {addLabel}
+            </Button>
+          )}
         </div>
         )}
 
@@ -556,10 +601,22 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : 'Checks'}
+          title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : isEmail ? EMAIL_WORDS.checks : 'Checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <div className="space-y-4">
+              {isEmail && comments.canAdd ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    comments.add(selectedPath);
+                    selectPath(null);
+                  }}
+                >
+                  {EMAIL_WORDS.commentOn}
+                </Button>
+              ) : null}
               <PositionControls nodes={nodes} path={selectedPath} layout={layout} change={change} select={selectPath} />
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
               {adapter.fields ? <PieceFieldsPanel node={selected} pieces={pieces} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
@@ -570,7 +627,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 onChange={(next) => change(updateNodeAtPath(nodes, selectedPath, next))}
                 canDelete={deletable(selectedPath)}
                 // Named for what it is ("Delete paragraph"), never "Delete section" for an element inside one (2026-11-18).
-                deleteLabel={`Delete ${elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents).toLowerCase()}`}
+                deleteLabel={isEmail ? EMAIL_WORDS.remove : `Delete ${elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents).toLowerCase()}`}
                 onDelete={() => {
                   if (!deletable(selectedPath)) return;
                   change(removeNodeAtPath(nodes, selectedPath));
@@ -600,7 +657,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             />
           ) : panel === 'checks' ? (
             editor.scan ? (
-              <FindingsPanel preflight={editor.scan} words={{ clean: 'Nothing here needs to change. Ready to publish.' }} />
+              <FindingsPanel preflight={editor.scan} words={isEmail ? email.findingsWords : { clean: 'Nothing here needs to change. Ready to publish.' }} />
             ) : (
               <p className="text-sm text-[var(--pb-muted)]">Running the checks...</p>
             )
@@ -611,8 +668,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           onOpenChange={setAdding}
           existing={nodes}
           onAdd={(node: PmlNode) => change([...nodes, node])}
-          unavailable={[...unavailable]}
+          unavailable={isEmail ? [...unavailable, ...email.unavailable] : [...unavailable]}
           title={addLabel}
+          description={isEmail ? EMAIL_WORDS.addDescription : undefined}
         />
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
         <UnpublishDialog
@@ -658,8 +716,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     </CatalogProvider>
     </CanvasFlavorContext.Provider>
     </EditorNounProvider>
+    </MaybeEmailSurface>
     </FieldsEpochContext.Provider>
   );
+}
+
+/** An email says it is one at its root (the settings hide #link names and page data); any other profile changes nothing. */
+function MaybeEmailSurface({ email, children }: { email: boolean; children: ReactNode }): React.JSX.Element {
+  return email ? <EditorSurfaceProvider surface="email">{children}</EditorSurfaceProvider> : <>{children}</>;
 }
 
 /**
