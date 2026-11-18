@@ -40,6 +40,7 @@ import { NestedPartCounters } from './NestedPartCounters';
 import { PieceFieldsPanel } from './PieceFields';
 import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
 import type { StudioElementAction } from '../studio/ElementMenu';
+import { AddRelativeButton, useAddRelative } from '../studio/AddRelative';
 import { FieldsEpochContext } from './fieldsEpoch';
 import { useStudioComments, type CommentMenuItem } from './useStudioComments';
 import type { StudioComment } from '../../language';
@@ -283,6 +284,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const { nodes, change } = editor;
   // The email profile's chrome (P2b1): drawn only for profile="email"; a hook, so it runs for every profile.
   const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements: allowedElements ?? [], renderAsSent: renderAsSent ?? NO_AS_SENT, inboxFields, checkWords, onFieldSaved });
+  // Add an element before / inside / after the selected one (P3b1), with what this document may not hold left out.
+  const relative = useAddRelative({ nodes, change, select: selectPath, unavailable: isEmail ? [...unavailable, ...email.unavailable] : unavailable });
   // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
@@ -560,7 +563,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             renderSelectionBar={
               locked
                 ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} />
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} onAddRelative={relative.open} />
             }
             onDelete={(index) => {
               if (!deletable([index])) return;
@@ -618,6 +621,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 </Button>
               ) : null}
               <PositionControls nodes={nodes} path={selectedPath} layout={layout} change={change} select={selectPath} />
+              {locked ? null : <AddRelativeButton placements={relative.placements(selectedPath)} name={relative.nameOf(selectedPath)} onChoose={(placement) => relative.open(selectedPath, placement)} />}
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
               {adapter.fields ? <PieceFieldsPanel node={selected} pieces={pieces} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings
@@ -672,6 +676,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           title={addLabel}
           description={isEmail ? EMAIL_WORDS.addDescription : undefined}
         />
+        {relative.dialog}
         <DraftConflictDialog open={editor.conflict !== null} noun={noun} onKeepMine={editor.keepMine} onLoadLatest={() => void editor.loadLatest()} />
         <UnpublishDialog
           open={confirmUnpublish}

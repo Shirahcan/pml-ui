@@ -3,7 +3,7 @@
 import React, { useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, BoxSelect, ClipboardPaste, Copy, CopyPlus, MessageSquarePlus, MoreVertical, SquareDashed, Trash2 } from 'lucide-react';
 
-import { getNodeAtPath, type Moved, type PmlNode } from '../../language';
+import { getNodeAtPath, placementsFor, type Moved, type Placement, type PmlNode } from '../../language';
 import { useBuilderHost } from '../editor/host';
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/overlays';
+import { PLACEMENT_WORDS } from './AddRelative';
 import { availableActions, elementActions, heldElement, holdElement } from './elementActions';
 
 /**
@@ -52,6 +53,7 @@ export function ElementMenu({
   open,
   onOpenChange,
   triggerClassName,
+  onAdd,
 }: {
   nodes: PmlNode[];
   path: number[];
@@ -66,6 +68,8 @@ export function ElementMenu({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   triggerClassName?: string;
+  /** Add an element before / inside / after this one (P3b1); the spots offered are the ones containment allows. */
+  onAdd?: (placement: Placement) => void;
 }): React.JSX.Element | null {
   const { onError, onSuccess } = useBuilderHost();
   const [confirming, setConfirming] = useState(false);
@@ -144,6 +148,18 @@ export function ElementMenu({
               Unwrap
             </DropdownMenuItem>
           ) : null}
+          {onAdd
+            ? placementsFor(nodes, path).map((placement) => {
+                const Icon = PLACEMENT_WORDS[placement].icon;
+
+                return (
+                  <DropdownMenuItem key={`add-${placement}`} onSelect={() => onAdd(placement)}>
+                    <Icon aria-hidden />
+                    Add {PLACEMENT_WORDS[placement].label.toLowerCase()}
+                  </DropdownMenuItem>
+                );
+              })
+            : null}
           {extraActions.map((action) => (
             <DropdownMenuItem key={action.key} disabled={action.disabled} onSelect={() => action.onSelect(path, node)}>
               {action.icon ?? null}

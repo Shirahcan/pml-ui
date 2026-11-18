@@ -3,7 +3,7 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, MessageSquarePlus, Sparkles, Trash2, Wand2 } from 'lucide-react';
 
-import { elementLabel, getNodeAtPath, onlyPieces, removeNodeAtPath, type PmlNode, type ProfilePieces } from '../../language';
+import { elementLabel, getNodeAtPath, onlyPieces, removeNodeAtPath, type Placement, type PmlNode, type ProfilePieces } from '../../language';
 import type { DocumentLayout } from '../document';
 import { Button } from '../ui/controls';
 import { ElementMenu, type StudioElementAction } from '../studio/ElementMenu';
@@ -46,6 +46,7 @@ export function SelectionBar({
   extraActions,
   menuOpen,
   onMenuOpenChange,
+  onAddRelative,
 }: {
   nodes: PmlNode[];
   path: number[];
@@ -70,6 +71,8 @@ export function SelectionBar({
   /** The menu's open state, when the host opens it itself (a right-click on the element). */
   menuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
+  /** Add an element before / inside / after this one (P3b1), from the element menu. */
+  onAddRelative?: (path: number[], placement: Placement) => void;
 }): React.JSX.Element | null {
   const node = getNodeAtPath(nodes, path);
   if (!node) return null;
@@ -165,6 +168,7 @@ export function SelectionBar({
           open={menuOpen}
           onOpenChange={onMenuOpenChange}
           triggerClassName={button}
+          onAdd={onAddRelative ? (placement) => onAddRelative(path, placement) : undefined}
         />
       ) : null}
     </div>
