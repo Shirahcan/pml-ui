@@ -58,6 +58,9 @@ export * from './builder/editor/surface';
 export * from './builder/editor/PageEditor';
 // The selected element's bar asks the host's assistant with this (PageEditor `onAskAssistant`).
 export type { AssistantAsk } from './builder/editor/SelectionBar';
+// The Studio's element menu (shared PML Studio P3a): one menu for every profile; a host adds its own items.
+export { ElementMenu, type StudioElementAction } from './builder/studio/ElementMenu';
+export { CLIPBOARD_KEY, availableActions, elementActions, freshCopy, heldElement, holdElement } from './builder/studio/elementActions';
 export * from './builder/editor/useQuickEditSelection';
 export * from './builder/editor/DocumentFieldsPanel';
 export * from './builder/editor/SlidePanel';

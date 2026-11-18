@@ -37,6 +37,7 @@ import { canDelete as layoutAllowsDelete, canReorder } from './layoutParts';
 import { NestedPartCounters } from './NestedPartCounters';
 import { PieceFieldsPanel } from './PieceFields';
 import { PositionControls, SelectionBar, type AssistantAsk } from './SelectionBar';
+import type { StudioElementAction } from '../studio/ElementMenu';
 import { useStudioComments, type CommentMenuItem } from './useStudioComments';
 import type { StudioComment } from '../../language';
 import { PmlSettings } from './PmlSettings';
@@ -204,6 +205,11 @@ export interface PageEditorProps {
   console?: ReactNode | ((controls: PageEditorControls) => ReactNode);
   /** The host's own panel, shown at the top of the Details panel (above the document's fields). */
   aside?: ReactNode;
+  /**
+   * The host's own items in every element's menu (shared PML Studio P3a: Portify's "Add to Porter"), placed before
+   * Comment and Remove. The menu itself (move, duplicate, copy, paste, wrap, unwrap, remove) is the Studio's.
+   */
+  elementMenuActions?: StudioElementAction[];
 }
 
 const NO_SITE: PmlSite = {};
@@ -216,7 +222,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -232,6 +238,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const code = adapter.code;
   const [confirmRollback, setConfirmRollback] = useState(false);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  // The element whose menu is open (its path, joined): a right-click opens it, as does its three dots on the bar.
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   const host = useBuilderHost();
   const { nodes, change } = editor;
   // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
@@ -453,6 +461,15 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             // While a comment is being moved, the next element clicked becomes its element instead of the selection.
             onSelectPath={comments.pickOr(selectFromCanvas)}
             onClearSelection={() => comments.pickOr(selectFromCanvas)(null)}
+            // A right-click selects the element (so its bar stays on it) and opens its menu there (P3a).
+            onElementContextMenu={
+              locked
+                ? undefined
+                : (path) => {
+                    selectFromCanvas(path);
+                    setMenuFor(path.join('.'));
+                  }
+            }
             overlay={
               <>
                 {comments.layer}
@@ -472,7 +489,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             renderSelectionBar={
               locked
                 ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} />
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} />
             }
             onDelete={(index) => {
               if (!deletable([index])) return;

@@ -224,12 +224,15 @@ export function FieldControl({
           id={id}
           name={field.key}
           type="text"
-          placeholder="who-can-apply"
+          // Neutral (2026-11-18: one heading's slug, "who-can-apply", showed on every element's panel and read as its own).
+          placeholder="a-short-name"
           value={str}
           onChange={(e) => onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^[^a-z]+/, '').slice(0, 64))}
           className="px-3 py-2 outline-none"
         />
-        {str ? <p className="mt-1 text-xs text-[var(--pb-muted)]">Link to it with #{str}</p> : null}
+        <p className="mt-1 text-xs text-[var(--pb-muted)]">
+          {str ? `Link to it with #${str}` : 'Type a few words; they become the name. Left empty, a heading gets one from its own words.'}
+        </p>
       </div>
     );
   }

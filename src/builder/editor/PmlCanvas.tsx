@@ -92,6 +92,7 @@ export function PmlCanvas({
   documentText,
   onQuickEdit,
   renderElementMenu,
+  onElementContextMenu,
   building = null,
   overlay = null,
   frame,
@@ -150,6 +151,11 @@ export function PmlCanvas({
    * right-click opens it for that element. Given, the section's move and delete buttons are not drawn.
    */
   renderElementMenu?: (path: number[], open: boolean, onOpenChange: (open: boolean) => void) => React.ReactNode;
+  /**
+   * A right-click on an element, when the host draws that element's menu itself (the Studio puts it on the selection
+   * bar, shared PML Studio P3a). The browser's own menu does not open. Ignored while `renderElementMenu` is given.
+   */
+  onElementContextMenu?: (path: number[]) => void;
   /**
    * The assistant is writing the page (C3, owner 2026-11-07): the canvas is look-only, and a flashing
    * skeleton stands where the next section is being written (`at`, before that position); `label` is
@@ -252,16 +258,21 @@ export function PmlCanvas({
     }
   });
 
-  // A right-click opens that element's menu, where the pointer is.
+  // A right-click opens that element's menu, where the pointer is (or tells the host, which draws the menu itself).
   const contextMenu = (event: React.MouseEvent) => {
-    if (!renderElementMenu) return;
+    if (!renderElementMenu && !onElementContextMenu) return;
 
     const path = pathAt(event.target);
 
     if (!path) return;
 
     event.preventDefault();
-    setMenuFor(path);
+
+    if (renderElementMenu) {
+      setMenuFor(path);
+    } else {
+      onElementContextMenu?.(path);
+    }
   };
 
   const pick = (event: React.MouseEvent, index: number) => {

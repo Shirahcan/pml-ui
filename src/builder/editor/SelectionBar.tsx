@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, MessageSquarePlus, Sparkles, Trash2, Wand2 } from '
 import { elementLabel, getNodeAtPath, onlyPieces, removeNodeAtPath, type PmlNode, type ProfilePieces } from '../../language';
 import type { DocumentLayout } from '../document';
 import { Button } from '../ui/controls';
+import { ElementMenu, type StudioElementAction } from '../studio/ElementMenu';
 import { canDelete, instancePaths, movable, partOf, reorder } from './layoutParts';
 
 /** A document with no pieces (a page): every element is design. */
@@ -41,6 +42,10 @@ export function SelectionBar({
   canAsk,
   pieces = NO_PIECES,
   onComment,
+  menu = true,
+  extraActions,
+  menuOpen,
+  onMenuOpenChange,
 }: {
   nodes: PmlNode[];
   path: number[];
@@ -58,6 +63,13 @@ export function SelectionBar({
   pieces?: ProfilePieces;
   /** Write a studio comment pinned to this element; absent where the host has no author. */
   onComment?: (path: number[]) => void;
+  /** The element menu's three dots, last on the bar (shared PML Studio P3a). On by default: every profile has it. */
+  menu?: boolean;
+  /** The host's own items in that menu ("Add to Porter"), before Comment and Remove. */
+  extraActions?: StudioElementAction[];
+  /** The menu's open state, when the host opens it itself (a right-click on the element). */
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
 }): React.JSX.Element | null {
   const node = getNodeAtPath(nodes, path);
   if (!node) return null;
@@ -140,6 +152,20 @@ export function SelectionBar({
           <Trash2 className="h-3 w-3" aria-hidden />
           Remove
         </button>
+      ) : null}
+      {menu ? (
+        <ElementMenu
+          nodes={nodes}
+          path={path}
+          label={label}
+          change={change}
+          select={select}
+          onComment={onComment}
+          extraActions={extraActions}
+          open={menuOpen}
+          onOpenChange={onMenuOpenChange}
+          triggerClassName={button}
+        />
       ) : null}
     </div>
   );
