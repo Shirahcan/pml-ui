@@ -6,7 +6,6 @@ import { getNodeAtPath, holdsWords, renderedPathFor, sourcePathFor } from '../..
 import type { PmlNode } from '../../language';
 import { componentTextField, fontOf, InlineTextOverlay, inlineField, type InlineEdit } from './InlineTextOverlay';
 import { InlineWordsOverlay, type InlineWordsEdit } from './InlineWordsOverlay';
-import { PIECE_TEXT_FIELD } from './PieceFields';
 import { isBracketedExample } from '../../pml/examples';
 import { canEditVisually } from './ParagraphEditor';
 import { pathElement } from './pathElement';
@@ -25,6 +24,8 @@ export interface QuickEditOptions {
    * double-click on the piece that draws one types it in place and saves it to the document, never to the design.
    */
   documentText?: {
+    /** The one document field this element's words are, when a double-click types it in place (its profile's piece). */
+    fieldOf: (node: PmlNode) => string | undefined;
     read: (name: string) => Promise<{ value: string; revision: string }>;
     write: (name: string, value: string, revision: string) => void;
   };
@@ -122,7 +123,7 @@ export function useQuickEdit({ nodes, canvas, onEditText, onEditWords, quickEdit
     const node = getNodeAtPath(nodes, path);
 
     // A piece whose words are the document's own field: read it fresh, type it where it sits, save it to the document.
-    const fieldName = documentText ? PIECE_TEXT_FIELD[node?.primitive ?? ''] : undefined;
+    const fieldName = documentText && node ? documentText.fieldOf(node) : undefined;
 
     if (documentText && fieldName) {
       const element = holder ? pathElement(holder) : null;

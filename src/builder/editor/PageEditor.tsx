@@ -3,7 +3,7 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
-import { elementLabel, getNodeAtPath, moveTopLevel, removeNodeAtPath, updateNodeAtPath, type PmlNode } from '../../language';
+import { elementLabel, getNodeAtPath, moveTopLevel, pieceOf, piecesOf, removeNodeAtPath, updateNodeAtPath, type PmlNode, type ProfileKey } from '../../language';
 import { fieldGroupsOf, isConflict, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
@@ -185,6 +185,13 @@ export interface PageEditorProps {
   /** Send a comment to the host's assistant as an ask about its element (D5); absent where it cannot act. */
   onAddressComment?: (comment: StudioComment) => void;
   /**
+   * What the document is FOR (shared PML Studio P1b; pml-kit Profiles): which of its elements are pieces whose words are
+   * the document's own fields (a post's title edits `title`, its cover edits `cover`), so selecting one offers those
+   * fields, a double-click types its one text field in place, and the assistant's asks skip it. A page (the default)
+   * has none.
+   */
+  profile?: ProfileKey;
+  /**
    * Quick edits (owner 2026-11-16): a double-click edits words in place with the settings closed. The host decides,
    * usually from its gate. Pictures pick from the host's `MediaSourceProvider` when one wraps the editor (a post's
    * cover and images come from the PRODUCT's library); without one an image is an address field.
@@ -209,7 +216,7 @@ const NO_SITE: PmlSite = {};
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -258,12 +265,16 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
     onFieldSaved?.(name);
   };
 
-  // A double-click on a post's title, line under the title or author types it where it sits and saves it to the
-  // document (owner 2026-11-17: "double on the title for quick edit"). Written at the revision it was read at, so a
-  // change made elsewhere meanwhile is refused, never overwritten.
+  // The document's pieces, from its profile (one authority in pml-kit): a post's have fields, a page has none.
+  const pieces = piecesOf(profile);
+
+  // A double-click on a piece whose words are one text field (a post's title, line under the title, author) types it
+  // where it sits and saves it to the document (owner 2026-11-17: "double on the title for quick edit"). Written at the
+  // revision it was read at, so a change made elsewhere meanwhile is refused, never overwritten.
   const fieldsPort = adapter.fields;
   const documentText = fieldsPort
     ? {
+        fieldOf: (node: PmlNode) => pieceOf(pieces, node)?.quickEdit,
         read: async (name: string) => {
           try {
             const read = await fieldsPort.read(id);
@@ -291,9 +302,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       }
     : undefined;
 
-  // A template part the document cannot do without (required: a post's header, its cover) offers no Delete, nothing
-  // inside a locked part is deleted, and a repeating part keeps at least its minimum, nested repeats too (owner
-  // 2026-11-17: deleting the cover or the header just breaks the post). One rule, shared with the selection bar.
+  // No element is locked (owner 2026-11-18, "don't lock any element/component"): every element deletes; a template's
+  // required parts and limits are findings at Run the checks. One rule, shared with the selection bar.
   const deletable = (path: number[]): boolean => layoutAllowsDelete(nodes, layout, path);
 
   // The panel shows the selected section's settings once they are due (useQuickEditSelection), otherwise what the host
@@ -462,7 +472,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             renderSelectionBar={
               locked
                 ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} onComment={comments.canAdd ? comments.add : undefined} />
+                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} />
             }
             onDelete={(index) => {
               if (!deletable([index])) return;
@@ -507,7 +517,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             <div className="space-y-4">
               <PositionControls nodes={nodes} path={selectedPath} layout={layout} change={change} select={selectPath} />
               {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
-              {adapter.fields ? <PieceFieldsPanel node={selected} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
+              {adapter.fields ? <PieceFieldsPanel node={selected} pieces={pieces} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings
                 key={selectedPath.join('.')}
                 node={selected}

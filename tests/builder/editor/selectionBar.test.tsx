@@ -5,7 +5,7 @@ import type { DocumentLayout, EditableDocumentAdapter } from '../../../src/build
 import { canDelete, canReorder, reorder } from '../../../src/builder/editor/layoutParts';
 import { PageEditor } from '../../../src/builder/editor/PageEditor';
 import { SelectionBar } from '../../../src/builder/editor/SelectionBar';
-import type { PmlNode } from '../../../src/language';
+import { piecesOf, type PmlNode } from '../../../src/language';
 
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 Element.prototype.scrollIntoView ??= () => undefined;
@@ -87,14 +87,21 @@ describe('the selection bar (owner 2026-11-17, the reference studio)', () => {
 
   it("offers no assistant asks on a post piece: its words are the post's fields, not design text", () => {
     const pieces = [{ primitive: 'post_title', props: { resolved: { title: 'Work permits' } } }] as unknown as PmlNode[];
-    render(<SelectionBar nodes={pieces} path={[0]} change={() => undefined} select={() => undefined} onAsk={vi.fn()} />);
+    render(<SelectionBar nodes={pieces} path={[0]} change={() => undefined} select={() => undefined} onAsk={vi.fn()} pieces={piecesOf('post')} />);
 
     expect(screen.getByRole('toolbar').textContent).toContain('01 · Title');
     expect(screen.queryByRole('button', { name: /AI write/ })).toBeNull();
   });
 
+  it('on a page (no pieces) every element takes an ask: the post rule comes from the post profile, never the bar', () => {
+    const pieces = [{ primitive: 'post_title', props: { resolved: { title: 'Work permits' } } }] as unknown as PmlNode[];
+    render(<SelectionBar nodes={pieces} path={[0]} change={() => undefined} select={() => undefined} onAsk={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /AI write/ })).toBeTruthy();
+  });
+
   it('offers no assistant asks on the opening either: a block made only of post pieces', () => {
-    render(<SelectionBar nodes={design} path={[0]} layout={layout} change={() => undefined} select={() => undefined} onAsk={vi.fn()} />);
+    render(<SelectionBar nodes={design} path={[0]} layout={layout} change={() => undefined} select={() => undefined} onAsk={vi.fn()} pieces={piecesOf('post')} />);
 
     expect(screen.getByRole('toolbar').textContent).toContain('01 · Opening');
     expect(screen.queryByRole('button', { name: /AI write/ })).toBeNull();

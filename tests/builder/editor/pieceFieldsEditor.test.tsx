@@ -49,7 +49,7 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
   it('selecting the title opens its Title field; saving it writes the post, compiles the canvas again and tells the host', async () => {
     const adapter = fakeAdapter();
     const onFieldSaved = vi.fn();
-    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} onFieldSaved={onFieldSaved} />);
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} profile="post" onFieldSaved={onFieldSaved} />);
 
     fireEvent.click(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 }));
     const panel = await screen.findByRole('complementary', { name: 'Title' }, { timeout: 3000 });
@@ -70,7 +70,7 @@ describe("a post piece's own panel (owner 2026-11-17: each section offers its ow
   it('a double-click on the title types it where it sits and saves it to the post, never to the design', async () => {
     const adapter = fakeAdapter();
     const onFieldSaved = vi.fn();
-    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} onFieldSaved={onFieldSaved} />);
+    render(<PageEditor adapter={adapter} id="p1" labels={{ noun: 'post' }} layout={layout} profile="post" onFieldSaved={onFieldSaved} />);
 
     fireEvent.doubleClick(await screen.findByRole('heading', { level: 1, name: 'Work permits' }, { timeout: 3000 }));
     const box = (await screen.findByRole('textbox', { name: 'Edit this text' })) as HTMLTextAreaElement;

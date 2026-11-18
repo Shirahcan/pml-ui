@@ -11,6 +11,7 @@ export * from './pml/highlight';
 export * from './pml/mergeTrees';
 export * from './pml/nodeTree';
 export * from './pml/paddingPair';
+export * from './pml/profiles';
 export * from './pml/paragraphDoc';
 export * from './pml/pmlVocabulary';
 export * from './pml/primitiveStyle';

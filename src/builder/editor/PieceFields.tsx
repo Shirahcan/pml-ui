@@ -2,42 +2,20 @@
 
 import React from 'react';
 
-import type { PmlNode } from '../../language';
+import { pieceOf, type PmlNode, type ProfilePieces } from '../../language';
 import type { DocumentFieldsPort } from '../document';
 import { DocumentFieldsPanel } from './DocumentFieldsPanel';
 
 /**
- * The document fields a post piece draws, so selecting the piece offers THEM (owner 2026-11-17: "The sections should
- * provide relevant and/or appropriate options/config e.g. cover photo section should allow for easy file upload"). The
- * names are the post document's own fields (the fields port); a field the host's port does not describe is simply not
- * shown, so a product without one never sees an empty control. Pieces not listed here (breadcrumbs, the dates, read
- * time, the reviewer badge) come from the post's history or facts and are not typed.
+ * The document fields a piece draws, so selecting the piece offers THEM (owner 2026-11-17: "The sections should provide
+ * relevant and/or appropriate options/config e.g. cover photo section should allow for easy file upload"). Which piece
+ * binds to which field is the document's PROFILE (pml-kit, through the generated module), never a list kept here: a
+ * post's title edits `title`, a page has no pieces. A field the host's port does not describe is simply not shown, so a
+ * product without one never sees an empty control; a piece with no fields (the dates, read time, a badge) shows a value
+ * the document keeps and is not typed.
  */
-export const PIECE_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  post_title: ['title'],
-  post_dek: ['dek'],
-  post_author: ['author_name'],
-  post_category: ['category_id'],
-  post_cover: ['cover'],
-  post_tags: ['tags'],
-  post_story: ['story_id'],
-  post_sources_badge: ['facts'],
-  post_cta: ['cta_kind', 'cta_ref'],
-};
-
-/**
- * The pieces whose words ARE one text field of the post, so a double-click types them where they sit (owner
- * 2026-11-17: "double on the title for quick edit"). Everything else edits in its panel.
- */
-export const PIECE_TEXT_FIELD: Readonly<Record<string, string>> = {
-  post_title: 'title',
-  post_dek: 'dek',
-  post_author: 'author_name',
-};
-
-/** The document fields `node` draws, by its element name. */
-export function pieceFieldNames(node: PmlNode | null | undefined): readonly string[] {
-  return PIECE_FIELDS[node?.primitive ?? ''] ?? [];
+export function pieceFieldNames(pieces: ProfilePieces, node: PmlNode | null | undefined): readonly string[] {
+  return pieceOf(pieces, node)?.fields ?? [];
 }
 
 /**
@@ -47,18 +25,21 @@ export function pieceFieldNames(node: PmlNode | null | undefined): readonly stri
  */
 export function PieceFieldsPanel({
   node,
+  pieces,
   id,
   fields,
   session,
   onSaved,
 }: {
   node: PmlNode;
+  /** The document's pieces (its profile's). */
+  pieces: ProfilePieces;
   id: string;
   fields: DocumentFieldsPort;
   session: string;
   onSaved?: (name: string) => void;
 }): React.JSX.Element | null {
-  const names = pieceFieldNames(node);
+  const names = pieceFieldNames(pieces, node);
 
   if (names.length === 0) return null;
 

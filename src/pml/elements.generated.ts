@@ -664,3 +664,49 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     props: {},
   },
 };
+
+/** A piece: an element whose words are the document's own fields (a post's title, its cover), never design text. */
+export interface PmlProfilePiece {
+  /** The document fields it shows and edits in its panel; empty when it shows a record or a kept value. */
+  fields: readonly string[];
+  /** The one field a double-click types in place. */
+  quickEdit?: string;
+  /** The details an ask aimed at it drafts. */
+  drafts?: readonly string[];
+}
+
+/** Every purpose a PML document can have (pml-kit Profiles). */
+export const PROFILE_KEYS = ['email', 'card', 'page', 'post'] as const;
+
+export type ProfileKey = (typeof PROFILE_KEYS)[number];
+
+/** Each purpose's pieces, by element. */
+export const PROFILE_PIECES: Readonly<Record<ProfileKey, Readonly<Record<string, PmlProfilePiece>>>> = {
+  email: {},
+  card: {},
+  page: {},
+  post: {
+    post_header: { fields: [] },
+    post_breadcrumbs: { fields: [] },
+    post_category: { fields: ['category_id'], drafts: ['category_id'] },
+    post_badges: { fields: [] },
+    post_reviewer_badge: { fields: [] },
+    post_sources_badge: { fields: ['facts'] },
+    post_title: { fields: ['title'], quickEdit: 'title', drafts: ['title', 'meta_title', 'focus_keyword'] },
+    post_dek: { fields: ['dek'], quickEdit: 'dek', drafts: ['dek', 'answer'] },
+    post_meta: { fields: [] },
+    post_author: { fields: ['author_name'], quickEdit: 'author_name' },
+    post_date: { fields: [] },
+    post_read_time: { fields: [] },
+    post_reviewer: { fields: [] },
+    post_tags: { fields: ['tags'], drafts: ['tags'] },
+    post_cover: { fields: ['cover'] },
+    post_related: { fields: [] },
+    post_disclaimer: { fields: [] },
+    post_cta: { fields: ['cta_kind', 'cta_ref'] },
+    post_story: { fields: ['story_id'] },
+  },
+};
+
+/** What an ask aimed at a post's whole opening (two or more drafting pieces) drafts as well: the search details. */
+export const POST_OPENING_DRAFTS = ['meta_description', 'secondary_keywords'] as const;

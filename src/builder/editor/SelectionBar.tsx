@@ -3,23 +3,13 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, MessageSquarePlus, Sparkles, Trash2, Wand2 } from 'lucide-react';
 
-import { elementLabel, getNodeAtPath, removeNodeAtPath, type PmlNode } from '../../language';
+import { elementLabel, getNodeAtPath, onlyPieces, removeNodeAtPath, type PmlNode, type ProfilePieces } from '../../language';
 import type { DocumentLayout } from '../document';
 import { Button } from '../ui/controls';
 import { canDelete, instancePaths, movable, partOf, reorder } from './layoutParts';
 
-/**
- * The default when the host does not say which elements its assistant can take: a post piece, or a block made only of
- * them (the opening), is the post's FIELDS, not design text, so no ask is offered. A host whose assistant drafts some
- * fields (a post's title and summary as a proposal card) passes `canAsk` with its own server's set instead.
- */
-function onlyPostPieces(node: PmlNode): boolean {
-  if ((node.primitive ?? '').startsWith('post_')) return true;
-
-  const kids = (node.children ?? []).filter((child) => child.comment === undefined);
-
-  return kids.length > 0 && kids.every(onlyPostPieces);
-}
+/** A document with no pieces (a page): every element is design. */
+const NO_PIECES: ProfilePieces = {};
 
 /** What the selection bar hands the host when the person asks the assistant about the selected element. */
 export interface AssistantAsk {
@@ -49,6 +39,7 @@ export function SelectionBar({
   select,
   onAsk,
   canAsk,
+  pieces = NO_PIECES,
   onComment,
 }: {
   nodes: PmlNode[];
@@ -58,8 +49,13 @@ export function SelectionBar({
   change: (next: PmlNode[]) => void;
   select: (path: number[] | null) => void;
   onAsk?: (ask: AssistantAsk) => void;
-  /** Which elements the host's assistant takes an ask about (its server's own rule). Absent: every element that is not the post's fields. */
+  /** Which elements the host's assistant takes an ask about (its server's own rule); it wins over the default. */
   canAsk?: (node: PmlNode, path: number[]) => boolean;
+  /**
+   * The document's pieces (its profile's). Without `canAsk`, a piece or a block made only of them (a post's opening) is
+   * the document's FIELDS, not design text, so no ask is offered there.
+   */
+  pieces?: ProfilePieces;
   /** Write a studio comment pinned to this element; absent where the host has no author. */
   onComment?: (path: number[]) => void;
 }): React.JSX.Element | null {
@@ -71,7 +67,7 @@ export function SelectionBar({
   const repeat = part?.kind === 'repeat';
   const instances = part ? instancePaths(nodes, part.key) : [];
   const nth = instances.findIndex((at) => at.join('.') === path.join('.')) + 1;
-  const askable = canAsk ? canAsk(node, path) : !onlyPostPieces(node);
+  const askable = canAsk ? canAsk(node, path) : !onlyPieces(pieces, node);
   // Moves and removal by the layout's one rule (owner 2026-11-17: the reorder buttons live here, at the top-left, where
   // the slide-in panel never covers them, and show on hover as well as for the selection; 2026-11-18: nothing refuses).
   const up = reorder(nodes, layout, path, -1);
