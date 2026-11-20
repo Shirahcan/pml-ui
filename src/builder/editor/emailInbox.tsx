@@ -32,7 +32,7 @@ export function EmailInbox({
   only?: readonly string[];
   /** A field's write landed. */
   onSaved?: (name: string) => void;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const host = useBuilderHost();
   // The host's callbacks may change identity every render; reading them through a ref keeps the load from re-running
   // (which would overwrite what the author is typing).
@@ -134,6 +134,8 @@ export function EmailInbox({
   const drawn = only === undefined ? described : described.filter((f) => only.includes(f.name));
   const text = drawn.filter((f) => f.kind === 'text');
   const toggles = drawn.filter((f) => f.kind === 'toggle');
+  // Nothing to draw above the email (a host that keeps every detail in its panels, owner 2026-11-20): no empty band.
+  if (text.length === 0 && toggles.length === 0) return null;
 
   return (
     <div className="space-y-3 rounded-t-xl border border-b-0 border-[var(--pb-border)] bg-[var(--pb-surface)] px-4 py-3 text-[var(--pb-text)]" style={vars}>

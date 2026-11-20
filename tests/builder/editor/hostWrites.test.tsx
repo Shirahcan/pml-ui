@@ -83,6 +83,18 @@ describe('refreshFields (the fields epoch)', () => {
     });
   });
 
+  it('draws nothing above the email when the host keeps every detail in its panels (owner 2026-11-20)', async () => {
+    const fields = port([{ subject: 'Your letter', preheader: '' }]);
+    const { container } = render(
+      <FieldsEpochContext.Provider value={0}>
+        <EmailInbox id="e1" fields={fields} session="s1" only={[]} />
+      </FieldsEpochContext.Provider>,
+    );
+    await waitFor(() => expect(fields.describe).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.innerHTML).toBe('');
+  });
+
   it("the inbox frame shows the preview text the host's assistant wrote, without a remount", async () => {
     const fields = port([
       { subject: 'Your letter', preheader: '' },
