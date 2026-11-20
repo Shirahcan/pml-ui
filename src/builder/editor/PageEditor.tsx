@@ -140,9 +140,11 @@ export interface PageEditorLabels {
   rolledBackMessage?: string;
   /** The add button and dialog title ("Add a section"). */
   add?: string;
-  /** The confirm for a rollback. */
+  /** The confirm for a rollback, and its two buttons (a host whose rollback is not "throw away the draft" names them). */
   rollbackTitle?: string;
   rollbackDescription?: string;
+  rollbackConfirm?: string;
+  rollbackCancel?: string;
   /** The confirm for an unpublish, and what shows once it is done. */
   unpublishTitle?: string;
   unpublishDescription?: string;
@@ -703,7 +705,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Keep the draft</AlertDialogCancel>
+              <AlertDialogCancel>{labels.rollbackCancel ?? 'Keep the draft'}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   setConfirmRollback(false);
@@ -711,7 +713,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                   void editor.undo();
                 }}
               >
-                Throw it away
+                {labels.rollbackConfirm ?? 'Throw it away'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

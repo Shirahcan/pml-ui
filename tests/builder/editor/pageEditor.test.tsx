@@ -71,6 +71,25 @@ describe('PageEditor', () => {
     await waitFor(() => expect(rollback).toHaveBeenCalledWith('p1'));
   });
 
+  it("lets a host name the rollback's confirm and its buttons (a website page's rollback brings back the previous ready version)", async () => {
+    const rollback = vi.fn(async () => ({ revision: 'd0' }));
+    render(
+      <BuilderHostProvider>
+        <PageEditor
+          adapter={fakeAdapter({ rollback })}
+          id="p1"
+          labels={{ rollbackTitle: 'Go back to the previous ready version?', rollbackConfirm: 'Go back', rollbackCancel: 'Keep this version' }}
+        />
+      </BuilderHostProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Throw away the draft/ }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Go back to the previous ready version?' });
+    expect(within(dialog).getByRole('button', { name: 'Keep this version' })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Go back' }));
+    await waitFor(() => expect(rollback).toHaveBeenCalledWith('p1'));
+  });
+
   it('says it could not open the document and tries again', async () => {
     const load = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ document: { nodes: design }, revision: 'd1', meta: {} });
     render(
