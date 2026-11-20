@@ -8,6 +8,7 @@ import type { PmlSite } from '../../renderer/PmlRenderer';
 import type { RenderedEmail } from './EmailAsSent';
 import type { FindingsWords } from './FindingsPanel';
 import { Studio, type PageEditorHostPanel, type StudioControls } from './PageEditor';
+import type { StudioElementAction } from '../studio/ElementMenu';
 import type { CanvasFrame } from './PmlCanvas';
 import type { CommentMenuItem } from './useStudioComments';
 
@@ -129,6 +130,8 @@ export interface EmailEditorProps {
    * page editor: the host mounts ai-ui's `ConsoleHost` here, which overlays and never shrinks the email.
    */
   console?: ReactNode | ((controls: EmailEditorControls) => ReactNode);
+  /** The host's own items in every block's menu (e.g. "Add to Porter"), as the page editor takes them. */
+  elementMenuActions?: StudioElementAction[];
 }
 
 /** The words the email has always used where the Studio says "page". */
@@ -161,6 +164,7 @@ export function EmailEditor({
   commentAuthor,
   onAddressComment,
   console: consoleSlot,
+  elementMenuActions,
 }: EmailEditorProps): React.JSX.Element {
   // A host panel is drawn with the email's controls, as before.
   const studioPanels = useMemo<PageEditorHostPanel[]>(
@@ -190,6 +194,7 @@ export function EmailEditor({
       labels={EMAIL_LABELS}
       renderControls={renderControls ? (controls) => renderControls(emailControls(controls)) : undefined}
       console={typeof consoleSlot === 'function' ? (controls) => consoleSlot(emailControls(controls)) : consoleSlot}
+      elementMenuActions={elementMenuActions}
     />
   );
 }

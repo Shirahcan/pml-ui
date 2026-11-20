@@ -51,7 +51,7 @@ describe('the element menu in the editor', () => {
 
     expect(within(menu).getByRole('menuitem', { name: 'Duplicate' })).toBeTruthy();
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Add to Porter' }));
-    expect(onAddToPorter).toHaveBeenCalledWith([1], design[1]);
+    await waitFor(() => expect(onAddToPorter).toHaveBeenCalledWith([1], design[1], 'Heading'));
   });
 
   it('Duplicate from the menu puts a copy right after it', async () => {

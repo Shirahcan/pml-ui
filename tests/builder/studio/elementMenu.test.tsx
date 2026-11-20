@@ -41,7 +41,20 @@ describe('ElementMenu', () => {
     expect(within(menu()).getByRole('separator')).toBeTruthy();
 
     fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Add to Porter' }));
-    expect(onAddToPorter).toHaveBeenCalledWith([1], nodes[1]);
+    // It runs once the menu has closed, so focus it moves is not pulled back by the menu.
+    await waitFor(() => expect(onAddToPorter).toHaveBeenCalledWith([1], nodes[1], 'Box'));
+  });
+
+  it('a host item that moves focus keeps it: the menu does not hand focus back to its dots (portify-1c, 2026-11-18)', async () => {
+    const box = document.createElement('input');
+    box.setAttribute('aria-label', "Porter's box");
+    document.body.appendChild(box);
+    const { menu } = open({ extraActions: [{ key: 'porter', label: 'Add to Porter', onSelect: () => box.focus() }] });
+
+    fireEvent.click(within(await waitFor(menu)).getByRole('menuitem', { name: 'Add to Porter' }));
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(box);
+    box.remove();
   });
 
   it('Copy holds the element and says so; Paste after this then appears on any element', async () => {

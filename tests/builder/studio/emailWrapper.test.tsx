@@ -36,6 +36,16 @@ describe('EmailEditor on the Studio', () => {
     expect(within(menu).getByRole('menuitem', { name: /^Remove / })).toBeTruthy();
   });
 
+  it("a block's menu offers the host's own items on an email too (Add to Porter)", async () => {
+    const onAdd = vi.fn();
+    render(<EmailEditor adapter={adapter(true)} id="t1" allowedElements={ALLOWED} renderAsSent={vi.fn()} elementMenuActions={[{ key: 'porter', label: 'Add to Porter', onSelect: onAdd }]} />);
+
+    fireEvent.contextMenu(await screen.findByRole('heading', { name: 'What to bring' }, { timeout: 3000 }));
+    fireEvent.click(within(await screen.findByRole('menu', {}, { timeout: 3000 })).getByRole('menuitem', { name: 'Add to Porter' }));
+    // A host item runs once the menu has closed (it usually moves focus, and the open menu would pull it back).
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith([1], expect.objectContaining({ uid: 'abc222' }), 'Heading'));
+  });
+
   it("hands the host the email controls it always had, with adoptSavedDraft and refreshFields (DesignerConsole's contract)", async () => {
     let controls: EmailEditorControls | null = null;
     render(

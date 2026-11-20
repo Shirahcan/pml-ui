@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, type ReactNode } from 'react';
+import React, { useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, BoxSelect, ClipboardPaste, Copy, CopyPlus, MessageSquarePlus, MoreVertical, SquareDashed, Trash2 } from 'lucide-react';
 
 import { getNodeAtPath, placementsFor, type Moved, type Placement, type PmlNode } from '../../language';
@@ -33,7 +33,8 @@ export interface StudioElementAction {
   icon?: ReactNode;
   /** Shown greyed out, for an action already taken ("Added to Porter"). */
   disabled?: boolean;
-  onSelect: (path: number[], node: PmlNode) => void;
+  /** `label` is the element's name as the bar and the menu show it ("Question section", "Heading"): one authority. */
+  onSelect: (path: number[], node: PmlNode, label: string) => void;
 }
 
 /**
@@ -73,6 +74,10 @@ export function ElementMenu({
 }): React.JSX.Element | null {
   const { onError, onSuccess } = useBuilderHost();
   const [confirming, setConfirming] = useState(false);
+  // A host item usually moves focus itself (Add to Porter puts the cursor in the console). While the menu is open its
+  // focus trap pulls focus straight back, and as it closes it hands focus to its own three dots, both AFTER the item's
+  // handler. So a host item runs once the menu has closed, in place of that hand-back (portify-1c, 2026-11-18).
+  const hostChosen = useRef<(() => void) | null>(null);
   const node = getNodeAtPath(nodes, path);
 
   if (!node) return null;
@@ -99,7 +104,19 @@ export function ElementMenu({
             <MoreVertical className="h-3 w-3" aria-hidden />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[13rem]" data-builder-keep-panel="" onClick={(event) => event.stopPropagation()}>
+        <DropdownMenuContent
+          align="end"
+          className="min-w-[13rem]"
+          data-builder-keep-panel=""
+          onClick={(event) => event.stopPropagation()}
+          onCloseAutoFocus={(event) => {
+            const run = hostChosen.current;
+            if (!run) return;
+            hostChosen.current = null;
+            event.preventDefault();
+            run();
+          }}
+        >
           {can.up ? (
             <DropdownMenuItem onSelect={() => land(can.up)}>
               <ArrowUp aria-hidden />
@@ -161,7 +178,13 @@ export function ElementMenu({
               })
             : null}
           {extraActions.map((action) => (
-            <DropdownMenuItem key={action.key} disabled={action.disabled} onSelect={() => action.onSelect(path, node)}>
+            <DropdownMenuItem
+              key={action.key}
+              disabled={action.disabled}
+              onSelect={() => {
+                hostChosen.current = () => action.onSelect(path, node, label);
+              }}
+            >
               {action.icon ?? null}
               {action.label}
             </DropdownMenuItem>
