@@ -1196,7 +1196,11 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
 
       // A visible keyboard focus ring in the site's own colour (S2-07): these used to carry a bare
       // outline-none, so a keyboard user could not see which button they were on.
-      const buttonClass = `inline-flex items-center whitespace-nowrap font-medium outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--site-accent)] focus-visible:ring-offset-2 ${variant}`;
+      // A button is as wide as its words (owner 2026-11-20, a newsletter's pill drew as a full-width bar): a flex column
+      // stretches its items, which turned a plain button into a bar on the canvas while the sent email keeps it its own
+      // width. `w-fit` stops the stretch and changes nothing in a row; an explicit width token (w-full) still wins.
+      const fit = /(^|\s)w-/.test(s.className) ? '' : 'w-fit';
+      const buttonClass = `inline-flex ${fit} items-center whitespace-nowrap font-medium outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--site-accent)] focus-visible:ring-offset-2 ${variant}`;
 
       // A button with NO href is an ACTION button (it triggers a <script> via an on-<event> handler,
       // never navigates), so it renders a real <button> - otherwise a script-trigger button could

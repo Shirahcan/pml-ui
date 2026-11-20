@@ -45,6 +45,13 @@ describe('PmlRenderer button: link vs action', () => {
     expect(c.querySelector('button')!.textContent).toBe('Go');
   });
 
+  it('keeps a button as wide as its words, so a flex column never stretches it into a bar (owner 2026-11-20)', () => {
+    const c = renderNode({ primitive: 'button', props: { label: 'Read the guide', href: '/guide' } });
+    expect(c.querySelector('a')?.className).toMatch(/(^|\s)w-fit(\s|$)/);
+    const action = renderNode({ primitive: 'button', props: { label: 'Open' } });
+    expect(action.querySelector('button')?.className).toMatch(/(^|\s)w-fit(\s|$)/);
+  });
+
   it('renders nothing for a button with no label', () => {
     const c = renderNode({ primitive: 'button', props: { href: '/x' } });
     expect(c.querySelector('a')).toBeNull();
