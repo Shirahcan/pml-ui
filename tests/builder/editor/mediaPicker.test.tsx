@@ -39,6 +39,28 @@ function renderPicker(media: DocumentMediaPort, onError = vi.fn(), uploadLimit: 
 }
 
 describe('MediaPickerDialog', () => {
+  it("a library whose removal keeps the address working says so, in its own words (0.7.85: a Growth library)", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const growth = {
+      ...port(remove),
+      removeWords: {
+        action: 'Remove from the library',
+        title: 'Remove this picture from the library?',
+        description: 'It leaves this library. Posts and newsletters that already show it keep showing it.',
+        confirm: 'Remove',
+      },
+    } as DocumentMediaPort;
+    renderPicker(growth);
+
+    await screen.findByText(/2 of 200 images/);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove from the library' })[0]);
+
+    expect(await screen.findByText('Remove this picture from the library?')).toBeTruthy();
+    expect(screen.queryByText(/already published/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('m1'));
+  });
+
   it('asks before it deletes, and Keep it deletes nothing', async () => {
     const remove = vi.fn().mockResolvedValue(undefined);
     renderPicker(port(remove));

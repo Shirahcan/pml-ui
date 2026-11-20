@@ -48,6 +48,14 @@ export function MediaPickerDialog({
   return source ? <MediaPicker {...rest} media={source.media} uploadLimit={source.uploadLimit} /> : null;
 }
 
+/** What removing a picture means in a site's library: it is gone from every page that shows it. */
+const SITE_REMOVE_WORDS = {
+  action: 'Delete image',
+  title: 'Delete this image?',
+  description: 'Any page that shows it will show an empty space instead, including pages that are already published. This cannot be undone.',
+  confirm: 'Delete image',
+};
+
 function MediaPicker({
   open,
   onOpenChange,
@@ -62,6 +70,8 @@ function MediaPicker({
   uploadLimit?: MediaSource['uploadLimit'];
 }): React.JSX.Element {
   const host = useBuilderHost();
+  // A library whose removal keeps the address working (a Growth library) says so; else a site library's words.
+  const words = port.removeWords ?? SITE_REMOVE_WORDS;
   const [media, setMedia] = useState<MediaRef[]>([]);
   const [quota, setQuota] = useState<LibraryQuota | null>(null);
   // Has the library loaded once? The spinner covers only the FIRST load; a reopen refreshes in the
@@ -246,7 +256,7 @@ function MediaPicker({
 
                 <button
                   type="button"
-                  aria-label="Delete image"
+                  aria-label={words.action}
                   onClick={(event) => askToDelete(item, event.currentTarget)}
                   className="absolute right-1.5 top-1.5 rounded-md bg-white/90 p-1.5 text-red-600 opacity-0 outline-none transition group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-500"
                 >
@@ -278,11 +288,8 @@ function MediaPicker({
             }}
           >
             <DialogHeader>
-              <AlertDialogTitle>Delete this image?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Any page that shows it will show an empty space instead, including pages that
-                are already published. This cannot be undone.
-              </AlertDialogDescription>
+              <AlertDialogTitle>{words.title}</AlertDialogTitle>
+              <AlertDialogDescription>{words.description}</AlertDialogDescription>
             </DialogHeader>
             {confirming ? (
               /* eslint-disable-next-line @next/next/no-img-element -- a user upload at its own address, not a Next-optimisable asset */
@@ -322,7 +329,7 @@ function MediaPicker({
               >
                 <Button variant="danger" className="aria-disabled:opacity-60">
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Delete image
+                  {words.confirm}
                 </Button>
               </AlertDialogAction>
             </DialogFooter>

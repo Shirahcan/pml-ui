@@ -112,6 +112,12 @@ export interface DocumentMediaPort extends CardMediaPort {
   /** The library, newest first, and its quota in bytes (with its image count, when the host limits that too). */
   list(): Promise<{ media: MediaRef[]; quota?: { used: number; limit: number; files?: { used: number; limit: number } } | null }>;
   remove(id: string): Promise<void>;
+  /**
+   * How removing a picture reads, for a library whose removal does NOT empty the pages that show it (a Growth library:
+   * the picture leaves the library, and a sent newsletter or a published post keeps showing it). Absent, the picker
+   * says what a site's library does: the picture is gone wherever it shows (0.7.85).
+   */
+  removeWords?: { action: string; title: string; description: string; confirm: string };
 }
 
 /** The code pane: the document as PML text and back. Code that does not read yet is an answer, never a throw. */
