@@ -1196,10 +1196,11 @@ function useElementView(node: PmlNode, site: PublicSite): React.JSX.Element | nu
 
       // A visible keyboard focus ring in the site's own colour (S2-07): these used to carry a bare
       // outline-none, so a keyboard user could not see which button they were on.
-      // A button is as wide as its words (owner 2026-11-20, a newsletter's pill drew as a full-width bar): a flex column
-      // stretches its items, which turned a plain button into a bar on the canvas while the sent email keeps it its own
-      // width. `w-fit` stops the stretch and changes nothing in a row; an explicit width token (w-full) still wins.
-      const fit = /(^|\s)w-/.test(s.className) ? '' : 'w-fit';
+      // A button's width is the HOST's to set through `--site-button-width` (owner 2026-11-20: in the email canvas a flex
+      // column stretched a plain button into a full-width bar, while the sent email keeps it its own width). Unset, the
+      // value is invalid and the width is `auto`, so every site page draws exactly as before; the email canvas sets
+      // `fit-content`. An explicit width token on the node still wins.
+      const fit = /(^|\s)w-/.test(s.className) ? '' : 'w-[var(--site-button-width)]';
       const buttonClass = `inline-flex ${fit} items-center whitespace-nowrap font-medium outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--site-accent)] focus-visible:ring-offset-2 ${variant}`;
 
       // A button with NO href is an ACTION button (it triggers a <script> via an on-<event> handler,
