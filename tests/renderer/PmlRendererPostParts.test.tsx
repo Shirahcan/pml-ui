@@ -137,7 +137,7 @@ describe('PmlRenderer post parts', () => {
     const empty = builder.getByText(/No call to action is set for the consideration stage yet/);
     expect(empty).toBeTruthy();
     // The ONE empty marker every empty piece wears (EMPTY_BLOCK): dashed accent border on the accent tint.
-    expect((empty as HTMLElement).style.border).toContain('dashed');
+    expect(['borderTop', 'borderRight', 'borderBottom', 'borderLeft'].map((side) => (empty as HTMLElement).style[side as 'borderTop'])).toEqual(Array(4).fill(expect.stringContaining('dashed')));
     expect((empty as HTMLElement).style.background).toMatch(/#EEEEFF|rgb\(238, 238, 255\)/i);
   });
 

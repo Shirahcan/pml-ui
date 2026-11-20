@@ -105,8 +105,19 @@ export function PostFaqItem({
  * use appropriate markers (e.g. borders or bg) to make them easily identifiable"): a dashed accent border, a light
  * accent tint, its placeholder words inside. Only ever drawn on the canvas; a reader never sees an empty piece.
  */
+const EMPTY_EDGE = '1.5px dashed color-mix(in srgb, #625FFB 45%, transparent)';
+
+/**
+ * ⚠ Four sides, never the `border` shorthand (0.7.84): a piece that keeps its own `borderLeft` (the post's Summary)
+ * drops this marker once it is filled, and React removing `border` beside a `borderLeft` it keeps is a styling bug
+ * ("Removing a style property during rerender (border) when a conflicting property is set (borderLeft)"), raised the
+ * moment a prepare filled a post's summary.
+ */
 export const EMPTY_MARK: React.CSSProperties = {
-  border: '1.5px dashed color-mix(in srgb, #625FFB 45%, transparent)',
+  borderTop: EMPTY_EDGE,
+  borderRight: EMPTY_EDGE,
+  borderBottom: EMPTY_EDGE,
+  borderLeft: EMPTY_EDGE,
   background: '#EEEEFF',
   borderRadius: 10,
 };

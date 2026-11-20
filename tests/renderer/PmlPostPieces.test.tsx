@@ -89,6 +89,22 @@ describe('post pieces', () => {
     ]);
   });
 
+  it('a summary filled on the canvas keeps its accent and raises no style error (0.7.84)', () => {
+    const errors: unknown[][] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => { errors.push(args); });
+    const empty = [{ primitive: 'post_summary', props: {} }] as unknown as PmlNode[];
+    const filled = [{ primitive: 'post_summary', props: { resolved: { answer: 'Apply online before your permit expires.' } } }] as unknown as PmlNode[];
+
+    const view = render(<PmlRenderer nodes={empty} site={site} builderHints />);
+    view.rerender(<PmlRenderer nodes={filled} site={site} builderHints />);
+    spy.mockRestore();
+
+    expect(errors.filter((e) => String(e[0]).includes('style property'))).toEqual([]);
+    const block = view.container.querySelector('p')?.parentElement as HTMLElement;
+    expect(block.style.borderLeft).toContain('3px solid');
+    expect(block.style.borderTop).toBe('');
+  });
+
   it('on the canvas an empty summary or sources list says where its words come from', () => {
     const c = render(<PmlRenderer nodes={[{ primitive: 'post_summary', props: {} }, { primitive: 'post_sources', props: {} }] as unknown as PmlNode[]} site={site} builderHints />).container;
 
