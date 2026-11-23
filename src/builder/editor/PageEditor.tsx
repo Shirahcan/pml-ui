@@ -523,10 +523,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           {isEmail ? email.inboxFrame : null}
           {/* Pinned to the top of the canvas as it scrolls, taking no room (a notice that pushed the design down would
               jump while a person types). It sat BELOW the whole canvas before: on a long post the only sign of a failed
-              draw was 2000px down, and it claimed "the last version that worked" when nothing had (2026-11-23). */}
+              draw was 2000px down, and it claimed "the last version that worked" when nothing had (2026-11-23). At the RIGHT:
+              the host's console floats over the canvas's left, and a centred notice covered its close and menu buttons. */}
           {editor.previewError ? (
             <div className="sticky top-2 z-30 h-0">
-              <p role="status" className="mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-sm">
+              <p role="status" className="ml-auto mr-3 w-fit max-w-[min(90%,24rem)] rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-sm">
                 {editor.compiled
                   ? `${editor.previewError.message} The canvas shows the last version that worked.`
                   : `The canvas could not draw this ${noun}: ${editor.previewError.message} Each element shows its name until it can.`}
