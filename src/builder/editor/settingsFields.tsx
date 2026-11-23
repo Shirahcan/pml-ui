@@ -184,16 +184,18 @@ export function FieldControl({
     return (
       <div>
         {label}
-        <Select value={str} onValueChange={onChange}>
+        {/* An unset value shows as the choice it means (`unsetAs`, 0.7.89): a design saved before the field reads
+            "Follow the theme", never an empty "Choose one". */}
+        <Select value={str !== '' ? str : (field.unsetAs ?? '')} onValueChange={onChange}>
           <SelectTrigger id={id} className="px-3 py-2 outline-none">
             <SelectValue placeholder="Choose one" />
           </SelectTrigger>
           <SelectContent>
             {/* Catalog field selects carry config tokens (variant, columns, gap, ...), so the same
-                humanizer that labels the appearance selects reads well here too. */}
+                humanizer that labels the appearance selects reads well here too, unless the field names its own. */}
             {(field.options ?? []).map((option) => (
               <SelectItem key={option} value={option}>
-                {tokenLabel(option)}
+                {field.labels?.[option] ?? tokenLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>

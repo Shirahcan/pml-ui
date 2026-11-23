@@ -33,6 +33,13 @@ export interface PmlFieldDef {
   kind: PmlFieldKind;
   options?: string[];
   optional?: boolean;
+  /**
+   * A select's own words for its options (0.7.89), where the shared token labeller would read wrong ("theme" is
+   * "Follow the theme"). An option without an entry keeps the shared label.
+   */
+  labels?: Record<string, string>;
+  /** The option an UNSET value means and shows as (0.7.89): a design saved before the field reads as this choice. */
+  unsetAs?: string;
 }
 
 export interface PmlComponentDef {
@@ -699,6 +706,16 @@ export const PML_CATALOG: PmlComponentDef[] = [
     fields: [
       { key: 'stage', label: 'Stage', kind: 'select', options: [...PML_ENUMS.cta_stage] },
       { key: 'variant', label: 'Shape', kind: 'select', options: [...PML_ENUMS.cta_variant] },
+      // Owner 2026-11-23: blog buttons "obey the theme but they should also be able to be modified in the studio".
+      // Unset reads as "Follow the theme" (Website > Theme > Corners), exactly as before this setting.
+      {
+        key: 'button_corners',
+        label: 'Button corners',
+        kind: 'select',
+        options: [...PML_ENUMS.cta_button_corners],
+        labels: { theme: 'Follow the theme', pill: 'Pill', rounded: 'Rounded', square: 'Square' },
+        unsetAs: 'theme',
+      },
     ],
     defaults: { primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline' } },
   },

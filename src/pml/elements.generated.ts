@@ -33,6 +33,7 @@ export const PML_ENUMS = {
   level: ['1', '2', '3', '4'],
   cta_stage: ['awareness', 'consideration', 'decision'],
   cta_variant: ['inline', 'rail', 'ask', 'banner'],
+  cta_button_corners: ['theme', 'pill', 'rounded', 'square'],
   variant: ['primary', 'outline', 'link', 'soft', 'ghost'],
   columns: ['1', '2', '3', '4', '6', '12'],
   gap: ['none', 'xs', 'sm', 'md', 'lg', 'xl'],
@@ -424,6 +425,7 @@ export const ELEMENTS: Readonly<Record<ElementName, PmlElementDef>> = {
     props: {
       stage: { type: 'enum', values: ['awareness', 'consideration', 'decision'] },
       variant: { type: 'enum', values: ['inline', 'rail', 'ask', 'banner'] },
+      button_corners: { type: 'enum', values: ['theme', 'pill', 'rounded', 'square'] },
     },
   },
   post_story: {

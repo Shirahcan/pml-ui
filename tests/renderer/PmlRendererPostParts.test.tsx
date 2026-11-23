@@ -113,6 +113,22 @@ describe('PmlRenderer post parts', () => {
     expect(main.getAttribute('style')).toBeNull();
   });
 
+  it("follows the theme's button corners unless the block chooses its own (owner 2026-11-23)", () => {
+    const resolvedCta = { headline: 'Rules change fast.', button: { label: 'Read the guide', href: '/guide', kind: 'link' } };
+    const draw = (corners?: string) =>
+      render(<PmlRenderer nodes={[{ primitive: 'post_cta', props: { stage: 'awareness', variant: 'inline', ...(corners ? { button_corners: corners } : {}), resolved: resolvedCta } } as PmlNode]} site={site} />)
+        .container.querySelector('aside') as HTMLElement;
+
+    // Unset or "theme": Website > Theme > Corners decides, exactly as before.
+    expect(draw().style.getPropertyValue('--site-button-radius')).toBe('');
+    expect(draw('theme').style.getPropertyValue('--site-button-radius')).toBe('');
+    // A choice sets the block's button shape; its buttons read the same variable.
+    expect(draw('pill').style.getPropertyValue('--site-button-radius')).toBe('9999px');
+    expect(draw('rounded').style.getPropertyValue('--site-button-radius')).toBe('12px');
+    expect(draw('square').style.getPropertyValue('--site-button-radius')).toBe('4px');
+    expect(draw('blob').style.getPropertyValue('--site-button-radius')).toBe('');
+  });
+
   it("draws the page's own form for a subscribe action, never a form of its own", () => {
     const resolvedCta = { headline: 'Rules change fast.', button: { label: 'Get updates', href: null, kind: 'subscribe' } };
     const { getByTestId, queryByRole } = render(

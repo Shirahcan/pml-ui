@@ -26,6 +26,14 @@ const action = (value: unknown): Action => (value && typeof value === 'object' &
 
 const STAGE_WORDS: Record<string, string> = { awareness: 'awareness', consideration: 'consideration', decision: 'decision' };
 
+/**
+ * The block's own button corners (0.7.89, owner 2026-11-23: blog buttons "obey the theme but they should also be able to
+ * be modified in the studio"): set as `--site-button-radius` on the block, so its buttons (and a subscribe form's) take
+ * it. Unset or `theme` sets nothing: Website > Theme > Corners decides, exactly as before. Square is the theme's own
+ * Square button (4px), so "Square" reads the same wherever it is chosen.
+ */
+export const CTA_BUTTON_RADIUS: Record<string, string> = { pill: '9999px', rounded: '12px', square: '4px' };
+
 export function PmlPostCta({
   props,
   className,
@@ -73,11 +81,14 @@ export function PmlPostCta({
     ? { background: 'var(--site-strong, var(--site-text))', color: 'var(--site-on-strong, var(--site-surface, #fff))' }
     : undefined;
 
+  const corners = CTA_BUTTON_RADIUS[str(props.button_corners)];
+  const buttonShape = corners ? ({ '--site-button-radius': corners } as React.CSSProperties) : undefined;
+
   return (
     <aside
       aria-label={headline}
       className={`rounded-[var(--site-radius)] border border-current/15 border-t-4 ${accent} p-6 ${centred ? 'text-center' : ''} ${className}`.replace(/\s+/g, ' ').trim()}
-      style={{ ...strongEdge, ...style }}
+      style={{ ...strongEdge, ...buttonShape, ...style }}
     >
       {str(row.eyebrow) ? <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--site-accent)]">{str(row.eyebrow)}</p> : null}
       <p className={`mt-1 font-extrabold leading-snug ${banner ? 'text-2xl md:text-3xl' : 'text-xl'}`}>{headline}</p>
