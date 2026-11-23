@@ -193,6 +193,13 @@ export interface DocumentField {
 export interface DocumentFieldGroup {
   key: string;
   label: string;
+  /**
+   * The template part these settings belong to (its `part` key: a part's name, whether every document must have it, how
+   * many of a repeating part). Owner 2026-11-23: a part's settings are set ON the part, the way a post's cover is, never
+   * as a row of tabs in Details. The Studio shows the group when one of that part's elements is selected and keeps it out
+   * of the Details panel and the header's menu.
+   */
+  part?: string;
 }
 
 /**
@@ -228,6 +235,27 @@ export interface DocumentLayout {
   key?: string;
   version?: number;
   parts: DocumentLayoutPart[];
+}
+
+/**
+ * The settings of the template part an element belongs to: the nearest part along its path (the element itself, or the
+ * part it sits in), so selecting a question's heading offers its question section's settings. Null when the element is
+ * in no part, or the part has no settings group.
+ */
+export function partGroupAt(nodes: PmlNode[], path: number[], groups: DocumentFieldGroup[]): DocumentFieldGroup | null {
+  for (let depth = path.length; depth > 0; depth--) {
+    let node: PmlNode | undefined;
+    let level: PmlNode[] | undefined = nodes;
+    for (const index of path.slice(0, depth)) {
+      node = level?.[index];
+      level = node?.children;
+    }
+    const part = typeof node?.part === 'string' ? node.part : null;
+    const group = part ? groups.find((candidate) => candidate.part === part) : undefined;
+    if (group) return group;
+  }
+
+  return null;
 }
 
 /** A document's field groups, in the order their fields come (the port lists fields group by group). */

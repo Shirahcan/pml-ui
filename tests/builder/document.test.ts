@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { paramDefaultText } from '../../src/builder/components';
 import { pathExpr } from '../../src/pml/expressions';
-import { isConflict, isPlaceholders, isRefused, type DocumentFieldsPort, type PublishResult, type SaveDraftResult } from '../../src/builder/document';
+import type { PmlNode } from '../../src/pml/primitives';
+import { isConflict, isPlaceholders, isRefused, partGroupAt, type DocumentFieldGroup, type DocumentFieldsPort, type PublishResult, type SaveDraftResult } from '../../src/builder/document';
 
 /**
  * The DocumentAdapter contract (shared program E4a1): a save or publish that lost a race answers a conflict, which the
@@ -88,5 +89,35 @@ describe('the fields port', () => {
 
     expect(isConflict(await fields.write('p1', 'title', 'Stale words', 'r1', 's2'))).toBe(true);
     expect((await fields.read('p1')).values.title).toBe('Express Entry 2026: who qualifies');
+  });
+});
+
+/**
+ * A template part's settings are offered on the part (owner 2026-11-23: never as a row of tabs in Details): selecting the
+ * part, or anything inside it, finds its group; the nearest part wins for a part inside another.
+ */
+describe('partGroupAt', () => {
+  const groups: DocumentFieldGroup[] = [
+    { key: 'part:section', label: 'Part: Question section', part: 'section' },
+    { key: 'part:answer', label: 'Part: Short answer', part: 'answer' },
+  ];
+  const nodes: PmlNode[] = [
+    { primitive: 'heading', props: { text: 'Intro' } },
+    { primitive: 'box', part: 'section', children: [
+      { primitive: 'heading', props: { text: 'A question?' } },
+      { primitive: 'box', part: 'answer', children: [{ primitive: 'p', children: [{ primitive: 'text', props: { value: 'Yes.' } }] }] },
+    ] },
+  ];
+
+  it('finds the part an element is, or sits in', () => {
+    expect(partGroupAt(nodes, [1], groups)?.key).toBe('part:section');
+    expect(partGroupAt(nodes, [1, 0], groups)?.key).toBe('part:section');
+    expect(partGroupAt(nodes, [1, 1, 0], groups)?.key).toBe('part:answer');
+  });
+
+  it('is null outside any part, or for a part with no settings', () => {
+    expect(partGroupAt(nodes, [0], groups)).toBeNull();
+    expect(partGroupAt(nodes, [1, 0], [])).toBeNull();
+    expect(partGroupAt(nodes, [9], groups)).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
 import { elementLabel, getNodeAtPath, moveTopLevel, pieceOf, piecesOf, removeNodeAtPath, updateNodeAtPath, type PmlNode, type ProfileKey } from '../../language';
-import { fieldGroupsOf, isConflict, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
+import { fieldGroupsOf, isConflict, partGroupAt, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
 import {
@@ -292,7 +292,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
   // The field groups, one slide-in panel each (owner 2026-11-17: every option in a panel over the design).
-  const [fieldGroups, setFieldGroups] = useState<DocumentFieldGroup[]>([]);
+  const [allFieldGroups, setFieldGroups] = useState<DocumentFieldGroup[]>([]);
+  // A template part's settings are offered on the part when it is selected (owner 2026-11-23), never as a Details tab:
+  // Details, its menu and its tabs hold only the document's own groups.
+  const fieldGroups = useMemo(() => allFieldGroups.filter((group) => !group.part), [allFieldGroups]);
+  const partGroups = useMemo(() => allFieldGroups.filter((group) => group.part), [allFieldGroups]);
   useEffect(() => {
     let alive = true;
 
@@ -468,6 +472,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   };
   const openHost = panel?.startsWith('host:') ? panels.find((hosted) => `host:${hosted.key}` === panel) ?? null : null;
   const openGroup = panel?.startsWith('group:') ? fieldGroups.find((group) => `group:${group.key}` === panel) ?? null : null;
+  const selectedPart = selectedPath ? partGroupAt(nodes, selectedPath, partGroups) : null;
 
   if (editor.loading) {
     return <p className="py-16 text-center text-sm text-[var(--pb-muted)]" style={vars}>Opening the {noun}...</p>;
@@ -632,7 +637,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               ) : null}
               <PositionControls nodes={nodes} path={selectedPath} layout={layout} change={change} select={selectPath} />
               {locked ? null : <AddRelativeButton placements={relative.placements(selectedPath)} name={relative.nameOf(selectedPath)} onChoose={(placement) => relative.open(selectedPath, placement)} />}
-              {/* The piece's own fields first (a post's title, its cover upload), then its look. */}
+              {/* The part's settings first (a template's: its name, must have, how many), then the piece's own fields (a
+                  post's title, its cover upload), then its look. */}
+              {adapter.fields && selectedPart ? (
+                <DocumentFieldsPanel key={`${id}:${selectedPart.key}`} id={id} fields={adapter.fields} session={editor.session} group={selectedPart.key} label={selectedPart.label} onSaved={fieldSaved} />
+              ) : null}
               {adapter.fields ? <PieceFieldsPanel node={selected} pieces={pieces} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
               <PmlSettings
                 key={selectedPath.join('.')}
