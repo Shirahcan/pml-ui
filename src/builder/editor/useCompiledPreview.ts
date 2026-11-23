@@ -36,6 +36,9 @@ export function useCompiledPreview(
   const [previewError, setPreviewError] = useState<{ message: string; path: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(0);
+  // Whether this document has drawn once, and the last failure already handed to the host (see the error branch).
+  const drewOnce = useRef(false);
+  const reported = useRef<string | null>(null);
   // Bumped to compile the same design again (see `refresh`).
   const [nonce, setNonce] = useState(0);
   const onErrorRef = useRef(onError);
@@ -56,7 +59,18 @@ export function useCompiledPreview(
 
           if (result.error) {
             setPreviewError(result.error);
+            // A design that has NEVER drawn is not a half-typed edit: the saved design itself fails, and the canvas can
+            // only show each element's name. Someone must see that and be able to report it (2026-11-23: the TEST canvas
+            // drew "Box..." for every section, the only sign a line 2000px below the fold), so the host's error surface
+            // hears it, once per reason. A failure after a good draw stays the quiet notice (the person is mid-edit).
+            const reason = `The canvas could not draw this design (${result.error.message}${result.error.path ? ` at ${result.error.path}` : ''}).`;
+            if (!drewOnce.current && reported.current !== reason) {
+              reported.current = reason;
+              onErrorRef.current(new Error(reason));
+            }
           } else {
+            drewOnce.current = true;
+            reported.current = null;
             setCompiled(withoutComments(result.tree));
             setNatives(result.natives);
             setPreviewError(null);
@@ -82,6 +96,8 @@ export function useCompiledPreview(
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     latest.current += 1;
+    drewOnce.current = false;
+    reported.current = null;
     setCompiled(null);
     setNatives(null);
     setPreviewError(null);

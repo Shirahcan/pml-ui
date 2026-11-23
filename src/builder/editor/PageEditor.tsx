@@ -521,6 +521,18 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         // An email is a 600px column with its inbox frame (subject, preview text) above it.
         <div className={isEmail ? 'mx-auto w-full min-w-0 max-w-[600px]' : 'min-w-0'}>
           {isEmail ? email.inboxFrame : null}
+          {/* Pinned to the top of the canvas as it scrolls, taking no room (a notice that pushed the design down would
+              jump while a person types). It sat BELOW the whole canvas before: on a long post the only sign of a failed
+              draw was 2000px down, and it claimed "the last version that worked" when nothing had (2026-11-23). */}
+          {editor.previewError ? (
+            <div className="sticky top-2 z-30 h-0">
+              <p role="status" className="mx-auto w-fit max-w-[90%] rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-sm">
+                {editor.compiled
+                  ? `${editor.previewError.message} The canvas shows the last version that worked.`
+                  : `The canvas could not draw this ${noun}: ${editor.previewError.message} Each element shows its name until it can.`}
+              </p>
+            </div>
+          ) : null}
           <PmlCanvas
             // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
             bare={!isEmail}
@@ -585,11 +597,6 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
             }}
           />
-          {editor.previewError ? (
-            <p role="status" className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {editor.previewError.message} The canvas shows the last version that worked.
-            </p>
-          ) : null}
           {isEmail && locked ? null : (
             <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked} onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" />

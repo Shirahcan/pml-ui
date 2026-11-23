@@ -36,6 +36,21 @@ describe('PageEditor', () => {
     expect(await screen.findByRole('complementary', { name: 'Layers' })).toBeTruthy();
   });
 
+  it('says plainly at the top of the canvas when a design never draws, and tells the host once', async () => {
+    const onError = vi.fn();
+    const preview = vi.fn(async () => ({ tree: [], natives: null, error: { message: '"value" must be a string.', path: 'node.props.value' } }));
+    render(
+      <BuilderHostProvider onError={onError}>
+        <PageEditor adapter={fakeAdapter({ preview })} id="p1" labels={{ noun: 'post' }} />
+      </BuilderHostProvider>,
+    );
+
+    const status = await screen.findByText('The canvas could not draw this post: "value" must be a string. Each element shows its name until it can.', {}, { timeout: 3000 });
+    expect(status.getAttribute('role')).toBe('status');
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect(String(onError.mock.calls[0][0].message)).toBe('The canvas could not draw this design ("value" must be a string. at node.props.value).');
+  });
+
   it('shows what a refused publish found', async () => {
     const adapter = fakeAdapter({
       publish: vi.fn(async () => ({ refused: { mayPublish: false, findings: [{ source: 'layout', severity: 'block' as const, rule: 'missing_part', message: 'The post needs its call to action.', excerpt: null, suggestion: null }] } })),
