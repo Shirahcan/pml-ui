@@ -722,3 +722,28 @@ export const PROFILE_PIECES: Readonly<Record<ProfileKey, Readonly<Record<string,
 
 /** What an ask aimed at a post's whole opening (two or more drafting pieces) drafts as well: the search details. */
 export const POST_OPENING_DRAFTS = ['meta_description', 'secondary_keywords'] as const;
+
+/** A standard section: the settings it takes, and whether it holds elements of its own. */
+export interface PmlStandardSection {
+  params: readonly string[];
+  has_slot: boolean;
+}
+
+/** The standard library's sections, by name: the sections every document may hold, a post included. */
+export const STANDARD_SECTIONS: Readonly<Record<string, PmlStandardSection>> = {
+  hero: {
+    params: ['headline', 'subhead', 'image_url', 'image_alt', 'cta_label', 'cta_href'],
+    has_slot: false,
+  },
+  about: { params: ['heading', 'photo_url', 'photo_alt'], has_slot: true },
+  image_text: { params: ['heading', 'image_url', 'image_alt'], has_slot: true },
+  cta_banner: { params: ['headline', 'body', 'cta_label', 'cta_href'], has_slot: false },
+  stats: { params: ['heading'], has_slot: true },
+  stat: { params: ['value', 'label'], has_slot: false },
+  team: { params: ['heading'], has_slot: true },
+  member: { params: ['name', 'role', 'photo_url', 'photo_alt'], has_slot: false },
+  process_timeline: { params: ['heading'], has_slot: true },
+  step: { params: ['title'], has_slot: true },
+  office_map: { params: ['heading', 'address', 'note'], has_slot: false },
+  announcement: { params: ['message', 'cta_label', 'cta_href'], has_slot: false },
+};

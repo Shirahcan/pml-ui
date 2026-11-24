@@ -1,4 +1,4 @@
-import { PML_ENUMS } from './elements.generated';
+import { PML_ENUMS, STANDARD_SECTIONS } from './elements.generated';
 import { ICON_NAMES, type PmlNode, type Primitive } from './primitives';
 
 /**
@@ -1114,7 +1114,33 @@ const PLAIN_ELEMENT_NAMES: Record<string, string> = {
 
 /** What to call an element anywhere the builder names one. */
 export function elementLabel(name: string, studio: Array<{ key: string; name: string }> = []): string {
-  return PML_CATALOG_BY_NAME[name]?.label ?? studio.find((c) => c.key === name)?.name ?? PLAIN_ELEMENT_NAMES[name] ?? 'Element';
+  return (
+    PML_CATALOG_BY_NAME[name]?.label ??
+    studio.find((c) => c.key === name)?.name ??
+    PLAIN_ELEMENT_NAMES[name] ??
+    (STANDARD_SECTIONS[name] ? standardSectionName(name) : 'Element')
+  );
+}
+
+/** The names a person reads for pml-kit's standard sections (STANDARD_SECTIONS holds what each takes). */
+const STANDARD_SECTION_NAMES: Record<string, string> = {
+  hero: 'Hero',
+  about: 'About',
+  image_text: 'Image and text',
+  cta_banner: 'Call to action banner',
+  stats: 'Figures',
+  stat: 'Figure',
+  team: 'Team',
+  member: 'Team member',
+  process_timeline: 'Steps',
+  step: 'Step',
+  office_map: 'Office map',
+  announcement: 'Announcement',
+};
+
+/** A standard section's name as a person reads it: its own, or its key in words. */
+export function standardSectionName(key: string): string {
+  return STANDARD_SECTION_NAMES[key] ?? key.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 }
 
 /** Human labels for each group heading in the modal. */

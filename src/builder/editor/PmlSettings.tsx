@@ -13,6 +13,7 @@ import { StyleSelect } from './styleControls';
 import { BindableMarkdown, ShowHideControl } from './studioBindings';
 import { ContainerContents } from './settingsContents';
 import { PartialSettings, SlotContents } from './settingsContentsSlots';
+import { StandardSectionSettings, standardSectionOf } from './StandardSectionSettings';
 import { CodeControl, ItemList, MarkdownControl, ProseSlot, ScriptView, TextBodyControl, WordsControl } from './settingsControls';
 import { BindableField } from './settingsFields';
 import { TocRebuild } from './TocRebuild';
@@ -91,6 +92,18 @@ export function PmlSettings({
         contents={(slots) => <SlotContents node={node} slots={slots} onChange={onChange} canAuthorPml={canAuthorPml} hideAdd={creatorControls !== undefined} />}
       />
       {creatorControls ? <div className="mt-4">{creatorControls}</div> : null}
+      </>
+    );
+  }
+
+  // A standard section saved as a section (a Porter-built post's process timeline) with no catalog entry of its own:
+  // its words and contents, from pml-kit's list (P1a-3d). Before this it read as one of the site's own components.
+  const standard = def ? undefined : standardSectionOf(node);
+  if (standard) {
+    return (
+      <>
+        <StandardSectionSettings node={node} section={standard} onChange={onChange} onDelete={onDelete} deleteLabel={deleteLabel} canAuthorPml={canAuthorPml} hideAdd={creatorControls !== undefined} />
+        {creatorControls ? <div className="mt-4">{creatorControls}</div> : null}
       </>
     );
   }
