@@ -47,6 +47,7 @@ import type { StudioComment } from '../../language';
 import { PmlSettings } from './PmlSettings';
 import { SlidePanel } from './SlidePanel';
 import { UnpublishDialog } from './UnpublishDialog';
+import { VersionsPanel } from './VersionsPanel';
 import { useDocumentEditor } from './useDocumentEditor';
 import { useQuickEditSelection } from './useQuickEditSelection';
 
@@ -89,6 +90,8 @@ export interface PageEditorControls {
   openPanel: (panel: PageEditorPanel) => void;
   /** Whether the document has details to show (a fields port, or the host's `aside`). */
   hasDetails: boolean;
+  /** Whether the document keeps earlier versions: then `openPanel('versions')` lists them, each one restorable. */
+  hasVersions: boolean;
   /**
    * The document's field groups, in order (designer sole surface P2a): one slide-in panel each, opened with
    * `openPanel(\`group:${key}\`)`. Empty when its fields have no groups (then `'details'` shows them all).
@@ -130,7 +133,7 @@ export interface PageEditorHostPanel {
  * The panels a host can open; the selected section's settings open on their own when a section is selected.
  * `group:{key}` is one field group's panel; `'details'` opens the first group when there are groups.
  */
-export type PageEditorPanel = 'details' | 'layers' | 'checks' | `group:${string}` | `host:${string}`;
+export type PageEditorPanel = 'details' | 'layers' | 'checks' | 'versions' | `group:${string}` | `host:${string}`;
 
 /** The words a host gives the editor, so it never calls a post a "page". */
 export interface PageEditorLabels {
@@ -459,6 +462,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       : undefined,
     openPanel,
     hasDetails,
+    hasVersions: editor.canRestoreVersions,
     fieldGroups,
     commentMenu: comments.menuItems,
     unpublish: adapter.unpublish && live ? () => setConfirmUnpublish(true) : undefined,
@@ -619,7 +623,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           open={panel !== null}
           openKey={openKey}
           onClose={closePanel}
-          title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : isEmail ? EMAIL_WORDS.checks : 'Checks'}
+          title={panel === 'selected' ? selectedTitle : openHost ? openHost.title : openGroup ? openGroup.label : panel === 'details' ? 'Details' : panel === 'layers' ? 'Layers' : panel === 'versions' ? 'Versions' : isEmail ? EMAIL_WORDS.checks : 'Checks'}
         >
           {panel === 'selected' && selected && selectedPath ? (
             <div className="space-y-4">
@@ -678,6 +682,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 selectPath(moved.path);
               }}
             />
+          ) : panel === 'versions' && adapter.versions ? (
+            <VersionsPanel id={id} port={adapter.versions} noun={noun} onRestore={editor.restoreVersion} />
           ) : panel === 'checks' ? (
             editor.scan ? (
               <FindingsPanel preflight={editor.scan} words={isEmail ? email.findingsWords : { clean: 'Nothing here needs to change. Ready to publish.' }} />

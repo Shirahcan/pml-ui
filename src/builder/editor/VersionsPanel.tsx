@@ -1,0 +1,161 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+
+import type { DocumentVersion, DocumentVersionsPort } from '../document';
+import { Button } from '../ui/controls';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/overlays';
+
+/** What each kind of version is, in the words of the person who made it. */
+const KIND_WORDS: Record<string, string> = {
+  published: 'Published',
+  before_discard: 'Draft before it was thrown away',
+  before_restore: 'Draft before a version was restored',
+};
+
+function when(at: string | null): string {
+  if (!at) return '';
+  const date = new Date(at);
+
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+/**
+ * A document's earlier versions, newest first, in a slide-in over the canvas (plan close-multi-pass-gaps-2026-11-24
+ * P9). Restoring one puts it in the DRAFT, never live, and asks first; what the draft held is kept as a version too,
+ * so a restore can itself be undone.
+ *
+ * ⚠ BEFORE THIS A PUBLISHED CHANGE COULD NOT BE UNDONE. A post kept only its draft and its live copy, so a section
+ * removed by hand and published was gone (Portify TEST, 2026-11-24).
+ */
+export function VersionsPanel({
+  id,
+  port,
+  noun,
+  onRestore,
+}: {
+  id: string;
+  port: DocumentVersionsPort;
+  noun: string;
+  /** The editor's restore: true once the version is in the draft and on the canvas. */
+  onRestore: (versionId: string) => Promise<boolean>;
+}) {
+  const [versions, setVersions] = useState<DocumentVersion[] | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [asking, setAsking] = useState<DocumentVersion | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [reads, setReads] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    port
+      .list(id)
+      .then((list) => {
+        if (!alive) return;
+        setVersions(list);
+        setFailed(null);
+      })
+      .catch((err: unknown) => alive && setFailed(err instanceof Error ? err.message : String(err)));
+
+    return () => {
+      alive = false;
+    };
+  }, [port, id, reads]);
+
+  const restore = async () => {
+    if (!asking) return;
+    setRestoring(true);
+    const done = await onRestore(asking.id);
+    setRestoring(false);
+    setAsking(null);
+    if (done) setReads((n) => n + 1);
+  };
+
+  if (failed !== null && versions === null) {
+    return (
+      <div className="space-y-3 text-sm">
+        <p className="text-[var(--pb-text)]">The versions could not be read: {failed}</p>
+        <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => setReads((n) => n + 1)}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (versions === null) return <p className="text-sm text-[var(--pb-muted)]">Reading the versions...</p>;
+
+  if (versions.length === 0) {
+    return (
+      <p className="text-sm text-[var(--pb-muted)]">
+        No earlier versions yet. Each time you publish, the {noun} as it went live is kept here, and so is a draft you throw away.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-[var(--pb-muted)]">
+        Restoring puts a version in the draft. Readers keep seeing the published {noun} until you publish.
+      </p>
+      <ul className="space-y-2" aria-label="Versions">
+        {versions.map((version) => (
+          <li key={version.id} className="rounded-lg border border-[var(--pb-border)] bg-[var(--pb-surface)] px-3 py-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-[var(--pb-text)]">{KIND_WORDS[version.kind] ?? 'Earlier version'}</p>
+                <p className="text-xs text-[var(--pb-muted)]">
+                  {when(version.at)}
+                  {version.byName ? ` by ${version.byName}` : ''}
+                </p>
+                <p className="text-xs text-[var(--pb-muted)]">
+                  {version.elements} {version.elements === 1 ? 'element' : 'elements'}
+                  {version.title ? `, titled "${version.title}"` : ''}
+                </p>
+              </div>
+              {version.current ? (
+                <span className="shrink-0 whitespace-nowrap text-xs text-[var(--pb-muted)]">In the editor now</span>
+              ) : (
+                <Button size="sm" variant="outline" className="shrink-0 whitespace-nowrap" onClick={() => setAsking(version)}>
+                  Restore
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <AlertDialog open={asking !== null} onOpenChange={(open) => !open && !restoring && setAsking(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Put this version in the draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The {noun} in the editor becomes this version. Readers keep seeing the published {noun} until you publish. What the
+              draft holds now is kept as a version, so you can come back to it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restoring}>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={restoring}
+              onClick={(event) => {
+                event.preventDefault();
+                void restore();
+              }}
+            >
+              {restoring ? 'Restoring...' : 'Put it in the draft'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

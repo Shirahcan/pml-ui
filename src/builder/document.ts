@@ -285,13 +285,37 @@ export interface DocumentFieldsPort {
   write(id: string, name: string, value: unknown, revision: string, session: string): Promise<SaveDraftResult>;
 }
 
+/** One earlier version of a document: a design that went live, or a draft a throw-away or a restore replaced. */
+export interface DocumentVersion {
+  id: string;
+  /** `published`, `before_discard` or `before_restore` (a product may add its own; the panel names the known ones). */
+  kind: string;
+  title: string | null;
+  /** Elements in the design, every level counted. */
+  elements: number;
+  byName: string | null;
+  at: string | null;
+  /** The editor holds this version now: restoring it would change nothing. */
+  current: boolean;
+}
+
+/**
+ * A document's earlier versions (plan close-multi-pass-gaps-2026-11-24 P9): the Versions panel lists them, and a restore
+ * puts one back in the DRAFT at the editor's revision, never live. A newer draft saved elsewhere answers with a
+ * conflict, exactly as a save does.
+ */
+export interface DocumentVersionsPort {
+  list(id: string): Promise<DocumentVersion[]>;
+  restore(id: string, versionId: string, revision: string, session: string): Promise<SaveDraftResult>;
+}
+
 /**
  * What the visual editor needs from a host (pml-email C2b): a document it can open, save, compile and check. Publishing,
  * rolling back and a shareable preview link are optional, because some documents have no publish step: an email's
  * saved design IS the email, so its host leaves them out rather than faking them. Every `DocumentAdapter` is one.
  */
 export type EditableDocumentAdapter = Pick<DocumentAdapter, 'load' | 'saveDraft' | 'preflight' | 'preview' | 'components' | 'fields'> &
-  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant'>>;
+  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant' | 'versions'>>;
 
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
@@ -321,6 +345,8 @@ export interface DocumentAdapter {
   card?: CardPort;
   /** The document's own fields, for a product whose documents have them (a blog post's title, tags, read time). */
   fields?: DocumentFieldsPort;
+  /** Its earlier versions, for a product that keeps them (a blog post's publishes); absent, the editor offers no Versions. */
+  versions?: DocumentVersionsPort;
   /** The console's subject for this document (shared console C3/C4). */
   consoleSubject(id: string): { kind: string; id: string };
 }

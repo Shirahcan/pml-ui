@@ -56,6 +56,7 @@ export * from './builder/editor/EmailAsSent';
 export * from './builder/editor/EmailEditor';
 export * from './builder/editor/surface';
 export * from './builder/editor/PageEditor';
+export * from './builder/editor/VersionsPanel';
 // The selected element's bar asks the host's assistant with this (PageEditor `onAskAssistant`).
 export type { AssistantAsk } from './builder/editor/SelectionBar';
 // The Studio's element menu (shared PML Studio P3a): one menu for every profile; a host adds its own items.

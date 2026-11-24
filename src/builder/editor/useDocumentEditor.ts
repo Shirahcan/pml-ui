@@ -469,6 +469,36 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     }
   };
 
+  /**
+   * An earlier version back in the draft (the adapter's versions port, close-multi-pass-gaps P9). A waiting save goes
+   * first, the product puts the version in the draft at THIS editor's revision (a newer draft saved elsewhere is a
+   * conflict, as on a save), and the editor takes it as ONE undo step, so Undo brings back the design before it. Never
+   * publishes.
+   */
+  const restoreVersion = async (versionId: string): Promise<boolean> => {
+    if (!adapter.versions) return false;
+    if (!(await flush())) return false;
+    const revision = revisions.current.get(id);
+    if (revision === undefined) return false;
+
+    try {
+      const result = await adapter.versions.restore(id, versionId, revision, editorSession);
+      if (isConflict(result)) {
+        setConflict({ revision: result.conflict.revision ?? revision });
+
+        return false;
+      }
+      const taken = await adoptSavedDraft();
+      if (taken) say.success(`That version is in the draft. Readers see it once you publish.`);
+
+      return taken;
+    } catch (err) {
+      say.error(err);
+
+      return false;
+    }
+  };
+
   /** A signed, 24-hour, never-indexed link to the current draft, copied for sharing. */
   const copyPreviewLink = async () => {
     if (!adapter.previewUrl) return;
@@ -494,6 +524,9 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     canRollback: Boolean(adapter.rollback),
     /** Whether a shareable preview link can be made. */
     canPreviewLink: Boolean(adapter.previewUrl),
+    /** Whether the document keeps earlier versions to restore. */
+    canRestoreVersions: Boolean(adapter.versions),
+    restoreVersion,
     nodes,
     partials,
     studioComponents,
