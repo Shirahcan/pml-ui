@@ -14,20 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/overlays';
-
-/** What each kind of version is, in the words of the person who made it. */
-const KIND_WORDS: Record<string, string> = {
-  published: 'Published',
-  before_discard: 'Draft before it was thrown away',
-  before_restore: 'Draft before a version was restored',
-};
-
-function when(at: string | null): string {
-  if (!at) return '';
-  const date = new Date(at);
-
-  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-}
+import { VersionCompare, type CompareEditorSide } from './VersionCompare';
+import { changesSentence, versionKind, versionWhen } from './versionWords';
 
 /**
  * A document's earlier versions, newest first, in a slide-in over the canvas (plan close-multi-pass-gaps-2026-11-24
@@ -43,6 +31,7 @@ export function VersionsPanel({
   noun,
   onRestore,
   changing = false,
+  compareWith,
 }: {
   id: string;
   port: DocumentVersionsPort;
@@ -55,12 +44,16 @@ export function VersionsPanel({
    * (Portify local 2026-11-24: "In the editor now" stayed on a version after a section was deleted under it).
    */
   changing?: boolean;
+  /** The editor's design and drawing, for Compare (versions-compare 2026-11-24). Without it, or a port with no compare, no Compare. */
+  compareWith?: CompareEditorSide;
 }) {
   const [versions, setVersions] = useState<DocumentVersion[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [asking, setAsking] = useState<DocumentVersion | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [reads, setReads] = useState(0);
+  const [comparing, setComparing] = useState<DocumentVersion | null>(null);
+  const compare = port.compare;
 
   useEffect(() => {
     if (changing) return;
@@ -112,34 +105,63 @@ export function VersionsPanel({
   return (
     <div className="space-y-3">
       <p className="text-xs text-[var(--pb-muted)]">
-        Restoring puts a version in the draft. Readers keep seeing the published {noun} until you publish.
+        Compare shows a version beside the {noun} in the editor. Restoring puts a version in the draft. Readers keep seeing the
+        published {noun} until you publish.
       </p>
       <ul className="space-y-2" aria-label="Versions">
         {versions.map((version) => (
           <li key={version.id} className="rounded-lg border border-[var(--pb-border)] bg-[var(--pb-surface)] px-3 py-2">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 text-sm">
-                <p className="font-medium text-[var(--pb-text)]">{KIND_WORDS[version.kind] ?? 'Earlier version'}</p>
+                <p className="font-medium text-[var(--pb-text)]">{versionKind(version.kind)}</p>
                 <p className="text-xs text-[var(--pb-muted)]">
-                  {when(version.at)}
+                  {versionWhen(version.at)}
                   {version.byName ? ` by ${version.byName}` : ''}
                 </p>
                 <p className="text-xs text-[var(--pb-muted)]">
                   {version.elements} {version.elements === 1 ? 'element' : 'elements'}
                   {version.title ? `, titled "${version.title}"` : ''}
                 </p>
+                {changesSentence(version.changes) ? (
+                  <p className="mt-1 text-xs text-[var(--pb-text)]">Since the version before: {changesSentence(version.changes)}.</p>
+                ) : null}
               </div>
               {version.current && !changing ? (
                 <span className="shrink-0 whitespace-nowrap text-xs text-[var(--pb-muted)]">In the editor now</span>
               ) : (
-                <Button size="sm" variant="outline" className="shrink-0 whitespace-nowrap" onClick={() => setAsking(version)}>
-                  Restore
-                </Button>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  {compare && compareWith ? (
+                    <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => setComparing(version)}>
+                      Compare
+                    </Button>
+                  ) : null}
+                  <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => setAsking(version)}>
+                    Restore
+                  </Button>
+                </div>
               )}
             </div>
           </li>
         ))}
       </ul>
+
+      {comparing && compare && compareWith ? (
+        <VersionCompare
+          key={comparing.id}
+          id={id}
+          port={{ compare }}
+          version={comparing}
+          noun={noun}
+          editor={compareWith}
+          restorable={!(comparing.current && !changing)}
+          onClose={() => setComparing(null)}
+          // The panel's own ask, so a restore from the compare is asked exactly like one from the list.
+          onRestore={() => {
+            setAsking(comparing);
+            setComparing(null);
+          }}
+        />
+      ) : null}
 
       <AlertDialog open={asking !== null} onOpenChange={(open) => !open && !restoring && setAsking(null)}>
         <AlertDialogContent>

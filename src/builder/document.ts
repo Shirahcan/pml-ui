@@ -297,6 +297,35 @@ export interface DocumentVersion {
   at: string | null;
   /** The editor holds this version now: restoring it would change nothing. */
   current: boolean;
+  /** What changed since the version before it (versions-compare 2026-11-24); null for the first one, absent from older hosts. */
+  changes?: DocumentVersionChanges | null;
+}
+
+/** What changed between two designs, compared element by element by permanent id: one sentence and its counts. */
+export interface DocumentVersionChanges {
+  /** "removed 3 elements (the section “FAQ”, ...), changed 1 element"; empty when nothing changed. */
+  words: string;
+  counts: { added: number; changed: number; removed: number };
+}
+
+/** One element that differs: `removed` is in the version and gone from the editor, `added` the other way round. */
+export interface DocumentVersionChange {
+  uid: string;
+  /** The element in words: "heading “Common questions”". */
+  label: string;
+  how: 'added' | 'changed' | 'removed';
+}
+
+/**
+ * One version beside the editor's design (versions-compare 2026-11-24, owner: "side-by-side compare"): the version's
+ * design and its drawing, and EVERY change between it and the editor.
+ */
+export interface DocumentVersionCompare {
+  version: Omit<DocumentVersion, 'current' | 'changes'> & { nodes: PmlNode[] };
+  /** The version drawn the way the canvas draws (a design the document can no longer hold carries its error). */
+  preview: DocumentPreview;
+  changes: DocumentVersionChange[];
+  summary: DocumentVersionChanges;
 }
 
 /**
@@ -307,6 +336,8 @@ export interface DocumentVersion {
 export interface DocumentVersionsPort {
   list(id: string): Promise<DocumentVersion[]>;
   restore(id: string, versionId: string, revision: string, session: string): Promise<SaveDraftResult>;
+  /** One version beside `nodes`, the design in the editor now (saved or not). Without it the panel offers no Compare. */
+  compare?(id: string, versionId: string, nodes: PmlNode[]): Promise<DocumentVersionCompare>;
 }
 
 /**

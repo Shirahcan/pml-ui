@@ -28,7 +28,7 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 /** How wide a dialog may grow (a class join cannot override one width with another, so the width is a prop). */
-const DIALOG_WIDTH = { md: 'max-w-lg', lg: 'max-w-xl', xl: 'max-w-2xl', '2xl': 'max-w-3xl' } as const;
+const DIALOG_WIDTH = { md: 'max-w-lg', lg: 'max-w-xl', xl: 'max-w-2xl', '2xl': 'max-w-3xl', full: 'max-w-[1800px]' } as const;
 
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,

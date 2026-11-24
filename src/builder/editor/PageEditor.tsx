@@ -683,7 +683,14 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               }}
             />
           ) : panel === 'versions' && adapter.versions ? (
-            <VersionsPanel id={id} port={adapter.versions} noun={noun} onRestore={editor.restoreVersion} changing={editor.dirty || editor.saving} />
+            <VersionsPanel
+              id={id}
+              port={adapter.versions}
+              noun={noun}
+              onRestore={editor.restoreVersion}
+              changing={editor.dirty || editor.saving}
+              compareWith={{ nodes, compiled: editor.compiled, natives: editor.natives, site, frame }}
+            />
           ) : panel === 'checks' ? (
             editor.scan ? (
               <FindingsPanel preflight={editor.scan} words={isEmail ? email.findingsWords : { clean: 'Nothing here needs to change. Ready to publish.' }} />
