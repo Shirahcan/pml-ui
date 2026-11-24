@@ -24,7 +24,7 @@ describe('a standard section saved as a section', () => {
     for (const name of uncovered) {
       expect(elementLabel(name)).not.toBe('Element');
     }
-    expect(elementLabel('process_timeline')).toBe('Steps');
+    expect(elementLabel('process_timeline')).toBe('Steps section');
     expect(elementLabel('step')).toBe('Step');
   });
 
@@ -32,9 +32,10 @@ describe('a standard section saved as a section', () => {
     const changes: PmlNode[] = [];
     render(<PmlSettings node={timeline} onChange={(next) => changes.push(next)} onDelete={() => undefined} />);
 
-    expect(screen.getByRole('heading', { name: 'Steps' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Steps section' })).toBeTruthy();
     expect(screen.queryByText(/My components/)).toBeNull();
     expect(screen.queryByText('Reusable component')).toBeNull();
+    expect(screen.getByText('1. Step: Gather your documents'), 'each step is told apart by its own title').toBeTruthy();
 
     const heading = screen.getByLabelText('Heading') as HTMLInputElement;
     expect(heading.value).toBe('The steps');

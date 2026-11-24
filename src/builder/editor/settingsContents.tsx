@@ -6,7 +6,7 @@ import { Button } from '../ui/controls';
 import { PmlAddSectionDialog } from './PmlAddSectionDialog';
 import { useStudioAuthoring } from './authoring';
 import { useCatalog as useStudioCatalog } from './catalog';
-import { PML_CATALOG_BY_NAME } from '../../language';
+import { contentsLabel } from '../../language';
 import { type PmlNode } from '../../language';
 import { PmlSettings } from './PmlSettings';
 export function ContainerContents({
@@ -92,7 +92,7 @@ export function ContainerContents({
       <div className="space-y-2">
         {nodes.map((child, index) => {
           const childName = child.component ?? child.primitive ?? '';
-          const childLabel = childName === 'slot' ? 'Space for page content' : (PML_CATALOG_BY_NAME[childName]?.label ?? studioCatalog.find((c) => c.key === childName)?.name ?? childName);
+          const childLabel = childName === 'slot' ? 'Space for page content' : contentsLabel(child, studioCatalog);
 
           return (
             <ContentRow

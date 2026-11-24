@@ -1122,6 +1122,27 @@ export function elementLabel(name: string, studio: Array<{ key: string; name: st
   );
 }
 
+/**
+ * A child's row in a settings panel's contents list: its name ({@see elementLabel}, the one chain), and for a standard
+ * section its first words, so a post's eight steps read "Step: Gather your documents" rather than eight "step" rows
+ * (P1a-3d, 2026-11-24). A child with no name of its own keeps its key.
+ */
+export function contentsLabel(node: PmlNode, studio: Array<{ key: string; name: string }> = []): string {
+  const name = node.component ?? node.primitive ?? '';
+  const label = elementLabel(name, studio);
+  const base = label === 'Element' ? name : label;
+  const props = (node.props ?? {}) as Record<string, unknown>;
+  const words = (STANDARD_SECTIONS[name]?.params ?? [])
+    .map((param) => props[param])
+    .find((value): value is string => typeof value === 'string' && value.trim() !== '');
+
+  if (words === undefined) return base;
+
+  const trimmed = words.trim();
+
+  return `${base}: ${trimmed.length > 60 ? `${trimmed.slice(0, 59)}…` : trimmed}`;
+}
+
 /** The names a person reads for pml-kit's standard sections (STANDARD_SECTIONS holds what each takes). */
 const STANDARD_SECTION_NAMES: Record<string, string> = {
   hero: 'Hero',
@@ -1132,7 +1153,8 @@ const STANDARD_SECTION_NAMES: Record<string, string> = {
   stat: 'Figure',
   team: 'Team',
   member: 'Team member',
-  process_timeline: 'Steps',
+  // Singular-sounding, because the bar says "Move this {name} up" ("this steps" read wrong, 2026-11-24).
+  process_timeline: 'Steps section',
   step: 'Step',
   office_map: 'Office map',
   announcement: 'Announcement',
