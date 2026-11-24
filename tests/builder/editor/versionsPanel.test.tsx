@@ -93,6 +93,26 @@ describe('VersionsPanel', () => {
     await waitFor(() => expect(port.list).toHaveBeenCalledTimes(2));
   });
 
+  it('does not claim the version in the editor while the design changes, and reads again once it is saved', async () => {
+    const port = {
+      list: vi
+        .fn()
+        .mockResolvedValueOnce([version({ id: 'v1', current: true })])
+        .mockResolvedValueOnce([version({ id: 'v1', current: false })]),
+      restore: vi.fn(),
+    };
+    const view = render(<VersionsPanel id="p1" port={port} noun="post" onRestore={vi.fn()} />);
+    expect(await screen.findByText('In the editor now')).toBeTruthy();
+
+    view.rerender(<VersionsPanel id="p1" port={port} noun="post" onRestore={vi.fn()} changing />);
+    expect(screen.queryByText('In the editor now')).toBeNull();
+    expect(port.list).toHaveBeenCalledTimes(1);
+
+    view.rerender(<VersionsPanel id="p1" port={port} noun="post" onRestore={vi.fn()} changing={false} />);
+    await waitFor(() => expect(port.list).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('button', { name: 'Restore' })).toBeTruthy();
+  });
+
   it('says why the versions could not be read and offers to try again', async () => {
     const port = { list: vi.fn().mockRejectedValueOnce(new Error('The service is not reachable.')).mockResolvedValueOnce([]), restore: vi.fn() };
     render(<VersionsPanel id="p1" port={port} noun="post" onRestore={vi.fn()} />);

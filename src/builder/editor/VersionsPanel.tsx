@@ -42,12 +42,19 @@ export function VersionsPanel({
   port,
   noun,
   onRestore,
+  changing = false,
 }: {
   id: string;
   port: DocumentVersionsPort;
   noun: string;
   /** The editor's restore: true once the version is in the draft and on the canvas. */
   onRestore: (versionId: string) => Promise<boolean>;
+  /**
+   * The design is being changed (unsaved, or saving). Which version the editor holds was true when the list was read;
+   * while the person edits it is not, so it is not claimed, and the list is read again once the change is saved
+   * (Portify local 2026-11-24: "In the editor now" stayed on a version after a section was deleted under it).
+   */
+  changing?: boolean;
 }) {
   const [versions, setVersions] = useState<DocumentVersion[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -56,6 +63,7 @@ export function VersionsPanel({
   const [reads, setReads] = useState(0);
 
   useEffect(() => {
+    if (changing) return;
     let alive = true;
     port
       .list(id)
@@ -69,7 +77,7 @@ export function VersionsPanel({
     return () => {
       alive = false;
     };
-  }, [port, id, reads]);
+  }, [port, id, reads, changing]);
 
   const restore = async () => {
     if (!asking) return;
@@ -121,7 +129,7 @@ export function VersionsPanel({
                   {version.title ? `, titled "${version.title}"` : ''}
                 </p>
               </div>
-              {version.current ? (
+              {version.current && !changing ? (
                 <span className="shrink-0 whitespace-nowrap text-xs text-[var(--pb-muted)]">In the editor now</span>
               ) : (
                 <Button size="sm" variant="outline" className="shrink-0 whitespace-nowrap" onClick={() => setAsking(version)}>
