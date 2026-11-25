@@ -298,6 +298,12 @@ export interface ComponentSettingRefusal {
 export interface ComponentSettingsPort {
   read(id: string): Promise<{ settings: StudioParam[]; revision: string }>;
   write(id: string, settings: StudioParam[], revision: string, session: string): Promise<SaveDraftResult | { refused: ComponentSettingRefusal }>;
+  /**
+   * Settings that changed OUTSIDE the panel (the code's `<props>` block, an assistant's run, a rewind): the open panel
+   * shows them at once, unless it is about to save the person's own typing. Returns the unsubscribe. Optional: without
+   * it the panel shows such a change the next time it opens.
+   */
+  subscribe?(id: string, onChange: (settings: StudioParam[]) => void): () => void;
 }
 
 /** One earlier version of a document: a design that went live, or a draft a throw-away or a restore replaced. */

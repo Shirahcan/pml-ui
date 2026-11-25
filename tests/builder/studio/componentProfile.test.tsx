@@ -79,6 +79,37 @@ describe('Studio profile="component"', () => {
     expect(screen.getByText(/Not saved: fix the setting/)).toBeTruthy();
   });
 
+  it('shows settings changed outside the panel (code, a run, a rewind) at once, and saves them as the new list', async () => {
+    const adapter = componentAdapter();
+    let push: ((next: unknown[]) => void) | null = null;
+    (adapter.settings as unknown as { subscribe: unknown }).subscribe = vi.fn((_id: string, onChange: (next: unknown[]) => void) => {
+      push = onChange;
+      return () => {
+        push = null;
+      };
+    });
+    open(adapter);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }, { timeout: 3000 }));
+    expect(((await screen.findByLabelText('Label')) as HTMLInputElement).value).toBe('Title');
+    expect(push).not.toBeNull();
+
+    await act(async () => {
+      push!([
+        { name: 'title', label: 'Title', kind: 'text', default: 'Counter' },
+        { name: 'subtitle', label: 'Subtitle', kind: 'text', default: '' },
+      ]);
+    });
+    const labels = screen.getAllByLabelText('Label') as HTMLInputElement[];
+    expect(labels.map((l) => l.value)).toEqual(['Title', 'Subtitle']);
+
+    // The next edit sends the new list, never the one the panel opened with.
+    fireEvent.change(labels[1], { target: { value: 'Tagline' } });
+    await waitFor(() => expect(adapter.settings.write).toHaveBeenCalled(), { timeout: 3000 });
+    const sent = adapter.settings.write.mock.calls.at(-1)![1] as Array<{ name: string; label: string }>;
+    expect(sent.map((s) => s.label)).toEqual(['Title', 'Tagline']);
+  });
+
   it('adds an element inside the one outer element, never beside it', async () => {
     open(componentAdapter());
 

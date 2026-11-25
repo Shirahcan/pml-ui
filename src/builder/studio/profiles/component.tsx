@@ -72,6 +72,8 @@ export function ComponentSettingsPanel({ id, port, editor }: { id: string; port:
   const [refusal, setRefusal] = useState<ComponentSettingRefusal | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<StudioParam[]>([]);
+  /** A change from outside arrived while the first read was in flight: it is newer, so the read does not replace it. */
+  const outside = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -79,8 +81,10 @@ export function ComponentSettingsPanel({ id, port, editor }: { id: string; port:
       .read(id)
       .then(({ settings: read }) => {
         if (!live) return;
-        latest.current = read;
-        setSettings(read);
+        if (!outside.current) {
+          latest.current = read;
+          setSettings(read);
+        }
         setStatus('saved');
       })
       .catch(() => live && setStatus('failed'));
@@ -88,6 +92,22 @@ export function ComponentSettingsPanel({ id, port, editor }: { id: string; port:
     return () => {
       live = false;
     };
+  }, [id, port]);
+
+  // A change made outside the panel (the code, an assistant's run, a rewind) shows at once. Typing still waiting to
+  // save wins: the person's own change is what goes out next, and it is never replaced under their cursor.
+  useEffect(() => {
+    if (!port.subscribe) return undefined;
+
+    return port.subscribe(id, (next) => {
+      if (timer.current) return;
+      outside.current = true;
+      latest.current = next;
+      setSettings(next);
+      // A refusal was about the list this replaces; the design's own save carries the new list.
+      setRefusal(null);
+      setStatus((now) => (now === 'refused' || now === 'loading' ? 'saved' : now));
+    });
   }, [id, port]);
 
   const save = useCallback(async () => {
