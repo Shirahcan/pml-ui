@@ -12,10 +12,11 @@ const post = piecesOf('post');
  * server (PostProfileTest), so the Studio, the console and Porter never disagree about a post's title.
  */
 describe('profile pieces', () => {
-  it('only a post has pieces; a page, an email and a card have none', () => {
-    expect([...PROFILE_KEYS].sort()).toEqual(['card', 'email', 'page', 'post']);
+  it('only a post has pieces; a page, an email, a card and a component have none', () => {
+    expect([...PROFILE_KEYS].sort()).toEqual(['card', 'component', 'email', 'page', 'post']);
     expect(piecesOf('page')).toEqual({});
     expect(piecesOf('email')).toEqual({});
+    expect(piecesOf('component')).toEqual({});
     expect(pieceOf(post, piece('post_title'))).toEqual({ fields: ['title'], quickEdit: 'title', drafts: ['title', 'meta_title', 'focus_keyword'] });
     expect(pieceOf(post, piece('post_cover'))?.fields).toEqual(['cover']);
     expect(pieceOf(post, piece('heading'))).toBeUndefined();

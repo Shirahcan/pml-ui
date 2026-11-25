@@ -25,6 +25,7 @@ import { useBuilderHost } from './host';
 import { EditorNounProvider, EditorSurfaceProvider } from './surface';
 import type { RenderedEmail } from './EmailAsSent';
 import { EMAIL_WORDS, EmailHeader, useEmailProfile } from '../studio/profiles/email';
+import { ComponentSettingsPanel } from '../studio/profiles/component';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel, type FindingsWords } from './FindingsPanel';
 import { PageEditorHeader } from './PageEditorHeader';
@@ -264,7 +265,7 @@ const NO_AS_SENT = (): Promise<RenderedEmail> => Promise.reject(new Error('This 
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions, allowedElements, renderAsSent, inboxFields, checkWords }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels: hostPanelsIn = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions, allowedElements, renderAsSent, inboxFields, checkWords }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -287,6 +288,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const host = useBuilderHost();
   const { nodes, change } = editor;
+  // The component profile's Settings panel (P3c-6): first among the host's panels, when the host keeps settings.
+  const settingsPort = profile === 'component' ? adapter.settings : undefined;
+  const panels: PageEditorHostPanel[] = settingsPort
+    ? [{ key: 'settings', title: 'Settings', render: () => <ComponentSettingsPanel id={id} port={settingsPort} editor={editor} /> }, ...hostPanelsIn]
+    : hostPanelsIn;
   // The email profile's chrome (P2b1): drawn only for profile="email"; a hook, so it runs for every profile.
   const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements: allowedElements ?? [], renderAsSent: renderAsSent ?? NO_AS_SENT, inboxFields, checkWords, onFieldSaved });
   // Add an element before / inside / after the selected one (P3b1), with what this document may not hold left out.

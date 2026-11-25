@@ -248,6 +248,25 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
   }, [cancelWaitingSave, replaceFromSaved]);
 
   /**
+   * The revision this editor would save from now (shared PML Studio P3c-6): a host that saves part of the SAME draft
+   * itself (a component's settings) sends it, and hands back the one it got with {@see adoptRevision}.
+   */
+  const revisionNow = useCallback((): string | null => revisions.current.get(id) ?? null, [id]);
+
+  /**
+   * A host saved part of this draft itself (a component's settings, P3c-6) and got a new revision: the editor's next
+   * save starts from it, so it is not refused as someone else's change, and the preview is drawn again with it.
+   */
+  const refreshPreview = preview.refresh;
+  const adoptRevision = useCallback(
+    (revision: string) => {
+      revisions.current.set(id, revision);
+      refreshPreview();
+    },
+    [id, refreshPreview],
+  );
+
+  /**
    * Take a draft that was saved elsewhere on purpose (2026-11-18, portify-1c: the host's background worker saved the
    * assistant's result as the next draft, so this editor's next autosave would have been refused as a conflict): the
    * saved tree and its revision become this editor's, as ONE undo step, and nothing is saved again. Undo goes back to
@@ -561,5 +580,7 @@ export function useDocumentEditor<H = unknown>(adapter: EditableDocumentAdapter,
     keepMine,
     loadLatest,
     adoptSavedDraft,
+    revisionNow,
+    adoptRevision,
   };
 }

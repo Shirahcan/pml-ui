@@ -686,7 +686,7 @@ export interface PmlProfilePiece {
 }
 
 /** Every purpose a PML document can have (pml-kit Profiles). */
-export const PROFILE_KEYS = ['email', 'card', 'page', 'post'] as const;
+export const PROFILE_KEYS = ['email', 'card', 'page', 'post', 'component'] as const;
 
 export type ProfileKey = (typeof PROFILE_KEYS)[number];
 
@@ -718,6 +718,7 @@ export const PROFILE_PIECES: Readonly<Record<ProfileKey, Readonly<Record<string,
     post_cta: { fields: ['cta_kind', 'cta_ref'] },
     post_story: { fields: ['story_id'] },
   },
+  component: {},
 };
 
 /** What an ask aimed at a post's whole opening (two or more drafting pieces) drafts as well: the search details. */

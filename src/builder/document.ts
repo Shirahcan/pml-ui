@@ -2,7 +2,7 @@ import type { PmlCompleteResult, PmlEditContext } from '../pml/completion';
 import type { PmlDiagnostic } from '../pml/diagnostics';
 import type { PmlNativesPayload } from '../pml/expressions';
 import type { PmlNode } from '../pml/primitives';
-import type { DocumentComponentsPort } from './components';
+import type { DocumentComponentsPort, StudioParam } from './components';
 import type { CardMediaPort, CardPort, CardRef, MediaRef } from './sharing/types';
 
 /**
@@ -285,6 +285,21 @@ export interface DocumentFieldsPort {
   write(id: string, name: string, value: unknown, revision: string, session: string): Promise<SaveDraftResult>;
 }
 
+/** A setting the host refused: WHERE (`params.<i>.<field>`, as the kit names it) and the sentence a person reads. */
+export interface ComponentSettingRefusal {
+  field: string;
+  text: string;
+}
+
+/**
+ * A component's settings, for a host whose documents are reusable components. They are saved in the SAME draft as the
+ * design, so a write carries the editor's revision and answers with a new one, or a conflict, exactly like `saveDraft`.
+ */
+export interface ComponentSettingsPort {
+  read(id: string): Promise<{ settings: StudioParam[]; revision: string }>;
+  write(id: string, settings: StudioParam[], revision: string, session: string): Promise<SaveDraftResult | { refused: ComponentSettingRefusal }>;
+}
+
 /** One earlier version of a document: a design that went live, or a draft a throw-away or a restore replaced. */
 export interface DocumentVersion {
   id: string;
@@ -346,7 +361,7 @@ export interface DocumentVersionsPort {
  * saved design IS the email, so its host leaves them out rather than faking them. Every `DocumentAdapter` is one.
  */
 export type EditableDocumentAdapter = Pick<DocumentAdapter, 'load' | 'saveDraft' | 'preflight' | 'preview' | 'components' | 'fields'> &
-  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant' | 'versions'>>;
+  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant' | 'versions' | 'settings'>>;
 
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;
@@ -378,6 +393,8 @@ export interface DocumentAdapter {
   fields?: DocumentFieldsPort;
   /** Its earlier versions, for a product that keeps them (a blog post's publishes); absent, the editor offers no Versions. */
   versions?: DocumentVersionsPort;
+  /** A reusable component's settings (profile `component`); absent, the Studio shows no Settings panel. */
+  settings?: ComponentSettingsPort;
   /** The console's subject for this document (shared console C3/C4). */
   consoleSubject(id: string): { kind: string; id: string };
 }
