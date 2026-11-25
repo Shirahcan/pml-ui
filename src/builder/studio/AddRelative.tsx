@@ -63,12 +63,18 @@ export function useAddRelative({
   change,
   select,
   unavailable,
+  oneRoot = false,
 }: {
   nodes: PmlNode[];
   change: (next: PmlNode[]) => void;
   select: (path: number[] | null) => void;
   /** What this document may not hold (the profile's), never offered. */
   unavailable: readonly string[];
+  /**
+   * The document is ONE outer element (a reusable component, P3c-6): nothing is offered before or after it, so an
+   * addition always lands inside the element a page writes as one tag.
+   */
+  oneRoot?: boolean;
 }): AddRelative {
   const studio = useCatalog();
   const { onError } = useBuilderHost();
@@ -108,7 +114,7 @@ export function useAddRelative({
   const topLevel = picking !== null && picking.placement !== 'inside' && picking.path.length === 1;
 
   return {
-    placements: (path) => placementsFor(nodes, path),
+    placements: (path) => placementsFor(nodes, path).filter((p) => !(oneRoot && path.length === 1 && p !== 'inside')),
     open,
     nameOf,
     dialog: (

@@ -296,7 +296,8 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   // The email profile's chrome (P2b1): drawn only for profile="email"; a hook, so it runs for every profile.
   const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements: allowedElements ?? [], renderAsSent: renderAsSent ?? NO_AS_SENT, inboxFields, checkWords, onFieldSaved });
   // Add an element before / inside / after the selected one (P3b1), with what this document may not hold left out.
-  const relative = useAddRelative({ nodes, change, select: selectPath, unavailable: isEmail ? [...unavailable, ...email.unavailable] : unavailable });
+  const isComponent = profile === 'component';
+  const relative = useAddRelative({ nodes, change, select: selectPath, unavailable: isEmail ? [...unavailable, ...email.unavailable] : unavailable, oneRoot: isComponent });
   // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
@@ -328,7 +329,9 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       : selected && selectedPath && selectedPath.length > 1
         ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents)
         : 'Section settings';
-  const addLabel = labels.add ?? (isEmail ? EMAIL_WORDS.add : 'Add a section');
+  const addLabel = labels.add ?? (isEmail ? EMAIL_WORDS.add : isComponent ? 'Add an element' : 'Add a section');
+  // A component is ONE outer element: once it has one, Add puts the new element inside it, never beside it (P3c-6).
+  const addInsideRoot = isComponent && nodes.length > 0 && relative.placements([0]).includes('inside');
 
   // A field saved from any panel: the canvas compiles again, and the host hears which field it was.
   const fieldSaved = (name: string) => {
@@ -614,7 +617,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
             }}
           />
           {isEmail && locked ? null : (
-            <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked} onClick={() => setAdding(true)}>
+            <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked || (isComponent && nodes.length > 0 && !addInsideRoot)} onClick={() => (addInsideRoot ? relative.open([0], 'inside') : setAdding(true))}>
               <Plus className="h-4 w-4" />
               {addLabel}
             </Button>

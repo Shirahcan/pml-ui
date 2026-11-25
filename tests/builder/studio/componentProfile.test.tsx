@@ -15,7 +15,9 @@ const design = [
   { primitive: 'box', uid: 'box111', props: {}, children: [{ primitive: 'heading', uid: 'hd2222', props: { text: { $expr: 'props.title' }, level: 2 } }] },
 ] as unknown as PmlNode[];
 
-function componentAdapter(write = vi.fn(async (_id: string, _settings: unknown, revision: string) => ({ revision: `${revision}+s` }))) {
+type Write = (id: string, settings: unknown, revision: string) => Promise<{ revision: string } | { refused: { field: string; text: string } }>;
+
+function componentAdapter(write = vi.fn<Write>(async (_id, _settings, revision) => ({ revision: `${revision}+s` }))) {
   const settings = {
     read: vi.fn(async () => ({ settings: [{ name: 'title', label: 'Title', kind: 'text' as const, default: 'Counter' }], revision: 'd1' })),
     write,
@@ -64,7 +66,7 @@ describe('Studio profile="component"', () => {
   });
 
   it('shows a refusal on the row it is about', async () => {
-    const write = vi.fn(async () => ({ refused: { field: 'params.0.default', text: 'A required setting needs a default.' } }));
+    const write = vi.fn<Write>(async () => ({ refused: { field: 'params.0.default', text: 'A required setting needs a default.' } }));
     open(componentAdapter(write));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Settings' }, { timeout: 3000 }));
@@ -75,6 +77,17 @@ describe('Studio profile="component"', () => {
 
     expect(await screen.findByRole('alert', {}, { timeout: 3000 })).toHaveProperty('textContent', 'A required setting needs a default.');
     expect(screen.getByText(/Not saved: fix the setting/)).toBeTruthy();
+  });
+
+  it('adds an element inside the one outer element, never beside it', async () => {
+    open(componentAdapter());
+
+    const add = await screen.findByRole('button', { name: /Add an element/ }, { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: /Add a section/ })).toBeNull();
+    fireEvent.click(add);
+
+    // The picker opens for a place INSIDE the box (a box takes any element), never a second root.
+    expect(await screen.findByRole('dialog', {}, { timeout: 3000 })).toBeTruthy();
   });
 
   it('is offered only on the component profile', async () => {
