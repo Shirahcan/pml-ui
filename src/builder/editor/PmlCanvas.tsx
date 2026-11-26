@@ -353,6 +353,9 @@ export function PmlCanvas({
   return (
     <div
       ref={canvas}
+      // The design as drawn, for a host's picture of it ("Compare with the picture", 0.7.105); the editing chrome inside
+      // it carries `data-pml-chrome`, so a capture leaves it out.
+      data-pml-canvas=""
       onMouseMove={hover}
       onMouseLeave={unhover}
       onContextMenu={contextMenu}
@@ -366,12 +369,12 @@ export function PmlCanvas({
     >
       {deep ? <style>{ELEMENT_STYLES}</style> : null}
       {renderElementMenu && toolsFor ? (
-        <div ref={tools} data-creator-keep-panel="" className="absolute z-30 -translate-x-full">
+        <div ref={tools} data-creator-keep-panel="" data-pml-chrome="" className="absolute z-30 -translate-x-full">
           {renderElementMenu(toolsFor, menuFor !== null, (open) => setMenuFor(open ? toolsFor : null))}
         </div>
       ) : null}
       {renderSelectionBar && deep && barFor ? (
-        <div ref={bar} className="absolute z-30" style={{ top: 0, left: 0, visibility: 'hidden' }}>
+        <div ref={bar} data-pml-chrome="" className="absolute z-30" style={{ top: 0, left: 0, visibility: 'hidden' }}>
           {renderSelectionBar(barFor)}
         </div>
       ) : null}

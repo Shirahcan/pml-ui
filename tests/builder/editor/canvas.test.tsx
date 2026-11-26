@@ -22,6 +22,8 @@ describe('PmlCanvas', () => {
     // Its own stacking context: an element's bar never draws over the host's docked console (owner 2026-11-18).
     expect(root.className.split(/\s+/)).toContain('isolate');
     expect(root.getAttribute('style')).toContain('--site-accent: #123456');
+    // A host's picture of the design finds it by this mark ("Compare with the picture", 0.7.105).
+    expect(root.hasAttribute('data-pml-canvas')).toBe(true);
     expect(screen.getByText('Use Add a section in the Actions menu to start building.')).toBeTruthy();
 
     rerender(
