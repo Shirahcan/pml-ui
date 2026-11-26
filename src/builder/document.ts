@@ -367,7 +367,7 @@ export interface DocumentVersionsPort {
  * saved design IS the email, so its host leaves them out rather than faking them. Every `DocumentAdapter` is one.
  */
 export type EditableDocumentAdapter = Pick<DocumentAdapter, 'load' | 'saveDraft' | 'preflight' | 'preview' | 'components' | 'fields'> &
-  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant' | 'versions' | 'settings'>>;
+  Partial<Pick<DocumentAdapter, 'publish' | 'unpublish' | 'rollback' | 'previewUrl' | 'code' | 'assistant' | 'versions' | 'settings' | 'media'>>;
 
 export interface DocumentAdapter {
   load(id: string): Promise<{ document: PmlDocument; revision: string; meta: DocumentMeta }>;

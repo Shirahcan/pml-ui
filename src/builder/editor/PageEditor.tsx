@@ -3,7 +3,8 @@
 import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 
-import { elementLabel, getNodeAtPath, moveTopLevel, pieceOf, piecesOf, removeNodeAtPath, updateNodeAtPath, type PmlNode, type ProfileKey } from '../../language';
+import { elementLabel, getNodeAtPath, moveTopLevel, pieceOf, piecesOf, PML_CATALOG_BY_NAME, removeNodeAtPath, updateNodeAtPath, type PmlNode, type ProfileKey } from '../../language';
+import { CARD_ELEMENTS } from '../../card/cardFrame';
 import { fieldGroupsOf, isConflict, partGroupAt, type DocumentFieldGroup, type DocumentLayout, type EditableDocumentAdapter } from '../document';
 import type { PmlSite } from '../../renderer/PmlRenderer';
 import { Button } from '../ui/controls';
@@ -26,6 +27,7 @@ import { EditorNounProvider, EditorSurfaceProvider } from './surface';
 import type { RenderedEmail } from './EmailAsSent';
 import { EMAIL_WORDS, EmailHeader, useEmailProfile } from '../studio/profiles/email';
 import { ComponentSettingsPanel } from '../studio/profiles/component';
+import { CardEditsPanel, CardStudioCanvas } from '../studio/profiles/card';
 import { DraftConflictDialog } from './DraftConflictDialog';
 import { FindingsPanel, type FindingsWords } from './FindingsPanel';
 import { PageEditorHeader } from './PageEditorHeader';
@@ -297,7 +299,11 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
   const email = useEmailProfile({ id, fields: adapter.fields, session: editor.session, editor, allowedElements: allowedElements ?? [], renderAsSent: renderAsSent ?? NO_AS_SENT, inboxFields, checkWords, onFieldSaved });
   // Add an element before / inside / after the selected one (P3b1), with what this document may not hold left out.
   const isComponent = profile === 'component';
-  const relative = useAddRelative({ nodes, change, select: selectPath, unavailable: isEmail ? [...unavailable, ...email.unavailable] : unavailable, oneRoot: isComponent });
+  // A card (shared PML Studio P2c2) holds only the card's elements (pml-kit CardFrame, mirrored as CARD_ELEMENTS).
+  const isCard = profile === 'card';
+  const cardUnavailable = useMemo(() => (isCard ? Object.keys(PML_CATALOG_BY_NAME).filter((name) => !CARD_ELEMENTS.includes(name)) : []), [isCard]);
+  const addUnavailable = isEmail ? [...unavailable, ...email.unavailable] : [...unavailable, ...cardUnavailable];
+  const relative = useAddRelative({ nodes, change, select: selectPath, unavailable: addUnavailable, oneRoot: isComponent });
   // Studio comments, Figma-style (pins, cards, add, resolve, move): the same experience as the site creator.
   const comments = useStudioComments({ nodes, change, author: commentAuthor, onAddress: onAddressComment, onError: host.onError, disabled: locked });
 
@@ -329,7 +335,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
       : selected && selectedPath && selectedPath.length > 1
         ? elementLabel(selected.component ?? selected.primitive ?? '', editor.studioComponents)
         : 'Section settings';
-  const addLabel = labels.add ?? (isEmail ? EMAIL_WORDS.add : isComponent ? 'Add an element' : 'Add a section');
+  const addLabel = labels.add ?? (isEmail ? EMAIL_WORDS.add : isComponent || isCard ? 'Add an element' : 'Add a section');
   // A component is ONE outer element: once it has one, Add puts the new element inside it, never beside it (P3c-6).
   const addInsideRoot = isComponent && nodes.length > 0 && relative.placements([0]).includes('inside');
 
@@ -552,70 +558,94 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               </p>
             </div>
           ) : null}
-          <PmlCanvas
-            // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
-            bare={!isEmail}
-            // Locked while the assistant works: the canvas's own "building" state takes no presses (no skeleton row).
-            building={locked ? { at: nodes.length + 1, label: null } : null}
-            afterSection={layout && layout.parts.length > 0 ? (index) => <PartGuides nodes={nodes} index={index} layout={layout} change={change} /> : undefined}
-            nodes={nodes}
-            compiled={editor.compiled}
-            natives={editor.natives}
-            site={site}
-            frame={frame}
-            selectedIndex={selectedPath ? selectedPath[0] : null}
-            selectedPath={selectedPath}
-            // While a comment is being moved, the next element clicked becomes its element instead of the selection.
-            onSelectPath={comments.pickOr(selectFromCanvas)}
-            onClearSelection={() => comments.pickOr(selectFromCanvas)(null)}
-            // A right-click selects the element (so its bar stays on it) and opens its menu there (P3a).
-            onElementContextMenu={
-              locked
-                ? undefined
-                : (path) => {
-                    selectFromCanvas(path);
-                    setMenuFor(path.join('.'));
-                  }
-            }
-            overlay={
-              <>
-                {comments.layer}
-                {/* An FAQ's question (any nested part instance) is counted under itself, not after the whole section. */}
-                {layout && layout.parts.length > 0 ? <NestedPartCounters nodes={nodes} layout={layout} /> : null}
-              </>
-            }
-            viewport="desktop"
-            onSelect={(index) => comments.pickOr(selectFromCanvas)(index === null ? null : [index])}
-            canDelete={(index) => deletable([index])}
-            // Every element moves (owner 2026-11-18: no element is locked); a template's order is a publish check.
-            canMove={(index) => canReorder(nodes, layout, [index])}
-            onMove={(from, to) => {
-              if (!canReorder(nodes, layout, [from])) return;
-              change(moveTopLevel(nodes, from, to));
-            }}
-            renderSelectionBar={
-              locked
-                ? undefined
-                : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} onAddRelative={relative.open} />
-            }
-            onDelete={(index) => {
-              if (!deletable([index])) return;
-              change(removeNodeAtPath(nodes, [index]));
-              selectPath(null);
-            }}
-            onEditText={(path, field, value) => {
-              const node = getNodeAtPath(nodes, path);
-              if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
-            }}
-            quickEditAll={quickEdit}
-            documentText={documentText}
-            onQuickEdit={quickEdit ? onQuickEdit : undefined}
-            // Rich words edited in place: the paragraph keeps its own shape, only its words change.
-            onEditWords={(path, children) => {
-              const node = getNodeAtPath(nodes, path);
-              if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
-            }}
-          />
+          {isCard ? (
+            // The card's own fixed frame (owner 2026-11-26), with the same selection, menu and comment pins as a page.
+            <CardStudioCanvas
+              nodes={nodes}
+              site={site}
+              host={host.renderer}
+              natives={editor.natives}
+              frame={frame}
+              selectedPath={selectedPath}
+              onSelectPath={comments.pickOr(selectFromCanvas)}
+              onElementContextMenu={
+                locked
+                  ? undefined
+                  : (path) => {
+                      selectFromCanvas(path);
+                      setMenuFor(path.join('.'));
+                    }
+              }
+              renderSelectionBar={(path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} onAddRelative={relative.open} />}
+              overlay={comments.layer}
+              locked={locked}
+            />
+          ) : (
+            <PmlCanvas
+              // A page has no frame on the site, so none on the canvas (owner 2026-11-17, T1: "no global/total border").
+              bare={!isEmail}
+              // Locked while the assistant works: the canvas's own "building" state takes no presses (no skeleton row).
+              building={locked ? { at: nodes.length + 1, label: null } : null}
+              afterSection={layout && layout.parts.length > 0 ? (index) => <PartGuides nodes={nodes} index={index} layout={layout} change={change} /> : undefined}
+              nodes={nodes}
+              compiled={editor.compiled}
+              natives={editor.natives}
+              site={site}
+              frame={frame}
+              selectedIndex={selectedPath ? selectedPath[0] : null}
+              selectedPath={selectedPath}
+              // While a comment is being moved, the next element clicked becomes its element instead of the selection.
+              onSelectPath={comments.pickOr(selectFromCanvas)}
+              onClearSelection={() => comments.pickOr(selectFromCanvas)(null)}
+              // A right-click selects the element (so its bar stays on it) and opens its menu there (P3a).
+              onElementContextMenu={
+                locked
+                  ? undefined
+                  : (path) => {
+                      selectFromCanvas(path);
+                      setMenuFor(path.join('.'));
+                    }
+              }
+              overlay={
+                <>
+                  {comments.layer}
+                  {/* An FAQ's question (any nested part instance) is counted under itself, not after the whole section. */}
+                  {layout && layout.parts.length > 0 ? <NestedPartCounters nodes={nodes} layout={layout} /> : null}
+                </>
+              }
+              viewport="desktop"
+              onSelect={(index) => comments.pickOr(selectFromCanvas)(index === null ? null : [index])}
+              canDelete={(index) => deletable([index])}
+              // Every element moves (owner 2026-11-18: no element is locked); a template's order is a publish check.
+              canMove={(index) => canReorder(nodes, layout, [index])}
+              onMove={(from, to) => {
+                if (!canReorder(nodes, layout, [from])) return;
+                change(moveTopLevel(nodes, from, to));
+              }}
+              renderSelectionBar={
+                locked
+                  ? undefined
+                  : (path) => <SelectionBar nodes={nodes} path={path} layout={layout} studio={editor.studioComponents} change={change} select={selectPath} onAsk={onAskAssistant} canAsk={canAskAssistant} pieces={pieces} onComment={comments.canAdd ? comments.add : undefined} extraActions={elementMenuActions} menuOpen={menuFor === path.join('.')} onMenuOpenChange={(open) => setMenuFor(open ? path.join('.') : null)} onAddRelative={relative.open} />
+              }
+              onDelete={(index) => {
+                if (!deletable([index])) return;
+                change(removeNodeAtPath(nodes, [index]));
+                selectPath(null);
+              }}
+              onEditText={(path, field, value) => {
+                const node = getNodeAtPath(nodes, path);
+                if (node) change(updateNodeAtPath(nodes, path, { ...node, props: { ...(node.props ?? {}), [field]: value } }));
+              }}
+              quickEditAll={quickEdit}
+              documentText={documentText}
+              onQuickEdit={quickEdit ? onQuickEdit : undefined}
+              // Rich words edited in place: the paragraph keeps its own shape, only its words change.
+              onEditWords={(path, children) => {
+                const node = getNodeAtPath(nodes, path);
+                if (node) change(updateNodeAtPath(nodes, path, { ...node, children }));
+              }}
+            />
+          )}
           {isEmail && locked ? null : (
             <Button variant="outline" className="mt-3 w-full border-dashed" disabled={locked || (isComponent && nodes.length > 0 && !addInsideRoot)} onClick={() => (addInsideRoot ? relative.open([0], 'inside') : setAdding(true))}>
               <Plus className="h-4 w-4" />
@@ -656,6 +686,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
                 <DocumentFieldsPanel key={`${id}:${selectedPart.key}`} id={id} fields={adapter.fields} session={editor.session} group={selectedPart.key} label={selectedPart.label} onSaved={fieldSaved} />
               ) : null}
               {adapter.fields ? <PieceFieldsPanel node={selected} pieces={pieces} id={id} fields={adapter.fields} session={editor.session} onSaved={fieldSaved} /> : null}
+              {isCard ? <CardEditsPanel nodes={nodes} path={selectedPath} change={change} upload={adapter.media?.upload} onError={host.onError} /> : null}
               <PmlSettings
                 key={selectedPath.join('.')}
                 node={selected}
@@ -713,7 +744,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
           onOpenChange={setAdding}
           existing={nodes}
           onAdd={(node: PmlNode) => change([...nodes, node])}
-          unavailable={isEmail ? [...unavailable, ...email.unavailable] : [...unavailable]}
+          unavailable={addUnavailable}
           title={addLabel}
           description={isEmail ? EMAIL_WORDS.addDescription : undefined}
         />

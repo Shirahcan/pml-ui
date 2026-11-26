@@ -29,6 +29,7 @@ export function PmlCard({
   scale = 1,
   overlay = false,
   selectable = false,
+  pathRoots,
   decorative = false,
   className,
   style,
@@ -44,6 +45,11 @@ export function PmlCard({
   overlay?: boolean;
   /** The card canvas (E4c): marks each part's card path (`i.j`) so a click selects it. Off for a real card. */
   selectable?: boolean;
+  /**
+   * With `selectable`: each drawn part's index in the DESIGN, for a builder whose design keeps comments the picture
+   * leaves out (the Studio's card, shared PML Studio P2c2), so every mark is the part's path in the design.
+   */
+  pathRoots?: number[];
   /** A preview of the card in a builder (a thumbnail, the canvas): hidden from screen readers, whose own words describe it (the alt text, the parts list). Never on the real card. */
   decorative?: boolean;
   /** The product's theme and fonts for this card (classes and CSS variables), as its pages get them. */
@@ -107,7 +113,7 @@ export function PmlCard({
         {selectable ? (
           // The canvas: each top-level part under its own root, so every mark IS the part's card path (`i.j.k`). The
           // DOM is the same as the single renderer below (each part still draws one element at the frame's top level).
-          card.map((node, index) => <PmlRenderer key={index} nodes={[node]} site={site} host={host} natives={natives} pathRoot={[index]} />)
+          card.map((node, index) => <PmlRenderer key={index} nodes={[node]} site={site} host={host} natives={natives} pathRoot={[pathRoots?.[index] ?? index]} />)
         ) : (
           <PmlRenderer nodes={card} site={site} host={host} natives={natives} />
         )}
