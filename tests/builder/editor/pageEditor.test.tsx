@@ -166,6 +166,20 @@ describe('PageEditor quick edits and code', () => {
     await waitFor(() => expect(code.source).toHaveBeenCalledWith('p1'));
     expect(await screen.findByRole('button', { name: /Back to the design/ })).toBeTruthy();
   });
+
+  it("draws the host's marks around the document in the design view only", async () => {
+    const code = { source: vi.fn(async () => '<heading text="Who can apply" level="2" />'), parse: vi.fn(), parseLive: vi.fn(async () => ({ nodes: design, error: null })) };
+    render(<PageEditor adapter={fakeAdapter({ code } as Partial<EditableDocumentAdapter>)} id="p1" aboveCanvas={<p>The top navigation shows here</p>} belowCanvas={(c) => <button type="button" onClick={() => c.openPanel('layers')}>The footer shows here</button>} />);
+
+    expect(await screen.findByText('The top navigation shows here')).toBeTruthy();
+    fireEvent.click(screen.getByText('The footer shows here'));
+    expect(await screen.findByRole('complementary', { name: 'Layers' })).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Code' }));
+    await screen.findByRole('button', { name: /Back to the design/ });
+    expect(screen.queryByText('The top navigation shows here')).toBeNull();
+    expect(screen.queryByText('The footer shows here')).toBeNull();
+  });
 });
 
 describe('PageEditor words', () => {

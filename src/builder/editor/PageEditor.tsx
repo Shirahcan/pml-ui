@@ -168,6 +168,13 @@ export interface PageEditorProps {
   renderControls?: (controls: PageEditorControls) => ReactNode;
   /** A host's note above the canvas. */
   notice?: ReactNode;
+  /**
+   * What the host draws around the document in the design view only (never in Code): above the canvas, and below it
+   * after Add. A Portify page shows where the site's own navigation and footer go, which the canvas does not draw. A
+   * function gets the controls (to open a host panel from a mark, for example).
+   */
+  aboveCanvas?: ReactNode | ((controls: PageEditorControls) => ReactNode);
+  belowCanvas?: ReactNode | ((controls: PageEditorControls) => ReactNode);
   labels?: PageEditorLabels;
   /** After a publish lands. */
   onPublished?: () => void;
@@ -267,7 +274,7 @@ const NO_AS_SENT = (): Promise<RenderedEmail> => Promise.reject(new Error('This 
  * document has them, Throw away the draft and a preview link. Edits autosave to the host's draft; Publish is the separate act. Mount it with
  * `key={id}` so switching documents starts a fresh editor.
  */
-export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, labels = {}, onPublished, live = false, onUnpublished, panels: hostPanelsIn = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions, allowedElements, renderAsSent, inboxFields, checkWords }: PageEditorProps): React.JSX.Element {
+export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [], renderControls, notice, aboveCanvas, belowCanvas, labels = {}, onPublished, live = false, onUnpublished, panels: hostPanelsIn = [], locked = false, layout = null, flavor, onFieldSaved, onAskAssistant, canAskAssistant, commentAuthor, onAddressComment, profile = 'page', quickEdit = false, console: consoleSlot, aside, elementMenuActions, allowedElements, renderAsSent, inboxFields, checkWords }: PageEditorProps): React.JSX.Element {
   const noun = labels.noun ?? 'page';
   const editor = useDocumentEditor(adapter, id, {
     noun,
@@ -545,6 +552,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
         // An email is a 600px column with its inbox frame (subject, preview text) above it.
         <div className={isEmail ? 'mx-auto w-full min-w-0 max-w-[600px]' : 'min-w-0'}>
           {isEmail ? email.inboxFrame : null}
+          {typeof aboveCanvas === 'function' ? aboveCanvas(controls) : aboveCanvas}
           {/* Pinned to the top of the canvas as it scrolls, taking no room (a notice that pushed the design down would
               jump while a person types). It sat BELOW the whole canvas before: on a long post the only sign of a failed
               draw was 2000px down, and it claimed "the last version that worked" when nothing had (2026-11-23). At the RIGHT:
@@ -652,6 +660,7 @@ export function PageEditor({ adapter, id, site = NO_SITE, frame, unavailable = [
               {addLabel}
             </Button>
           )}
+          {typeof belowCanvas === 'function' ? belowCanvas(controls) : belowCanvas}
         </div>
         )}
 
