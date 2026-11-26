@@ -24,24 +24,27 @@ function Harness() {
 describe('SlidePanel', () => {
   it('is closed by default and inert, opens when asked, and closes on Escape', async () => {
     render(<Harness />);
-    expect(screen.queryByRole('complementary', { name: 'Details' })).toBeNull();
+    // A closed panel is `inert` (hidden from screen readers and the keyboard; jsdom does not apply it, so it is read).
+    const panel = () => screen.getByRole('complementary', { name: 'Details' });
+    expect(panel().hasAttribute('inert')).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    expect(await screen.findByRole('complementary', { name: 'Details' })).toBeTruthy();
+    await waitFor(() => expect(panel().hasAttribute('inert')).toBe(false));
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Details' })).toBeNull());
+    await waitFor(() => expect(panel().hasAttribute('inert')).toBe(true));
   });
 
   it('stays open on a press on the canvas, and closes on a press anywhere else', async () => {
     render(<Harness />);
+    const panel = () => screen.getByRole('complementary', { name: 'Details' });
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
-    await screen.findByRole('complementary', { name: 'Details' });
+    await waitFor(() => expect(panel().hasAttribute('inert')).toBe(false));
 
     fireEvent.pointerDown(screen.getByText('A section on the canvas'));
-    expect(screen.getByRole('complementary', { name: 'Details' })).toBeTruthy();
+    expect(panel().hasAttribute('inert')).toBe(false);
 
     fireEvent.pointerDown(screen.getByText('Somewhere else'));
-    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Details' })).toBeNull());
+    await waitFor(() => expect(panel().hasAttribute('inert')).toBe(true));
   });
 });

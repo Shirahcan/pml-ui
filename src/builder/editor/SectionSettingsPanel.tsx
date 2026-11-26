@@ -43,7 +43,6 @@ export function SectionSettingsPanel({
   return (
     <aside
       aria-label="Section settings"
-      aria-hidden={!open}
       inert={!open}
       className={`fixed bottom-0 right-0 z-40 flex w-full flex-col border-l border-white bg-white/90 shadow-[-12px_0_40px_rgb(15,23,42,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none dark:border-white/10 dark:bg-neutral-900/90 sm:w-[380px] ${
         belowEditorHeader ? 'top-[calc(var(--shell-top-bar-h,0px)+61px)]' : 'top-[var(--shell-top-bar-h,0px)]'

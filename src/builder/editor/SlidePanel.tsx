@@ -147,7 +147,6 @@ export function SlidePanel({
     <aside
       ref={panel}
       aria-label={title}
-      aria-hidden={!shown}
       inert={!shown}
       data-builder-panel=""
       style={{ top, width: `min(${width}px, 100vw)` }}
